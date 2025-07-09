@@ -1,64 +1,111 @@
-import { Box, Typography, Avatar, Stack } from '@mui/material';
+import { Box, Typography, Avatar, Chip, Stack } from '@mui/material';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 
 interface ReviewCardProps {
-  user: { name: string; avatarUrl: string };
+  venue: string;
+  location: string;
+  dish?: string;
+  tags?: string[];
+  user: { name: string; avatarUrl: string; level?: number };
   rating: number;
   text: string;
   photoUrl: string;
   date: string;
-  caption?: string;
+  likeCount?: number;
   commentCount?: number;
 }
 
-export default function ReviewCard({ user, rating, text, photoUrl, date, caption, commentCount }: ReviewCardProps) {
+export default function ReviewCard({
+  venue,
+  location,
+  dish,
+  tags = [],
+  user,
+  rating,
+  text,
+  photoUrl,
+  date,
+  likeCount = 0,
+  commentCount = 0,
+}: ReviewCardProps) {
   return (
-    <Box sx={{
-      bgcolor: 'background.paper',
-      borderRadius: 1.5, // nearly rectangular
-      p: 0,
-      boxShadow: 2,
-      overflow: 'hidden',
-      mb: 2,
-      maxWidth: 440,
-      mx: 'auto',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'stretch'
-    }}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ p: 2, pb: 1 }}>
-        <Avatar src={user.avatarUrl} />
-        <Box>
-          <Typography fontWeight={600}>{user.name}</Typography>
-          <Typography variant="caption" color="text.secondary">{date}</Typography>
+    <Box
+      sx={{
+        bgcolor: '#fff',
+        borderRadius: 1.5,
+        boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)',
+        mb: 3,
+        overflow: 'hidden',
+        maxWidth: 420,
+        mx: 'auto',
+        p: 0,
+      }}
+    >
+      {/* Image & overlays */}
+      <Box sx={{ position: 'relative', width: '100%', aspectRatio: '1.6', minHeight: 210, background: '#eee' }}>
+        <img
+          src={photoUrl}
+          alt={venue}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+        {/* Rating overlay */}
+        <Typography sx={{
+          position: 'absolute',
+          top: 14,
+          right: 18,
+          color: '#fff',
+          fontWeight: 700,
+          fontSize: 28,
+          textShadow: '0 1px 8px rgba(0,0,0,0.28)',
+          zIndex: 2,
+        }}>{rating.toFixed(1)}</Typography>
+        {/* Venue name & location */}
+        <Box sx={{ position: 'absolute', left: 18, bottom: 38 }}>
+          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>{venue}</Typography>
+          <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 14 }}>{location}</Typography>
         </Box>
-        <Box flexGrow={1} />
-        <Typography sx={{ fontWeight: 700, fontSize: 18, color: 'primary.main', minWidth: 48, textAlign: 'center' }}>
-          {rating.toFixed(1)}
-        </Typography>
-      </Stack>
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', py: 2 }}>
-        <Box sx={{
-          width: 240,
-          height: 240,
-          borderRadius: 1,
-          border: '2px solid',
-          borderColor: 'grey.300',
-          overflow: 'hidden',
-          boxShadow: 0,
-          background: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <img src={photoUrl} alt="review" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        {/* Reviewer row overlay */}
+        <Box sx={{ position: 'absolute', left: 14, bottom: 8, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Avatar src={user.avatarUrl} sx={{ width: 28, height: 28, border: '2px solid #fff' }} />
+          <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: 14, ml: 1 }}>{user.name}</Typography>
+          {user.level && (
+            <Box sx={{ bgcolor: '#F24D4F', color: '#fff', borderRadius: 2, px: 1, ml: 1, fontWeight: 700, fontSize: 13, height: 22, display: 'flex', alignItems: 'center' }}>{user.level}</Box>
+          )}
         </Box>
+        {/* Dish name overlay */}
+        {dish && (
+          <Box sx={{ position: 'absolute', right: 18, bottom: 14 }}>
+            <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 15 }}>{dish}</Typography>
+          </Box>
+        )}
       </Box>
-      <Box sx={{ px: 2, pb: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>{caption}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{text}</Typography>
-        <Typography variant="caption" color="text.secondary">
-          {commentCount ?? 0} comments
-        </Typography>
+      {/* Tags/chips */}
+      <Box sx={{ display: 'flex', gap: 1, px: 2, pt: 1.5, flexWrap: 'wrap' }}>
+        {tags.map((tag, i) => (
+          <Chip
+            key={i}
+            label={tag}
+            sx={{ bgcolor: '#fbeaec', color: '#F24D4F', fontWeight: 600, fontSize: 13, borderRadius: 2, height: 28 }}
+            size="small"
+          />
+        ))}
+      </Box>
+      {/* Review text */}
+      <Box sx={{ px: 2, pt: 1 }}>
+        <Typography sx={{ fontWeight: 400, fontSize: 15, color: '#181818' }}>{text}</Typography>
+        <Typography sx={{ fontWeight: 400, fontSize: 13, color: '#a1a1a1', mt: 0.5 }}>{date}</Typography>
+      </Box>
+      {/* Like/comment row */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, px: 2, pb: 2, pt: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <FavoriteBorderIcon sx={{ fontSize: 20, color: '#bdbdbd' }} />
+          <Typography sx={{ fontWeight: 600, fontSize: 15, color: '#181818' }}>{likeCount}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <ChatBubbleOutlineIcon sx={{ fontSize: 20, color: '#bdbdbd' }} />
+          <Typography sx={{ fontWeight: 600, fontSize: 15, color: '#181818' }}>{commentCount}</Typography>
+        </Box>
       </Box>
     </Box>
   );

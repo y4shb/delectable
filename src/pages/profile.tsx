@@ -9,8 +9,9 @@ export default function ProfilePage() {
     <AppShell>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
         <Avatar sx={{ width: 80, height: 80, mb: 1 }} src="/images/avatar1.jpg" />
-        <Typography variant="h6" fontWeight={700}>Tare Ebimami</Typography>
+        <Typography variant="h6" fontWeight={700}>Yash Bhardwaj</Typography>
         <Typography variant="body2" color="text.secondary">1,376 followers · 86 following</Typography>
+        <Typography variant="body" color="text.secondary">I do be eating</Typography>  
         <Box sx={{ width: '100%', mt: 2 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
             <Tab label="Reviews" />
@@ -22,12 +23,16 @@ export default function ProfilePage() {
       <Box>
         {/* Example review card for profile */}
         <ReviewCard
-          user={{ name: 'Tare Ebimami', avatarUrl: '/images/avatar1.jpg' }}
+          venue="Hibacci"
+          location="New Delhi"
+          dish="Omakase"
+          tags={['Sushi', 'Japanese']}
+          user={{ name: 'Yash Bhardwaj', avatarUrl: '/images/avatar1.jpg', level: 9 }}
           rating={9.8}
-          text={'Hayato is a must-try for kaiseki lovers.'}
+          text={'Hibacci is a must-try for sushi lovers.'}
           photoUrl={'/images/food2.jpg'}
           date={'2h ago'}
-          caption={'Unreal omakase'}
+          likeCount={23}
           commentCount={8}
         />
       </Box>

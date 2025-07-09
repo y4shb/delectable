@@ -7,19 +7,26 @@
 - Milestone-based approach: must get user satisfaction before moving to the next milestone.
 
 ## Task List
-- [ ] Milestone 1: Front-End Foundations
-  - [ ] Initialize Next.js project with TypeScript
-  - [ ] Integrate global CSS resets & Material UI (or styled-components)
-  - [ ] Configure Axios + React Query stubs
-  - [ ] Set up routing & layout (header, bottom tab bar, responsive layout)
-  - [ ] Implement core views (UI-only, no backend):
-    - [ ] Login/Signup (Auth0 stubs)
-    - [ ] Feed: placeholder cards for playlists/reviews
-    - [ ] Playlist Detail: mock list, photo carousel, captions
-    - [ ] Map View: embed static Google Map with dummy markers
-    - [ ] Profile: avatar, stats, tabs (Reviews/Playlists/Map)
-  - [ ] Implement dark/light mode switching (system-wide)
-  - [ ] Match UI style to mockups (spacing, colors, fonts)
+- [x] Milestone 1: Front-End Foundations
+  - [x] Initialize Next.js project with TypeScript
+  - [x] Integrate global CSS resets & Material UI
+  - [x] Configure Axios + React Query stubs
+  - [x] Set up routing & layout (header, bottom tab bar, responsive layout)
+  - [x] Implement core views (UI-only, no backend):
+    - [x] Login/Signup (Auth0 stubs)
+    - [x] Feed: review cards (rectangular, square photo, caption, comments, numeric rating)
+    - [x] Playlist Detail: mock list, photo carousel, captions
+    - [x] Map View: embed static Google Map with dummy markers
+    - [x] Profile: avatar, stats, tabs (Reviews/Playlists/Map)
+  - [x] Implement dark/light mode switching (system-wide)
+  - [x] Match UI style to mockups (spacing, colors, fonts)
+  - [x] UI/UX polish and bugfixes from user feedback:
+    - [x] Fix dark/light mode toggle functionality
+    - [x] Redesign review/profile cards (rectangular, square photo, caption, comments)
+    - [x] Make header user icon route to /profile
+    - [x] Add more review cards to feed & enable smooth scrolling
+    - [x] Use numeric (not star) rating, no pill styling
+
 
 ## Current Goal
 Set up Next.js project & base UI

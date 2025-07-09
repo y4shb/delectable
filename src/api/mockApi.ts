@@ -3,12 +3,12 @@ import { User, Review, Playlist, Venue } from '../types';
 
 export const mockUser: User = {
   id: '1',
-  name: 'Tare Ebimami',
+  name: 'Yash Bhardwaj',
   avatarUrl: '/images/avatar1.jpg',
-  followers: 1376,
-  following: 86,
-  level: 6,
-  bio: 'Food. All of it.'
+  followers: 465,
+  following: 92,
+  level: 9,
+  bio: 'I do be eating'
 };
 
 export const mockReviews: Review[] = [
@@ -17,7 +17,7 @@ export const mockReviews: Review[] = [
     userId: '1',
     venueId: 'v1',
     rating: 9.8,
-    text: 'Hayato is a must-try for kaiseki lovers.',
+    text: 'Hibacci is a must-try for sushi lovers.',
     photos: ['/images/food2.jpg'],
     createdAt: '2025-07-08T15:00:00Z',
   },
@@ -28,10 +28,10 @@ export const mockPlaylists: Playlist[] = [
   {
     id: 'p1',
     userId: '1',
-    title: 'Best LA Eats',
-    description: 'My favorites in LA',
+    title: 'Best Coffee shops',
+    description: 'My favorites in Delhi',
     items: [
-      { id: 'pi1', venueId: 'v1', caption: 'Amazing sushi', photoUrl: '/images/food1.jpg', dateAdded: '2025-07-01' },
+      { id: 'pi1', venueId: 'v1', caption: 'Dope Coffee', photoUrl: '/images/food1.jpg', dateAdded: '2025-07-01' },
       { id: 'pi2', venueId: 'v2', caption: 'Incredible pasta', photoUrl: '/images/food2.jpg', dateAdded: '2025-07-02' },
     ],
     createdAt: '2025-07-01T12:00:00Z',
@@ -39,6 +39,6 @@ export const mockPlaylists: Playlist[] = [
 ];
 
 export const mockVenues: Venue[] = [
-  { id: 'v1', name: 'Hayato', location: 'Los Angeles, CA', cuisine: 'Japanese', rating: 9.8, photoUrl: '/images/food1.jpg', tags: ['kaiseki'] },
-  { id: 'v2', name: 'Mother Wolf', location: 'Los Angeles, CA', cuisine: 'Italian', rating: 9.2, photoUrl: '/images/food2.jpg', tags: ['pasta'] },
+  { id: 'v1', name: 'Hibacci', location: 'New Delhi', cuisine: 'Japanese', rating: 9.8, photoUrl: '/images/food1.jpg', tags: ['sushi'] },
+  { id: 'v2', name: 'Pizzeria', location: 'New Delhi', cuisine: 'Italian', rating: 9.2, photoUrl: '/images/food2.jpg', tags: ['pasta', 'pizza'] },
 ];
