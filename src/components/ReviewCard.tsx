@@ -45,7 +45,7 @@ export default function ReviewCard({
       })}
     >
       {/* Image & overlays */}
-      <Box sx={{ position: 'relative', width: '100%', aspectRatio: '2.45', minHeight: 283, background: '#eee' }}>
+      <Box sx={{ position: 'relative', width: '100%', aspectRatio: '1.5', minHeight: 375, background: '#eee' }}>
         <img
           src={photoUrl}
           alt={venue}
