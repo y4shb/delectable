@@ -11,7 +11,7 @@ export default function ProfilePage() {
         <Avatar sx={{ width: 80, height: 80, mb: 1 }} src="/images/avatar1.jpg" />
         <Typography variant="h6" fontWeight={700}>Yash Bhardwaj</Typography>
         <Typography variant="body2" color="text.secondary">1,376 followers · 86 following</Typography>
-        <Typography variant="body" color="text.secondary">I do be eating</Typography>  
+        <Typography variant="body1" color="text.secondary">I do be eating</Typography>  
         <Box sx={{ width: '100%', mt: 2 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
             <Tab label="Reviews" />

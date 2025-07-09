@@ -69,6 +69,10 @@ export default function FeedPage() {
           overflowY: 'auto',
           pr: 1,
           scrollBehavior: 'smooth',
+          /* Hide scrollbar for all browsers */
+          scrollbarWidth: 'none', // Firefox
+          msOverflowStyle: 'none', // IE 10+
+          '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari/Opera
         }}
       >
         {sampleReviews.map((review, i) => (

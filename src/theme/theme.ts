@@ -26,7 +26,7 @@ export const getTheme = (mode: 'light' | 'dark'): Theme =>
     palette: {
       mode,
       primary: {
-        main: '#A259FF', // purple accent
+        main: '#F24D4F', // peach accent
       },
       secondary: {
         main: '#FFD36E', // yellow accent

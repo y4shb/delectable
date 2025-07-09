@@ -31,8 +31,8 @@ export default function ReviewCard({
 }: ReviewCardProps) {
   return (
     <Box
-      sx={{
-        bgcolor: '#fff',
+      sx={theme => ({
+        bgcolor: theme.palette.background.paper,
         borderRadius: 1.5,
         boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)',
         mb: 3,
@@ -40,7 +40,7 @@ export default function ReviewCard({
         maxWidth: 420,
         mx: 'auto',
         p: 0,
-      }}
+      })}
     >
       {/* Image & overlays */}
       <Box sx={{ position: 'relative', width: '100%', aspectRatio: '1.6', minHeight: 210, background: '#eee' }}>
@@ -57,26 +57,26 @@ export default function ReviewCard({
           color: '#fff',
           fontWeight: 700,
           fontSize: 28,
-          textShadow: '0 1px 8px rgba(0,0,0,0.28)',
+          textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)',
           zIndex: 2,
         }}>{rating.toFixed(1)}</Typography>
         {/* Venue name & location */}
         <Box sx={{ position: 'absolute', left: 18, bottom: 38 }}>
-          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>{venue}</Typography>
-          <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 14 }}>{location}</Typography>
+          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 22, lineHeight: 1, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{venue}</Typography>
+          <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 14, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{location}</Typography>
         </Box>
         {/* Reviewer row overlay */}
         <Box sx={{ position: 'absolute', left: 14, bottom: 8, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Avatar src={user.avatarUrl} sx={{ width: 28, height: 28, border: '2px solid #fff' }} />
-          <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: 14, ml: 1 }}>{user.name}</Typography>
+          <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: 14, ml: 1, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{user.name}</Typography>
           {user.level && (
-            <Box sx={{ bgcolor: '#F24D4F', color: '#fff', borderRadius: 2, px: 1, ml: 1, fontWeight: 700, fontSize: 13, height: 22, display: 'flex', alignItems: 'center' }}>{user.level}</Box>
+            <Box sx={{ bgcolor: '#F24D4F', color: '#fff', borderRadius: 2, px: 1, ml: 1, fontWeight: 700, fontSize: 13, height: 22, display: 'flex', alignItems: 'center', textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{user.level}</Box>
           )}
         </Box>
         {/* Dish name overlay */}
         {dish && (
           <Box sx={{ position: 'absolute', right: 18, bottom: 14 }}>
-            <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 15 }}>{dish}</Typography>
+            <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 15, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{dish}</Typography>
           </Box>
         )}
       </Box>
@@ -86,25 +86,32 @@ export default function ReviewCard({
           <Chip
             key={i}
             label={tag}
-            sx={{ bgcolor: '#fbeaec', color: '#F24D4F', fontWeight: 600, fontSize: 13, borderRadius: 2, height: 28 }}
+            sx={theme => ({
+              bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fbeaec',
+              color: theme.palette.mode === 'dark' ? theme.palette.primary.main : '#F24D4F',
+              fontWeight: 600,
+              fontSize: 13,
+              borderRadius: 2,
+              height: 28,
+            })}
             size="small"
           />
         ))}
       </Box>
       {/* Review text */}
       <Box sx={{ px: 2, pt: 1 }}>
-        <Typography sx={{ fontWeight: 400, fontSize: 15, color: '#181818' }}>{text}</Typography>
-        <Typography sx={{ fontWeight: 400, fontSize: 13, color: '#a1a1a1', mt: 0.5 }}>{date}</Typography>
+        <Typography sx={theme => ({ fontWeight: 400, fontSize: 15, color: theme.palette.text.primary })}>{text}</Typography>
+        <Typography sx={theme => ({ fontWeight: 400, fontSize: 13, color: theme.palette.text.secondary, mt: 0.5 })}>{date}</Typography>
       </Box>
       {/* Like/comment row */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, px: 2, pb: 2, pt: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <FavoriteBorderIcon sx={{ fontSize: 20, color: '#bdbdbd' }} />
-          <Typography sx={{ fontWeight: 600, fontSize: 15, color: '#181818' }}>{likeCount}</Typography>
+          <FavoriteBorderIcon sx={theme => ({ fontSize: 20, color: theme.palette.mode === 'dark' ? theme.palette.grey[400] : '#bdbdbd' })} />
+          <Typography sx={theme => ({ fontWeight: 600, fontSize: 15, color: theme.palette.text.primary })}>{likeCount}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <ChatBubbleOutlineIcon sx={{ fontSize: 20, color: '#bdbdbd' }} />
-          <Typography sx={{ fontWeight: 600, fontSize: 15, color: '#181818' }}>{commentCount}</Typography>
+          <ChatBubbleOutlineIcon sx={theme => ({ fontSize: 20, color: theme.palette.mode === 'dark' ? theme.palette.grey[400] : '#bdbdbd' })} />
+          <Typography sx={theme => ({ fontWeight: 600, fontSize: 15, color: theme.palette.text.primary })}>{commentCount}</Typography>
         </Box>
       </Box>
     </Box>

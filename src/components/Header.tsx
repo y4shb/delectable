@@ -14,9 +14,16 @@ export default function Header() {
   return (
     <AppBar position="static" color="transparent" elevation={0} sx={{ bgcolor: 'background.paper' }}>
       <Toolbar sx={{ justifyContent: 'space-between', px: 0 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main', letterSpacing: 1 }}>
-          Delectable
-        </Typography>
+      <Typography
+        variant="h5"
+        sx={{
+          fontWeight: 700,
+          color: 'primary.main',
+          letterSpacing: 1,
+          fontFamily: '"Classy Pen", Helvetica, sans-serif'
+        }}>
+        Delectable
+      </Typography>
         <Box>
           <IconButton onClick={colorMode.toggleColorMode} color="inherit" aria-label="toggle theme">
             {theme.palette.mode === 'dark' ? <WbSunnyIcon /> : <DarkModeIcon />}

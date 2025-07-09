@@ -1,3 +1,4 @@
+// import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
