@@ -1,23 +1,57 @@
 import AppShell from '../layouts/AppShell';
 import { Box, Typography } from '@mui/material';
+import GoogleMapView from '../components/GoogleMapView';
+import { useEffect } from 'react';
 
 export default function MapPage() {
+  useEffect(() => {
+    document.body.classList.add('no-scroll');
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, []);
   return (
     <AppShell>
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-        Map
-      </Typography>
-      <Box sx={{ width: '100%', height: 550, borderRadius: 1.1, overflow: 'hidden', bgcolor: 'grey.200', mb: 2 }}>
-        {/* Static Google Map placeholder */}
-        <iframe
-          title="map"
-          width="100%"
-          height="100%"
-          frameBorder="0"
-          style={{ border: 0 }}
-          src="https://maps.google.com/maps?q=Los%20Angeles&t=&z=13&ie=UTF8&iwloc=&output=embed"
-          allowFullScreen
-        />
+      <Box
+        sx={{
+          width: '100vw',
+          height: '100vh',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          m: 0,
+          p: 0,
+          zIndex: 0,
+        }}
+      >
+        {/* Map container with blur border */}
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            borderRadius: 0,
+            overflow: 'hidden',
+            boxShadow: 'none',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <GoogleMapView />
+          {/* Blur overlay */}
+          <Box
+            sx={{
+              pointerEvents: 'none',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 1,
+              boxShadow: 'none',
+              borderRadius: 0,
+            }}
+          />
+        </Box>
       </Box>
     </AppShell>
   );
