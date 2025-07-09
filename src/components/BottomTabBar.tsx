@@ -1,3 +1,4 @@
+import React from 'react';
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import MapIcon from '@mui/icons-material/Map';
@@ -34,14 +35,18 @@ export default function BottomTabBar() {
         zIndex: 20,
         borderRadius: 6,
         boxShadow: '0 6px 24px 0 rgba(0,0,0,0.13)',
-        px: 2.5,
-        py: 0.5,
-        maxWidth: 340,
+        px: 2.9,
+        py: 0.02, // 20% shorter
+        maxWidth: 275, // 35% shorter than 340px
         width: '90%',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'background.paper',
+        backdropFilter: 'blur(1px)',
+        backgroundColor: (theme) => theme.palette.mode === 'dark'
+          ? 'rgba(18, 18, 18, 0.75)'
+          : 'rgba(255, 255, 255, 0.75)',
+        backgroundClip: 'padding-box',
       }}
       elevation={5}
     >
@@ -58,7 +63,11 @@ export default function BottomTabBar() {
         }}
       >
         {tabConfig.map(tab => (
-          <BottomNavigationAction key={tab.label} icon={tab.icon} sx={{ minWidth: 0, padding: '8px', color: 'inherit' }} />
+          <BottomNavigationAction
+            key={tab.label}
+            icon={React.cloneElement(tab.icon, { sx: { fontSize: 26 } })}
+            sx={{ minWidth: 0, px: 1.2, py: 0.3, color: 'inherit' }}
+          />
         ))}
       </BottomNavigation>
     </Paper>

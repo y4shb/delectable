@@ -59,26 +59,26 @@ export default function ReviewCard({
           color: '#fff',
           fontWeight: 700,
           fontSize: 28,
-          textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)',
+          textShadow: '0px 0px 16px rgba(0, 0, 0, 0.7)',
           zIndex: 2,
         }}>{rating.toFixed(1)}</Typography>
         {/* Venue name & location */}
         <Box sx={{ position: 'absolute', left: 18, bottom: 38 }}>
-          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 22, lineHeight: 1, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{venue}</Typography>
-          <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 14, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{location}</Typography>
+          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 22, lineHeight: 1, textShadow: '0px 0px 16px rgba(0, 0, 0, 0.7)' }}>{venue}</Typography>
+          <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 14, textShadow: '0px 0px 16px rgba(0, 0, 0, 0.7)' }}>{location}</Typography>
         </Box>
         {/* Reviewer row overlay */}
         <Box sx={{ position: 'absolute', left: 14, bottom: 8, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar src={user.avatarUrl} sx={{ width: 28, height: 28, border: '2px solid #fff' }} />
-          <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: 14, ml: 1, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{user.name}</Typography>
+          <Avatar src={user.avatarUrl} sx={{ width: 20, height: 20, border: '1px solid #fff' }} />
+          <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: 14, ml: 0.1, textShadow: '0px 0px 16px rgba(0, 0, 0, 0.7)' }}>{user.name}</Typography>
           {user.level && (
-            <Box sx={{ bgcolor: '#F24D4F', color: '#fff', borderRadius: 2, px: 1, ml: 1, fontWeight: 700, fontSize: 13, height: 22, display: 'flex', alignItems: 'center', textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{user.level}</Box>
+            <Box sx={{ bgcolor: '#F24D4F', color: '#fff', borderRadius: 2, px: 1, ml: 1, fontWeight: 700, fontSize: 13, height: 22, display: 'flex', alignItems: 'center', textShadow: '0px 0px 16px rgba(0, 0, 0, 0.7)' }}>{user.level}</Box>
           )}
         </Box>
         {/* Dish name overlay */}
         {dish && (
           <Box sx={{ position: 'absolute', right: 18, bottom: 14 }}>
-            <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 15, textShadow: '0px 0px 4px rgba(0, 0, 0, 0.7)' }}>{dish}</Typography>
+            <Typography sx={{ color: '#fff', fontWeight: 500, fontSize: 15, textShadow: '0px 0px 16px rgba(0, 0, 0, 0.7)' }}>{dish}</Typography>
           </Box>
         )}
       </Box>
@@ -95,6 +95,7 @@ export default function ReviewCard({
               fontSize: 13,
               borderRadius: 2,
               height: 28,
+              border: theme.palette.mode === 'dark' ? `2px solid ${theme.palette.primary.main}` : 'none',
             })}
             size="small"
           />
