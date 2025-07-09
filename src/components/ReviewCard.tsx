@@ -33,9 +33,9 @@ export default function ReviewCard({
     <Box
       sx={theme => ({
         bgcolor: theme.palette.background.paper,
-        borderRadius: 1.5,
+        borderRadius: 1.1,
         boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)',
-        mb: 3,
+        mb: 2,
         overflow: 'hidden',
         maxWidth: 420,
         mx: 'auto',
@@ -43,7 +43,7 @@ export default function ReviewCard({
       })}
     >
       {/* Image & overlays */}
-      <Box sx={{ position: 'relative', width: '100%', aspectRatio: '1.6', minHeight: 210, background: '#eee' }}>
+      <Box sx={{ position: 'relative', width: '100%', aspectRatio: '2.45', minHeight: 283, background: '#eee' }}>
         <img
           src={photoUrl}
           alt={venue}
@@ -87,7 +87,7 @@ export default function ReviewCard({
             key={i}
             label={tag}
             sx={theme => ({
-              bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fbeaec',
+              bgcolor: theme.palette.mode === 'dark' ? '#232323' : '#fbeaec',
               color: theme.palette.mode === 'dark' ? theme.palette.primary.main : '#F24D4F',
               fontWeight: 600,
               fontSize: 13,

@@ -12,15 +12,16 @@ export default function Header() {
   const router = useRouter();
 
   return (
-    <AppBar position="static" color="transparent" elevation={0} sx={{ bgcolor: 'background.paper' }}>
-      <Toolbar sx={{ justifyContent: 'space-between', px: 0 }}>
+    <AppBar position="static" color="transparent" elevation={0} sx={{ bgcolor: 'background.paper', boxShadow: 'none' }}>
+      <Toolbar sx={{ justifyContent: 'space-between', px: 0, minHeight: 64 }}>
       <Typography
         variant="h5"
         sx={{
           fontWeight: 700,
           color: 'primary.main',
           letterSpacing: 1,
-          fontFamily: '"Classy Pen", Helvetica, sans-serif'
+          fontFamily: '"Classy Pen", Helvetica, sans-serif',
+          pl: 2.5
         }}>
         Delectable
       </Typography>
