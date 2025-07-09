@@ -7,7 +7,7 @@ export default function MapPage() {
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
         Map
       </Typography>
-      <Box sx={{ width: '100%', height: 360, borderRadius: 4, overflow: 'hidden', bgcolor: 'grey.200', mb: 2 }}>
+      <Box sx={{ width: '100%', height: 550, borderRadius: 1.1, overflow: 'hidden', bgcolor: 'grey.200', mb: 2 }}>
         {/* Static Google Map placeholder */}
         <iframe
           title="map"

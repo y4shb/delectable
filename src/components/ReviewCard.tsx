@@ -39,6 +39,8 @@ export default function ReviewCard({
         overflow: 'hidden',
         maxWidth: 420,
         mx: 'auto',
+        width: '100%',
+        px: 2,
         p: 0,
       })}
     >

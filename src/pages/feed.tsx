@@ -65,14 +65,15 @@ export default function FeedPage() {
       </Typography>
       <Box
         sx={{
-          maxHeight: 'calc(100vh - 140px)',
+          width: '100vw',
+          minHeight: '100vh',
           overflowY: 'auto',
-          pr: 1,
+          pb: 11, // enough to clear the floating BottomTabBar
           scrollBehavior: 'smooth',
-          /* Hide scrollbar for all browsers */
           scrollbarWidth: 'none', // Firefox
           msOverflowStyle: 'none', // IE 10+
           '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari/Opera
+          mx: 'calc(-50vw + 50%)', // stretch to window edge
         }}
       >
         {sampleReviews.map((review, i) => (

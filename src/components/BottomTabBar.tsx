@@ -25,18 +25,40 @@ export default function BottomTabBar() {
   }, [router.pathname]);
 
   return (
-    <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 10, borderRadius: 0 }} elevation={3}>
+    <Paper
+      sx={{
+        position: 'fixed',
+        left: '50%',
+        bottom: 24,
+        transform: 'translateX(-50%)',
+        zIndex: 20,
+        borderRadius: 6,
+        boxShadow: '0 6px 24px 0 rgba(0,0,0,0.13)',
+        px: 2.5,
+        py: 0.5,
+        maxWidth: 340,
+        width: '90%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'background.paper',
+      }}
+      elevation={5}
+    >
       <BottomNavigation
-        showLabels
+        showLabels={false}
         value={value}
         onChange={(_, newValue) => {
           setValue(newValue);
           router.push(tabConfig[newValue].route);
         }}
-        sx={{ maxWidth: 600, mx: 'auto' }}
+        sx={{
+          width: '100%',
+          background: 'transparent',
+        }}
       >
         {tabConfig.map(tab => (
-          <BottomNavigationAction key={tab.label} label={tab.label} icon={tab.icon} />
+          <BottomNavigationAction key={tab.label} icon={tab.icon} sx={{ minWidth: 0, padding: '8px', color: 'inherit' }} />
         ))}
       </BottomNavigation>
     </Paper>
