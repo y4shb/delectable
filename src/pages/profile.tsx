@@ -1,6 +1,7 @@
 import AppShell from '../layouts/AppShell';
-import { Box, Typography, Avatar, Stack, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Avatar, Tabs, Tab } from '@mui/material';
 import { useState } from 'react';
+import ReviewCard from '../components/ReviewCard';
 
 export default function ProfilePage() {
   const [tab, setTab] = useState(0);
@@ -18,13 +19,18 @@ export default function ProfilePage() {
           </Tabs>
         </Box>
       </Box>
-      <Stack spacing={2}>
-        {/* Placeholder for reviews/playlists/map */}
-        <Box sx={{ bgcolor: 'background.paper', borderRadius: 4, p: 2, boxShadow: 1 }}>
-          <Typography variant="subtitle1" fontWeight={600}>Sample Card</Typography>
-          <Typography variant="body2" color="text.secondary">Review or playlist preview goes here.</Typography>
-        </Box>
-      </Stack>
+      <Box>
+        {/* Example review card for profile */}
+        <ReviewCard
+          user={{ name: 'Tare Ebimami', avatarUrl: '/images/avatar1.jpg' }}
+          rating={9.8}
+          text={'Hayato is a must-try for kaiseki lovers.'}
+          photoUrl={'/images/food2.jpg'}
+          date={'2h ago'}
+          caption={'Unreal omakase'}
+          commentCount={8}
+        />
+      </Box>
     </AppShell>
   );
 }
