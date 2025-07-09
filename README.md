@@ -47,4 +47,3 @@ npm run dev
 
 ---
 
-For design, refer to the attached mockups.
