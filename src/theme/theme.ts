@@ -32,8 +32,8 @@ export const getTheme = (mode: 'light' | 'dark'): Theme =>
         main: '#FFD36E', // yellow accent
       },
       background: {
-        default: mode === 'dark' ? '#181818' : '#faf9f6',
-        paper: mode === 'dark' ? '#232323' : '#fff',
+        default: mode === 'dark' ? '#111216' : '#faf9f6',
+        paper: mode === 'dark' ? '#18191c' : '#fff',
       },
       text: {
         primary: mode === 'dark' ? '#fff' : '#181818',

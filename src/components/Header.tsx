@@ -28,7 +28,7 @@ export default function Header({ visible = true }: HeaderProps) {
         right: 0,
         width: '100vw',
         zIndex: 1200,
-        backdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(2px)',
         backgroundColor: theme.palette.mode === 'dark'
           ? 'rgba(18, 18, 18, 0.75)'
           : 'rgba(255, 255, 255, 0.75)',
@@ -37,7 +37,7 @@ export default function Header({ visible = true }: HeaderProps) {
         transform: visible ? 'translateY(0)' : 'translateY(-110%)',
       }}
     >
-      <Toolbar sx={{ justifyContent: 'space-between', px: 0, minHeight: 64 }}>
+      <Toolbar sx={{ justifyContent: 'center', px: 0, minHeight: 64, position: 'relative' }}>
         <Typography
           variant="h5"
           sx={{
@@ -45,11 +45,17 @@ export default function Header({ visible = true }: HeaderProps) {
             color: 'primary.main',
             letterSpacing: 1,
             fontFamily: '"Classy Pen", Helvetica, sans-serif',
-            pl: 2.5
+            textAlign: 'center',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            margin: '0 auto',
+            pointerEvents: 'none',
+            fontSize: '38px',
           }}>
           Delectable
         </Typography>
-        <Box>
+        <Box sx={{ position: 'absolute', right: 8, top: 0, height: '100%', display: 'flex', alignItems: 'center' }}>
           <IconButton onClick={colorMode.toggleColorMode} color="inherit" aria-label="toggle theme">
             {theme.palette.mode === 'dark' ? <WbSunnyIcon /> : <DarkModeIcon />}
           </IconButton>
