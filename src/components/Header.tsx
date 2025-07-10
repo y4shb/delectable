@@ -30,8 +30,8 @@ export default function Header({ visible = true }: HeaderProps) {
         zIndex: 1200,
         backdropFilter: 'blur(2px)',
         backgroundColor: theme.palette.mode === 'dark'
-          ? 'rgba(18, 18, 18, 0.75)'
-          : 'rgba(255, 255, 255, 0.75)',
+          ? 'rgba(18, 18, 18, 0)'
+          : 'rgba(255, 255, 255, 0)',
         boxShadow: '0 2px 16px 0 rgba(0,0,0,0.06)',
         transition: 'transform 0.35s cubic-bezier(.4,0,.2,1)',
         transform: visible ? 'translateY(0)' : 'translateY(-110%)',
