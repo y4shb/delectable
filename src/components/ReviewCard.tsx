@@ -70,7 +70,7 @@ export default function ReviewCard({
         bgcolor: theme.palette.background.paper,
         borderRadius: 4,
         boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)',
-        border: theme.palette.mode === 'dark' ? '3px solid rgba(0,0,0,0.3)' : '3px solid rgba(255,255,255,0.3)',
+        border: theme.palette.mode === 'dark' ? '6px solid rgba(0,0,0,0.3)' : '6px solid rgba(255,255,255,0.3)',
         mb: 2,
         overflow: 'hidden',
         maxWidth: 420,
@@ -135,12 +135,12 @@ export default function ReviewCard({
           }}
         >
           {/* Profile, Venue name & Heart row - Always visible */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-            <Avatar src={user.avatarUrl} sx={{ width: 39, height: 39, border: '1px solid #fff' }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 22, lineHeight: 1, textShadow: '0px 2px 8px rgba(0,0,0,0.65)' }}>{venue}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.5, px: 0.5 }}>
+            <Avatar src={user.avatarUrl} sx={{ width: 36, height: 36, border: '1px solid #fff' }} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 20, lineHeight: 1.1, textShadow: '0px 2px 8px rgba(0,0,0,0.65)' }}>{venue}</Typography>
               {dish && (
-                <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 500, fontSize: 15, textShadow: '0px 2px 8px rgba(0,0,0,0.65)', mt: 0.5 }}>{dish}</Typography>
+                <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 500, fontSize: 14, textShadow: '0px 2px 8px rgba(0,0,0,0.65)', mt: 0.3, lineHeight: 1.2 }}>{dish}</Typography>
               )}
             </Box>
             <Box sx={{ 

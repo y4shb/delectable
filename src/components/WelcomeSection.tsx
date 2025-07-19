@@ -29,11 +29,14 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
         <Typography
           variant="h4"
           sx={{
-            fontWeight: 700,
-            color: theme.palette.text.primary,
+            fontWeight: 500,
+            // color: theme.palette.text.primary,
+            color: theme.palette.primary.main,
             fontSize: '32px',
             lineHeight: 1.2,
             mb: 0.5,
+            fontFamily: '"Classy Pen", Helvetica, sans-serif',
+            letterSpacing: 1,
           }}
         >
           Hi Yash!
@@ -68,10 +71,20 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
                 backgroundColor: theme.palette.primary.main, // Peach color
                 boxShadow: '0 2px 8px rgba(242, 77, 79, 0.3)',
               },
+              '&:active, &.Mui-focusVisible': {
+                color: '#fff',
+                fontWeight: 700,
+                backgroundColor: theme.palette.primary.main, // Same as selected state
+                boxShadow: '0 2px 8px rgba(242, 77, 79, 0.3)',
+              },
               '&:hover': {
                 backgroundColor: theme.palette.mode === 'dark' 
                   ? 'rgba(255, 255, 255, 0.05)' 
                   : 'rgba(0, 0, 0, 0.04)',
+              },
+              '&:hover.Mui-selected, &:active': {
+                backgroundColor: theme.palette.primary.main,
+                color: '#fff',
               },
             },
             '& .MuiTabs-scrollButtons': {

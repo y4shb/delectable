@@ -53,7 +53,7 @@ export default function Header({ visible = true }: HeaderProps) {
             pointerEvents: 'none',
             fontSize: '38px',
           }}>
-          Delectable
+          de.
         </Typography>
         <Box sx={{ position: 'absolute', right: 8, top: 0, height: '100%', display: 'flex', alignItems: 'center' }}>
           <IconButton onClick={colorMode.toggleColorMode} color="inherit" aria-label="toggle theme">
