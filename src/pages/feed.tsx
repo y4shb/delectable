@@ -1,6 +1,8 @@
 import AppShell from '../layouts/AppShell';
 import { Typography, Box } from '@mui/material';
 import ReviewCard from '../components/ReviewCard';
+import WelcomeSection from '../components/WelcomeSection';
+import { useState } from 'react';
 
 const sampleReviews = [
   {
@@ -30,7 +32,7 @@ const sampleReviews = [
     commentCount: 3,
   },
   {
-    venue: 'Paul',
+    venue: "Paul",
     location: 'European · Saket',
     dish: 'Penne Arabiata',
     tags: ['Desserts', 'Pasta'],
@@ -58,6 +60,28 @@ const sampleReviews = [
 ];
 
 export default function FeedPage() {
+  const [activeTab, setActiveTab] = useState('top-picks');
+
+  // Filter reviews based on active tab
+  const getFilteredReviews = () => {
+    switch (activeTab) {
+      case 'top-picks':
+        return sampleReviews.filter(review => review.rating >= 9.5);
+      case 'recent':
+        return sampleReviews.filter(review => review.date.includes('h ago') || review.date.includes('1d ago'));
+      case 'collections':
+        return sampleReviews.filter(review => review.tags.some(tag => ['Coffee', 'Desserts', 'Group Dinner'].includes(tag)));
+      case 'explore':
+        return sampleReviews;
+      default:
+        return sampleReviews;
+    }
+  };
+
+  const handleTabChange = (tabValue: string) => {
+    setActiveTab(tabValue);
+  };
+
   return (
     <AppShell>
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'none' }}>
@@ -76,7 +100,8 @@ export default function FeedPage() {
           mx: 'calc(-50vw + 50%)', // stretch to window edge
         }}
       >
-        {sampleReviews.map((review, i) => (
+        <WelcomeSection onTabChange={handleTabChange} />
+        {getFilteredReviews().map((review, i) => (
           <ReviewCard key={i} {...review} />
         ))}
       </Box>
