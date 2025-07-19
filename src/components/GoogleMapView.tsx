@@ -11,14 +11,14 @@ const containerStyle = {
 };
 
 const defaultCenter = {
-  lat: 34.0522,
-  lng: -118.2437,
-}; // Los Angeles
+  lat: 28.6304,
+  lng: 77.2177,
+}; // Connaught Place, New Delhi
 
-// Assign mock coordinates to venues for demo
+// Assign mock coordinates to venues for demo (New Delhi area)
 const venueCoords = [
-  { lat: 34.0522, lng: -118.2437 }, // Hibacci
-  { lat: 34.0615, lng: -118.3088 }, // Pizzeria
+  { lat: 28.6304, lng: 77.2177 }, // Hibachi - Connaught Place
+  { lat: 28.6139, lng: 77.2090 }, // Pizzeria - Central Delhi
 ];
 
 const darkMapStyle = [
