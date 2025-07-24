@@ -9,11 +9,11 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 
 const tabConfig = [
-  { label: 'Feed', icon: <HomeIcon />, route: '/feed' },
-  { label: 'Map', icon: <MapIcon />, route: '/map' },
-  { label: 'Add', icon: <AddCircleIcon />, route: '/playlist/new' },
-  { label: 'Alerts', icon: <NotificationsIcon />, route: '/notifications' },
-  { label: 'Profile', icon: <PersonIcon />, route: '/profile' },
+  { id: 'tab-feed', label: 'Feed', icon: <HomeIcon />, route: '/feed', 'aria-label': 'Feed' },
+  { id: 'tab-map', label: 'Map', icon: <MapIcon />, route: '/map', 'aria-label': 'Map' },
+  { id: 'tab-add', label: 'Add', icon: <AddCircleIcon />, route: '/playlist/new', 'aria-label': 'Add new item' },
+  { id: 'tab-alerts', label: 'Alerts', icon: <NotificationsIcon />, route: '/notifications', 'aria-label': 'Notifications' },
+  { id: 'tab-profile', label: 'Profile', icon: <PersonIcon />, route: '/profile', 'aria-label': 'User profile' },
 ];
 
 export default function BottomTabBar() {
@@ -51,6 +51,7 @@ export default function BottomTabBar() {
       elevation={5}
     >
       <BottomNavigation
+        id="bottom-navigation"
         showLabels={false}
         value={value}
         onChange={(_, newValue) => {
@@ -61,12 +62,27 @@ export default function BottomTabBar() {
           width: '100%',
           background: 'transparent',
         }}
+        role="navigation"
+        aria-label="Main navigation"
       >
         {tabConfig.map(tab => (
           <BottomNavigationAction
-            key={tab.label}
-            icon={React.cloneElement(tab.icon, { sx: { fontSize: 26 } })}
-            sx={{ minWidth: 0, px: 1.2, py: 0.3, color: 'inherit' }}
+            id={tab.id}
+            key={tab.id}
+            icon={React.cloneElement(tab.icon, { 
+              sx: { fontSize: 26 },
+              'aria-hidden': 'true' 
+            })}
+            aria-label={tab['aria-label']}
+            sx={{ 
+              minWidth: 0, 
+              px: 1.2, 
+              py: 0.3, 
+              color: 'inherit',
+              '&.Mui-selected': {
+                color: (theme) => theme.palette.primary.main,
+              }
+            }}
           />
         ))}
       </BottomNavigation>

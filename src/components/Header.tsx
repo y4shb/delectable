@@ -56,10 +56,22 @@ export default function Header({ visible = true }: HeaderProps) {
           de.
         </Typography>
         <Box sx={{ position: 'absolute', right: 8, top: 0, height: '100%', display: 'flex', alignItems: 'center' }}>
-          <IconButton onClick={colorMode.toggleColorMode} color="inherit" aria-label="toggle theme">
+          <IconButton 
+            id="theme-toggle-button"
+            onClick={colorMode.toggleColorMode} 
+            color="inherit" 
+            aria-label="Toggle theme"
+            data-testid="theme-toggle"
+          >
             {theme.palette.mode === 'dark' ? <WbSunnyIcon /> : <DarkModeIcon />}
           </IconButton>
-          <IconButton color="inherit" onClick={() => router.push('/profile')} aria-label="profile">
+          <IconButton 
+            id="profile-button"
+            color="inherit" 
+            onClick={() => router.push('/profile')} 
+            aria-label="View profile"
+            data-testid="profile-button"
+          >
             <AccountCircleIcon />
           </IconButton>
         </Box>

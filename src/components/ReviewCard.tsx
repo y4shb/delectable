@@ -66,6 +66,9 @@ export default function ReviewCard({
   return (
     <Box
       ref={cardRef}
+      id={`review-card-${venue.toLowerCase().replace(/\s+/g, '-')}`}
+      role="article"
+      aria-labelledby={`review-title-${venue.toLowerCase().replace(/\s+/g, '-')}`}
       sx={theme => ({
         bgcolor: theme.palette.background.paper,
         borderRadius: 4,
@@ -138,7 +141,18 @@ export default function ReviewCard({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.5, px: 0.5 }}>
             <Avatar src={user.avatarUrl} sx={{ width: 36, height: 36, border: '1px solid #fff' }} />
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 20, lineHeight: 1.1, textShadow: '0px 2px 8px rgba(0,0,0,0.65)' }}>{venue}</Typography>
+              <Typography 
+                id={`review-title-${venue.toLowerCase().replace(/\s+/g, '-')}`}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  fontSize: 20, 
+                  lineHeight: 1.1, 
+                  textShadow: '0px 2px 8px rgba(0,0,0,0.65)' 
+                }}
+              >
+                {venue}
+              </Typography>
               {dish && (
                 <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 500, fontSize: 14, textShadow: '0px 2px 8px rgba(0,0,0,0.65)', mt: 0.3, lineHeight: 1.2 }}>{dish}</Typography>
               )}
@@ -187,11 +201,21 @@ export default function ReviewCard({
           {/* Expandable content - Hidden by default, shown on hover */}
           <Box className="expandable-content" sx={{ opacity: 0, maxHeight: 0, overflow: 'hidden', transition: 'all 0.3s ease-in-out' }}>
             {/* Tags/chips */}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+            <Box 
+              className="review-tags" 
+              role="list"
+              aria-label="Review tags"
+              sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}
+            >
               {tags.map((tag, i) => (
                 <Chip
                   key={i}
+                  id={`review-tag-${tag.toLowerCase().replace(/\s+/g, '-')}`}
                   label={tag}
+                  role="listitem"
+                  tabIndex={0}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
                   sx={theme => ({
                     bgcolor: theme.palette.mode === 'dark' ? 'rgba(35, 35, 35, 0.9)' : 'rgba(251, 234, 236, 0.9)',
                     color: theme.palette.mode === 'dark' ? theme.palette.primary.main : '#F24D4F',
@@ -200,6 +224,12 @@ export default function ReviewCard({
                     borderRadius: 2,
                     height: 28,
                     border: theme.palette.mode === 'dark' ? `2px solid ${theme.palette.primary.main}` : 'none',
+                    cursor: 'pointer',
+                    '&:focus': {
+                      outline: '2px solid',
+                      outlineColor: theme.palette.primary.main,
+                      outlineOffset: '2px',
+                    }
                   })}
                   size="small"
                 />
