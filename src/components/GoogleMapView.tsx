@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useMemo, useState } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { useTheme } from '@mui/material';
+import { useTheme, Box, Typography, IconButton } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { mockVenues } from '../api/mockApi';
 
 const containerStyle = {
@@ -17,8 +18,12 @@ const defaultCenter = {
 
 // Assign mock coordinates to venues for demo (New Delhi area)
 const venueCoords = [
-  { lat: 28.6304, lng: 77.2177 }, // Hibachi - Connaught Place
-  { lat: 28.6139, lng: 77.2090 }, // Pizzeria - Central Delhi
+  { lat: 28.6304, lng: 77.2177 }, // v1 Hibachi - Connaught Place
+  { lat: 28.6139, lng: 77.2090 }, // v2 Pizzeria - Central Delhi
+  { lat: 28.6353, lng: 77.2250 }, // v3 SavorWorks - near CP
+  { lat: 28.5355, lng: 77.2429 }, // v4 Big Chill - GK-2
+  { lat: 28.5245, lng: 77.2190 }, // v5 Paul - Saket
+  { lat: 28.6280, lng: 77.2210 }, // v6 Rossoblu - near CP
 ];
 
 const darkMapStyle = [
@@ -50,6 +55,29 @@ const darkMapStyle = [
   { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#4e6d70" }] }
 ];
 
+/** CSS overrides injected once to strip Google's default InfoWindow chrome */
+const infoWindowStyleOverride = `
+  .gm-style-iw {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+  .gm-style-iw-d {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .gm-style-iw-tc {
+    display: none !important;
+  }
+  /* Hide Google's default close button — we render our own */
+  .gm-style-iw > button,
+  .gm-ui-hover-effect {
+    display: none !important;
+  }
+`;
+
 // TODO: Replace with your actual API key or prompt user to add it to .env
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -63,7 +91,9 @@ export default function GoogleMapView() {
   });
 
   const mapRef = useRef<google.maps.Map|null>(null);
-  const [visibleVenues, setVisibleVenues] = useState<number[]>([0, 1]);
+  const [visibleVenues, setVisibleVenues] = useState<number[]>(
+    venueCoords.map((_, i) => i)
+  );
   const [selectedIdx, setSelectedIdx] = useState<number|null>(null);
 
   const onLoad = useCallback((map: google.maps.Map) => {
@@ -102,40 +132,127 @@ export default function GoogleMapView() {
     clickableIcons: true,
   }), [isDark]);
 
+  const selectedVenue = selectedIdx !== null ? mockVenues[selectedIdx] : null;
+
   return isLoaded ? (
-    <GoogleMap
-      mapContainerStyle={containerStyle}
-      center={defaultCenter}
-      zoom={13}
-      options={options}
-      onLoad={onLoad}
-      onUnmount={onUnmount}
-      onIdle={onIdle}
-    >
-      {mockVenues.map((venue, i) => (
-        <Marker
-          key={venue.id}
-          position={venueCoords[i]}
-          icon={visibleVenues.includes(i) ? {
-            url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            scaledSize: new window.google.maps.Size(44, 44),
-          } : undefined}
-          onClick={() => setSelectedIdx(i)}
-          opacity={visibleVenues.includes(i) ? 1 : 0.5}
-        />
-      ))}
-      {selectedIdx !== null && (
-        <InfoWindow
-          position={venueCoords[selectedIdx]}
-          onCloseClick={() => setSelectedIdx(null)}
-        >
-          <div>
-            <strong>{mockVenues[selectedIdx].name}</strong><br/>
-            {mockVenues[selectedIdx].cuisine} <br/>
-            Rating: {mockVenues[selectedIdx].rating}
-          </div>
-        </InfoWindow>
-      )}
-    </GoogleMap>
+    <>
+      {/* Inject InfoWindow style overrides */}
+      <style>{infoWindowStyleOverride}</style>
+
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={defaultCenter}
+        zoom={13}
+        options={options}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
+        onIdle={onIdle}
+      >
+        {mockVenues.map((venue, i) => (
+          venueCoords[i] && (
+            <Marker
+              key={venue.id}
+              position={venueCoords[i]}
+              icon={visibleVenues.includes(i) ? {
+                url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                scaledSize: new window.google.maps.Size(44, 44),
+              } : undefined}
+              onClick={() => setSelectedIdx(i)}
+              opacity={visibleVenues.includes(i) ? 1 : 0.5}
+            />
+          )
+        ))}
+
+        {selectedIdx !== null && selectedVenue && venueCoords[selectedIdx] && (
+          <InfoWindow
+            position={venueCoords[selectedIdx]}
+            onCloseClick={() => setSelectedIdx(null)}
+            options={{ disableAutoPan: false, pixelOffset: new window.google.maps.Size(0, -10) }}
+          >
+            <Box
+              sx={{
+                width: 220,
+                bgcolor: 'background.paper',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                position: 'relative',
+                p: 0,
+              }}
+            >
+              {/* Close button */}
+              <IconButton
+                size="small"
+                onClick={() => setSelectedIdx(null)}
+                sx={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  zIndex: 2,
+                  bgcolor: 'rgba(0,0,0,0.45)',
+                  color: '#fff',
+                  width: 24,
+                  height: 24,
+                  '&:hover': {
+                    bgcolor: 'rgba(0,0,0,0.65)',
+                  },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+
+              {/* Venue photo */}
+              <Box
+                component="img"
+                src={selectedVenue.photoUrl}
+                alt={selectedVenue.name}
+                sx={{
+                  width: '100%',
+                  height: 120,
+                  objectFit: 'cover',
+                  borderRadius: '16px 16px 0 0',
+                  display: 'block',
+                }}
+              />
+
+              {/* Content area */}
+              <Box sx={{ p: '12px' }}>
+                <Typography
+                  sx={{
+                    fontSize: 16,
+                    fontWeight: 'bold',
+                    color: 'text.primary',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {selectedVenue.name}
+                </Typography>
+
+                <Typography
+                  sx={{
+                    fontSize: 13,
+                    color: 'text.secondary',
+                    mt: 0.25,
+                  }}
+                >
+                  {selectedVenue.cuisine}
+                </Typography>
+
+                <Typography
+                  sx={{
+                    fontSize: 14,
+                    fontWeight: 'bold',
+                    color: '#F24D4F',
+                    mt: 0.5,
+                  }}
+                >
+                  {'\u2605'} {selectedVenue.rating}
+                </Typography>
+              </Box>
+            </Box>
+          </InfoWindow>
+        )}
+      </GoogleMap>
+    </>
   ) : null;
 }
