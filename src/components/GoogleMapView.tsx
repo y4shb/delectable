@@ -1,8 +1,11 @@
 import React, { useCallback, useRef, useMemo, useState } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { useTheme, Box, Typography, IconButton } from '@mui/material';
+import { useTheme, Box, Typography, IconButton, Fab } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import Link from 'next/link';
 import { mockVenues } from '../api/mockApi';
+import { Venue } from '../types';
 
 const containerStyle = {
   width: '100%',
@@ -15,16 +18,6 @@ const defaultCenter = {
   lat: 28.6304,
   lng: 77.2177,
 }; // Connaught Place, New Delhi
-
-// Assign mock coordinates to venues for demo (New Delhi area)
-const venueCoords = [
-  { lat: 28.6304, lng: 77.2177 }, // v1 Hibachi - Connaught Place
-  { lat: 28.6139, lng: 77.2090 }, // v2 Pizzeria - Central Delhi
-  { lat: 28.6353, lng: 77.2250 }, // v3 SavorWorks - near CP
-  { lat: 28.5355, lng: 77.2429 }, // v4 Big Chill - GK-2
-  { lat: 28.5245, lng: 77.2190 }, // v5 Paul - Saket
-  { lat: 28.6280, lng: 77.2210 }, // v6 Rossoblu - near CP
-];
 
 const darkMapStyle = [
   { "elementType": "geometry", "stylers": [{ "color": "#1d2c4d" }] },
@@ -81,7 +74,52 @@ const infoWindowStyleOverride = `
 // TODO: Replace with your actual API key or prompt user to add it to .env
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-export default function GoogleMapView() {
+/** Build an SVG data URL for a map pin marker with an embedded icon glyph */
+function getMarkerIcon(cuisine: string, isDark: boolean): { url: string; scaledSize: google.maps.Size } {
+  const colorMap: Record<string, { fill: string; glyph: string }> = {
+    Japanese:     { fill: '#E8654A', glyph: '\uD83C\uDF63' },
+    Italian:      { fill: '#D64545', glyph: '\uD83C\uDF55' },
+    American:     { fill: '#E6A817', glyph: '\uD83C\uDF54' },
+    European:     { fill: '#D4A843', glyph: '\uD83E\uDD50' },
+    Experimental: { fill: '#2B9E8F', glyph: '\uD83E\uDDEA' },
+  };
+
+  const entry = colorMap[cuisine] || { fill: '#E8654A', glyph: '\uD83C\uDF74' };
+  const pinColor = entry.fill;
+  const glyph = entry.glyph;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+    <defs>
+      <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000" flood-opacity="0.3"/>
+      </filter>
+    </defs>
+    <path d="M20 38 C20 38 6 24 6 16 C6 8.268 12.268 2 20 2 C27.732 2 34 8.268 34 16 C34 24 20 38 20 38Z"
+          fill="${pinColor}" stroke="${isDark ? '#fff' : '#333'}" stroke-width="1" filter="url(#s)"/>
+    <circle cx="20" cy="16" r="9" fill="#fff" opacity="0.9"/>
+    <text x="20" y="20" text-anchor="middle" font-size="13">${glyph}</text>
+  </svg>`;
+
+  const url = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  return { url, scaledSize: new window.google.maps.Size(40, 40) };
+}
+
+/** Blue dot SVG for user's current location */
+function getUserLocationIcon(): { url: string; scaledSize: google.maps.Size } {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" fill="rgba(66,133,244,0.2)" stroke="none"/>
+    <circle cx="12" cy="12" r="6" fill="#4285F4" stroke="#fff" stroke-width="2"/>
+  </svg>`;
+  const url = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  return { url, scaledSize: new window.google.maps.Size(24, 24) };
+}
+
+export interface GoogleMapViewProps {
+  cuisineFilter?: string | null;
+  minRating?: number;
+}
+
+export default function GoogleMapView({ cuisineFilter, minRating }: GoogleMapViewProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -90,36 +128,26 @@ export default function GoogleMapView() {
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   });
 
-  const mapRef = useRef<google.maps.Map|null>(null);
-  const [visibleVenues, setVisibleVenues] = useState<number[]>(
-    venueCoords.map((_, i) => i)
-  );
-  const [selectedIdx, setSelectedIdx] = useState<number|null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Filter venues: must have lat/lng, and respect cuisine / rating filters
+  const filteredVenues = useMemo(() => {
+    return mockVenues.filter((v) => {
+      if (v.lat == null || v.lng == null) return false;
+      if (cuisineFilter && v.cuisine !== cuisineFilter) return false;
+      if (minRating != null && v.rating < minRating) return false;
+      return true;
+    });
+  }, [cuisineFilter, minRating]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-    // Initial visible markers
-    const bounds = map.getBounds();
-    if (bounds) {
-      setVisibleVenues(
-        venueCoords.map((coord, i) => bounds.contains(coord) ? i : -1).filter(i => i !== -1)
-      );
-    }
   }, []);
 
   const onUnmount = useCallback(() => {
     mapRef.current = null;
-  }, []);
-
-  const onIdle = useCallback(() => {
-    if (mapRef.current) {
-      const bounds = mapRef.current.getBounds();
-      if (bounds) {
-        setVisibleVenues(
-          venueCoords.map((coord, i) => bounds.contains(coord) ? i : -1).filter(i => i !== -1)
-        );
-      }
-    }
   }, []);
 
   const options = useMemo(() => ({
@@ -132,10 +160,24 @@ export default function GoogleMapView() {
     clickableIcons: true,
   }), [isDark]);
 
-  const selectedVenue = selectedIdx !== null ? mockVenues[selectedIdx] : null;
+  const handleMyLocation = useCallback(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(loc);
+        if (mapRef.current) {
+          mapRef.current.panTo(loc);
+        }
+      },
+      () => {
+        // Geolocation denied or unavailable — silently ignore
+      },
+    );
+  }, []);
 
   return isLoaded ? (
-    <>
+    <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
       {/* Inject InfoWindow style overrides */}
       <style>{infoWindowStyleOverride}</style>
 
@@ -146,113 +188,147 @@ export default function GoogleMapView() {
         options={options}
         onLoad={onLoad}
         onUnmount={onUnmount}
-        onIdle={onIdle}
       >
-        {mockVenues.map((venue, i) => (
-          venueCoords[i] && (
-            <Marker
-              key={venue.id}
-              position={venueCoords[i]}
-              icon={visibleVenues.includes(i) ? {
-                url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                scaledSize: new window.google.maps.Size(44, 44),
-              } : undefined}
-              onClick={() => setSelectedIdx(i)}
-              opacity={visibleVenues.includes(i) ? 1 : 0.5}
-            />
-          )
+        {filteredVenues.map((venue) => (
+          <Marker
+            key={venue.id}
+            position={{ lat: venue.lat!, lng: venue.lng! }}
+            icon={getMarkerIcon(venue.cuisine, isDark)}
+            onClick={() => setSelectedVenue(venue)}
+          />
         ))}
 
-        {selectedIdx !== null && selectedVenue && venueCoords[selectedIdx] && (
+        {/* User location blue dot */}
+        {userLocation && (
+          <Marker
+            position={userLocation}
+            icon={getUserLocationIcon()}
+            clickable={false}
+            zIndex={999}
+          />
+        )}
+
+        {selectedVenue && selectedVenue.lat != null && selectedVenue.lng != null && (
           <InfoWindow
-            position={venueCoords[selectedIdx]}
-            onCloseClick={() => setSelectedIdx(null)}
+            position={{ lat: selectedVenue.lat, lng: selectedVenue.lng }}
+            onCloseClick={() => setSelectedVenue(null)}
             options={{ disableAutoPan: false, pixelOffset: new window.google.maps.Size(0, -10) }}
           >
-            <Box
-              sx={{
-                width: 220,
-                bgcolor: 'background.paper',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                position: 'relative',
-                p: 0,
-              }}
-            >
-              {/* Close button */}
-              <IconButton
-                size="small"
-                onClick={() => setSelectedIdx(null)}
+            <Link href={`/venue/${selectedVenue.id}`} passHref legacyBehavior>
+              <Box
+                component="a"
                 sx={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  zIndex: 2,
-                  bgcolor: 'rgba(0,0,0,0.45)',
-                  color: '#fff',
-                  width: 24,
-                  height: 24,
-                  '&:hover': {
-                    bgcolor: 'rgba(0,0,0,0.65)',
-                  },
+                  display: 'block',
+                  width: 220,
+                  bgcolor: 'background.paper',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                  position: 'relative',
+                  p: 0,
+                  textDecoration: 'none',
+                  cursor: 'pointer',
                 }}
               >
-                <CloseIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-
-              {/* Venue photo */}
-              <Box
-                component="img"
-                src={selectedVenue.photoUrl}
-                alt={selectedVenue.name}
-                sx={{
-                  width: '100%',
-                  height: 120,
-                  objectFit: 'cover',
-                  borderRadius: '16px 16px 0 0',
-                  display: 'block',
-                }}
-              />
-
-              {/* Content area */}
-              <Box sx={{ p: '12px' }}>
-                <Typography
+                {/* Close button */}
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedVenue(null);
+                  }}
                   sx={{
-                    fontSize: 16,
-                    fontWeight: 'bold',
-                    color: 'text.primary',
-                    lineHeight: 1.3,
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    zIndex: 2,
+                    bgcolor: 'rgba(0,0,0,0.45)',
+                    color: '#fff',
+                    width: 24,
+                    height: 24,
+                    '&:hover': {
+                      bgcolor: 'rgba(0,0,0,0.65)',
+                    },
                   }}
                 >
-                  {selectedVenue.name}
-                </Typography>
+                  <CloseIcon sx={{ fontSize: 14 }} />
+                </IconButton>
 
-                <Typography
+                {/* Venue photo */}
+                <Box
+                  component="img"
+                  src={selectedVenue.photoUrl}
+                  alt={selectedVenue.name}
                   sx={{
-                    fontSize: 13,
-                    color: 'text.secondary',
-                    mt: 0.25,
+                    width: '100%',
+                    height: 120,
+                    objectFit: 'cover',
+                    borderRadius: '16px 16px 0 0',
+                    display: 'block',
                   }}
-                >
-                  {selectedVenue.cuisine}
-                </Typography>
+                />
 
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    color: '#F24D4F',
-                    mt: 0.5,
-                  }}
-                >
-                  {'\u2605'} {selectedVenue.rating}
-                </Typography>
+                {/* Content area */}
+                <Box sx={{ p: '12px' }}>
+                  <Typography
+                    sx={{
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      color: 'text.primary',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {selectedVenue.name}
+                  </Typography>
+
+                  <Typography
+                    sx={{
+                      fontSize: 13,
+                      color: 'text.secondary',
+                      mt: 0.25,
+                    }}
+                  >
+                    {selectedVenue.cuisine}
+                  </Typography>
+
+                  <Typography
+                    sx={{
+                      fontSize: 14,
+                      fontWeight: 'bold',
+                      color: theme.palette.primary.main,
+                      mt: 0.5,
+                    }}
+                  >
+                    {'\u2605'} {selectedVenue.rating}
+                  </Typography>
+                </Box>
               </Box>
-            </Box>
+            </Link>
           </InfoWindow>
         )}
       </GoogleMap>
-    </>
+
+      {/* My Location FAB */}
+      <Fab
+        size="small"
+        onClick={handleMyLocation}
+        sx={{
+          position: 'absolute',
+          bottom: 100,
+          right: 16,
+          zIndex: 10,
+          bgcolor: 'background.paper',
+          color: 'primary.main',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+          '&:hover': {
+            bgcolor: 'background.paper',
+          },
+        }}
+        aria-label="My location"
+      >
+        <MyLocationIcon />
+      </Fab>
+    </Box>
   ) : null;
 }

@@ -1,17 +1,31 @@
 import AppShell from '../layouts/AppShell';
-import { Box, Typography, Avatar, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Avatar, Tabs, Tab, CircularProgress } from '@mui/material';
 import { useState } from 'react';
 import ReviewCard from '../components/ReviewCard';
-import { mockUser } from '../api/mockApi';
+import { useUser } from '../hooks/useApi';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProfilePage() {
   const [tab, setTab] = useState(0);
+  const { user: authUser } = useAuth();
+  const { data: user, isLoading } = useUser(authUser?.id);
+
+  if (isLoading || !user) {
+    return (
+      <AppShell>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
-        <Avatar sx={{ width: 80, height: 80, mb: 1 }} src={mockUser.avatarUrl} />
+        <Avatar sx={{ width: 80, height: 80, mb: 1 }} src={user.avatarUrl} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6" fontWeight={700}>{mockUser.name}</Typography>
+          <Typography variant="h6" fontWeight={700}>{user.name}</Typography>
           <Box
             sx={{
               backgroundColor: '#FFD36E',
@@ -24,13 +38,13 @@ export default function ProfilePage() {
               lineHeight: 1.4,
             }}
           >
-            Lvl {mockUser.level}
+            Lvl {user.level}
           </Box>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          {mockUser.followers.toLocaleString()} followers · {mockUser.following} following
+          {user.followers.toLocaleString()} followers · {user.following} following
         </Typography>
-        <Typography variant="body1" color="text.secondary">{mockUser.bio}</Typography>
+        <Typography variant="body1" color="text.secondary">{user.bio}</Typography>
         <Box sx={{ width: '100%', mt: 2 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
             <Tab label="Reviews" />
@@ -46,7 +60,7 @@ export default function ProfilePage() {
           location="New Delhi"
           dish="Omakase"
           tags={['Sushi', 'Japanese']}
-          user={{ name: mockUser.name, avatarUrl: mockUser.avatarUrl, level: mockUser.level }}
+          user={{ name: user.name, avatarUrl: user.avatarUrl, level: user.level }}
           rating={9.8}
           text={'Hibacci is a must-try for sushi lovers.'}
           photoUrl={'/images/food2.jpg'}

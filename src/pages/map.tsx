@@ -1,15 +1,58 @@
 import AppShell from '../layouts/AppShell';
-import { Box, Typography } from '@mui/material';
+import { Box, Chip, Stack, Typography, IconButton, useTheme } from '@mui/material';
+import MapIcon from '@mui/icons-material/Map';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import StarIcon from '@mui/icons-material/Star';
 import GoogleMapView from '../components/GoogleMapView';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useRequireAuth } from '../hooks/useRequireAuth';
+import { mockVenues } from '../api/mockApi';
+import Link from 'next/link';
+
+const CUISINE_OPTIONS = ['Japanese', 'Italian', 'American', 'European', 'Experimental'];
 
 export default function MapPage() {
+  useRequireAuth();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
+  const [cuisineFilter, setCuisineFilter] = useState<string | null>(null);
+  const [minRating, setMinRating] = useState<number | undefined>(undefined);
+  const [ratingActive, setRatingActive] = useState(false);
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+
   useEffect(() => {
-    document.body.classList.add('no-scroll');
+    if (viewMode === 'map') {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
     return () => {
       document.body.classList.remove('no-scroll');
     };
-  }, []);
+  }, [viewMode]);
+
+  const handleCuisineToggle = (cuisine: string) => {
+    setCuisineFilter((prev) => (prev === cuisine ? null : cuisine));
+  };
+
+  const handleRatingToggle = () => {
+    if (ratingActive) {
+      setRatingActive(false);
+      setMinRating(undefined);
+    } else {
+      setRatingActive(true);
+      setMinRating(8);
+    }
+  };
+
+  // Filter venues for list view
+  const filteredVenues = mockVenues.filter((v) => {
+    if (cuisineFilter && v.cuisine !== cuisineFilter) return false;
+    if (minRating != null && v.rating < minRating) return false;
+    return true;
+  });
+
   return (
     <AppShell>
       <Box
@@ -24,34 +67,268 @@ export default function MapPage() {
           zIndex: 0,
         }}
       >
-        {/* Map container with blur border */}
+        {/* Filter bar overlay */}
         <Box
           sx={{
-            width: '100%',
-            height: '100%',
-            borderRadius: 0,
-            overflow: 'hidden',
-            boxShadow: 'none',
-            position: 'relative',
-            zIndex: 1,
+            position: 'absolute',
+            top: 72,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            px: 2,
+            py: 1,
           }}
         >
-          <GoogleMapView />
-          {/* Blur overlay */}
           <Box
             sx={{
-              pointerEvents: 'none',
-              position: 'absolute',
-              top: 0,
-              left: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              bgcolor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)',
+              backdropFilter: 'blur(12px)',
+              borderRadius: '48px',
+              px: 2,
+              py: 0.75,
+              maxWidth: 600,
+              mx: 'auto',
+            }}
+          >
+            {/* Cuisine chips — horizontally scrollable */}
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.75,
+                flex: 1,
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                '&::-webkit-scrollbar': { display: 'none' },
+              }}
+            >
+              {CUISINE_OPTIONS.map((cuisine) => (
+                <Chip
+                  key={cuisine}
+                  label={cuisine}
+                  size="small"
+                  onClick={() => handleCuisineToggle(cuisine)}
+                  sx={{
+                    borderRadius: '16px',
+                    fontWeight: 600,
+                    fontSize: 12,
+                    flexShrink: 0,
+                    bgcolor:
+                      cuisineFilter === cuisine
+                        ? theme.palette.primary.main
+                        : isDark
+                          ? 'rgba(255,255,255,0.1)'
+                          : 'rgba(0,0,0,0.06)',
+                    color:
+                      cuisineFilter === cuisine
+                        ? '#fff'
+                        : theme.palette.text.primary,
+                    '&:hover': {
+                      bgcolor:
+                        cuisineFilter === cuisine
+                          ? theme.palette.primary.dark
+                          : isDark
+                            ? 'rgba(255,255,255,0.18)'
+                            : 'rgba(0,0,0,0.1)',
+                    },
+                  }}
+                />
+              ))}
+
+              {/* Rating filter chip */}
+              <Chip
+                label="8+"
+                size="small"
+                icon={<StarIcon sx={{ fontSize: 14 }} />}
+                onClick={handleRatingToggle}
+                sx={{
+                  borderRadius: '16px',
+                  fontWeight: 600,
+                  fontSize: 12,
+                  flexShrink: 0,
+                  bgcolor: ratingActive
+                    ? theme.palette.primary.main
+                    : isDark
+                      ? 'rgba(255,255,255,0.1)'
+                      : 'rgba(0,0,0,0.06)',
+                  color: ratingActive ? '#fff' : theme.palette.text.primary,
+                  '& .MuiChip-icon': {
+                    color: ratingActive ? '#fff' : theme.palette.text.secondary,
+                  },
+                  '&:hover': {
+                    bgcolor: ratingActive
+                      ? theme.palette.primary.dark
+                      : isDark
+                        ? 'rgba(255,255,255,0.18)'
+                        : 'rgba(0,0,0,0.1)',
+                  },
+                }}
+              />
+            </Box>
+
+            {/* Map/List toggle */}
+            <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
+              <IconButton
+                size="small"
+                onClick={() => setViewMode('map')}
+                sx={{
+                  color:
+                    viewMode === 'map'
+                      ? theme.palette.primary.main
+                      : theme.palette.text.secondary,
+                }}
+                aria-label="Map view"
+              >
+                <MapIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setViewMode('list')}
+                sx={{
+                  color:
+                    viewMode === 'list'
+                      ? theme.palette.primary.main
+                      : theme.palette.text.secondary,
+                }}
+                aria-label="List view"
+              >
+                <ViewListIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Map or List view */}
+        {viewMode === 'map' ? (
+          <Box
+            sx={{
               width: '100%',
               height: '100%',
-              zIndex: 1,
-              boxShadow: 'none',
               borderRadius: 0,
+              overflow: 'hidden',
+              boxShadow: 'none',
+              position: 'relative',
+              zIndex: 1,
             }}
-          />
-        </Box>
+          >
+            <GoogleMapView
+              cuisineFilter={cuisineFilter}
+              minRating={minRating}
+            />
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              overflowY: 'auto',
+              pt: 16,
+              pb: 12,
+              px: 2,
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
+            <Stack spacing={1.5} sx={{ maxWidth: 600, mx: 'auto' }}>
+              {filteredVenues.length === 0 ? (
+                <Box sx={{ textAlign: 'center', mt: 6 }}>
+                  <Typography color="text.secondary" sx={{ fontSize: 16 }}>
+                    No venues match your filters
+                  </Typography>
+                </Box>
+              ) : (
+                filteredVenues.map((venue) => (
+                  <Link
+                    key={venue.id}
+                    href={`/venue/${venue.id}`}
+                    legacyBehavior
+                    passHref
+                  >
+                    <Box
+                      component="a"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1.5,
+                        borderRadius: '16px',
+                        bgcolor: isDark
+                          ? 'rgba(255,255,255,0.06)'
+                          : theme.palette.background.paper,
+                        boxShadow: isDark
+                          ? 'none'
+                          : '0 2px 8px rgba(0,0,0,0.06)',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease',
+                        '&:hover': {
+                          bgcolor: isDark
+                            ? 'rgba(255,255,255,0.1)'
+                            : 'rgba(0,0,0,0.02)',
+                        },
+                      }}
+                    >
+                      {venue.photoUrl && (
+                        <Box
+                          component="img"
+                          src={venue.photoUrl}
+                          alt={venue.name}
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: '12px',
+                            objectFit: 'cover',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                          {venue.name}
+                        </Typography>
+                        <Typography
+                          color="text.secondary"
+                          sx={{ fontSize: 13 }}
+                        >
+                          {venue.cuisine} &middot; {venue.location}
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.25,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <StarIcon
+                          sx={{
+                            fontSize: 16,
+                            color: theme.palette.primary.main,
+                          }}
+                        />
+                        <Typography
+                          sx={{
+                            color: theme.palette.primary.main,
+                            fontWeight: 700,
+                            fontSize: 15,
+                          }}
+                        >
+                          {venue.rating.toFixed(1)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Link>
+                ))
+              )}
+            </Stack>
+          </Box>
+        )}
       </Box>
     </AppShell>
   );

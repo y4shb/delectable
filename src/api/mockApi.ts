@@ -156,10 +156,102 @@ export const mockPlaylists: Playlist[] = [
 ];
 
 export const mockVenues: Venue[] = [
-  { id: 'v1', name: 'Hibacci', location: 'New Delhi', cuisine: 'Japanese', rating: 9.8, photoUrl: '/images/food2.jpg', tags: ['Sushi', 'Japanese'] },
-  { id: 'v2', name: 'Pizzeria', location: 'New Delhi', cuisine: 'Italian', rating: 9.2, photoUrl: '/images/food5.jpg', tags: ['Pasta', 'Pizza'] },
-  { id: 'v3', name: 'SavorWorks', location: 'New Delhi', cuisine: 'Experimental', rating: 9.4, photoUrl: '/images/food3.jpg', tags: ['Coffee', 'Experimental'] },
-  { id: 'v4', name: 'Big Chill', location: 'GK-2', cuisine: 'American', rating: 9.2, photoUrl: '/images/food5.jpg', tags: ['American', 'Burgers'] },
-  { id: 'v5', name: 'Paul', location: 'Saket', cuisine: 'European', rating: 9.8, photoUrl: '/images/food4.jpg', tags: ['Desserts', 'Pasta'] },
-  { id: 'v6', name: 'Rossoblu', location: 'DTLA', cuisine: 'Italian', rating: 9.3, photoUrl: '/images/food2.jpg', tags: ['Group Dinner'] },
+  { id: 'v1', name: 'Hibacci', location: 'New Delhi', cuisine: 'Japanese', rating: 9.8, photoUrl: '/images/food2.jpg', tags: ['Sushi', 'Japanese'], lat: 28.6304, lng: 77.2177 },
+  { id: 'v2', name: 'Pizzeria', location: 'New Delhi', cuisine: 'Italian', rating: 9.2, photoUrl: '/images/food5.jpg', tags: ['Pasta', 'Pizza'], lat: 28.6139, lng: 77.2090 },
+  { id: 'v3', name: 'SavorWorks', location: 'New Delhi', cuisine: 'Experimental', rating: 9.4, photoUrl: '/images/food3.jpg', tags: ['Coffee', 'Experimental'], lat: 28.6353, lng: 77.2250 },
+  { id: 'v4', name: 'Big Chill', location: 'GK-2', cuisine: 'American', rating: 9.2, photoUrl: '/images/food5.jpg', tags: ['American', 'Burgers'], lat: 28.5355, lng: 77.2429 },
+  { id: 'v5', name: 'Paul', location: 'Saket', cuisine: 'European', rating: 9.8, photoUrl: '/images/food4.jpg', tags: ['Desserts', 'Pasta'], lat: 28.5245, lng: 77.2190 },
+  { id: 'v6', name: 'Rossoblu', location: 'DTLA', cuisine: 'Italian', rating: 9.3, photoUrl: '/images/food2.jpg', tags: ['Group Dinner'], lat: 28.6280, lng: 77.2210 },
 ];
+
+// ---------------------------------------------------------------------------
+// Async mock endpoint functions (simulated API calls)
+// ---------------------------------------------------------------------------
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function fetchUser(id?: string): Promise<User> {
+  await delay(250);
+  // In the future this could look up by id; for now always returns mockUser
+  return mockUser;
+}
+
+export async function fetchReviews(filters?: {
+  minRating?: number;
+  tags?: string[];
+}): Promise<Review[]> {
+  await delay(300);
+  let results = [...mockReviews];
+  if (filters?.minRating) {
+    results = results.filter((r) => r.rating >= filters.minRating!);
+  }
+  // Tag filtering would require joining with venues; return all for now
+  return results;
+}
+
+export async function fetchFeedReviews(tab?: string): Promise<FeedReview[]> {
+  await delay(300);
+  switch (tab) {
+    case 'top-picks':
+      return mockFeedReviews.filter((review) => review.rating >= 9.5);
+    case 'recent':
+      return mockFeedReviews.filter(
+        (review) =>
+          review.date.includes('h ago') || review.date.includes('1d ago'),
+      );
+    case 'collections':
+      return mockFeedReviews.filter((review) =>
+        review.tags.some((tag) =>
+          ['Coffee', 'Desserts', 'Group Dinner'].includes(tag),
+        ),
+      );
+    case 'explore':
+      return [...mockFeedReviews];
+    default:
+      return [...mockFeedReviews];
+  }
+}
+
+export async function fetchPlaylists(userId?: string): Promise<Playlist[]> {
+  await delay(250);
+  if (userId) {
+    return mockPlaylists.filter((p) => p.userId === userId);
+  }
+  return [...mockPlaylists];
+}
+
+export async function fetchPlaylistDetail(
+  id: string,
+): Promise<Playlist | null> {
+  await delay(200);
+  return mockPlaylists.find((p) => p.id === id) ?? null;
+}
+
+export async function fetchVenues(filters?: {
+  bounds?: any;
+  cuisine?: string;
+}): Promise<Venue[]> {
+  await delay(300);
+  let results = [...mockVenues];
+  if (filters?.cuisine) {
+    results = results.filter((v) => v.cuisine === filters.cuisine);
+  }
+  return results;
+}
+
+export async function fetchVenueDetail(id: string): Promise<Venue | null> {
+  await delay(200);
+  return mockVenues.find((v) => v.id === id) ?? null;
+}
+
+export async function fetchVenueReviews(venueId: string): Promise<FeedReview[]> {
+  await delay(250);
+  return mockFeedReviews.filter(
+    (r) => {
+      const venue = mockVenues.find((v) => v.name === r.venue);
+      return venue?.id === venueId;
+    },
+  );
+}

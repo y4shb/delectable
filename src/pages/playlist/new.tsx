@@ -8,9 +8,41 @@ import {
   useTheme,
 } from '@mui/material';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+
+const playlistSchema = yup.object({
+  title: yup.string().required('Playlist title is required').min(2, 'Title must be at least 2 characters'),
+  description: yup.string().optional(),
+});
+
+interface PlaylistFormData {
+  title: string;
+  description?: string;
+}
 
 export default function NewPlaylistPage() {
+  useRequireAuth();
   const theme = useTheme();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } = useForm<PlaylistFormData>({
+    resolver: yupResolver(playlistSchema) as any,
+    defaultValues: {
+      title: '',
+      description: '',
+    },
+  });
+
+  const onSubmit = (data: PlaylistFormData) => {
+    console.log('Playlist created:', data);
+  };
 
   return (
     <AppShell>
@@ -19,7 +51,7 @@ export default function NewPlaylistPage() {
           sx={{
             fontFamily: '"Classy Pen", Helvetica, sans-serif',
             fontSize: 28,
-            color: '#F24D4F',
+            color: theme.palette.primary.main,
             textAlign: 'left',
             mb: 3,
           }}
@@ -33,6 +65,9 @@ export default function NewPlaylistPage() {
             variant="outlined"
             label="Playlist Title"
             fullWidth
+            {...register('title')}
+            error={!!errors.title}
+            helperText={errors.title?.message}
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: '20px',
@@ -47,6 +82,9 @@ export default function NewPlaylistPage() {
             fullWidth
             multiline
             rows={3}
+            {...register('description')}
+            error={!!errors.description}
+            helperText={errors.description?.message}
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: '20px',
@@ -93,7 +131,7 @@ export default function NewPlaylistPage() {
                   height: 32,
                   borderRadius: '50%',
                   padding: 0,
-                  backgroundColor: '#F24D4F',
+                  backgroundColor: theme.palette.primary.main,
                   '&:hover': {
                     backgroundColor: '#d93d3f',
                   },
@@ -111,8 +149,9 @@ export default function NewPlaylistPage() {
           <Button
             variant="contained"
             fullWidth
+            onClick={handleSubmit(onSubmit)}
             sx={{
-              backgroundColor: '#F24D4F',
+              backgroundColor: theme.palette.primary.main,
               color: '#fff',
               fontWeight: 700,
               borderRadius: '48px',

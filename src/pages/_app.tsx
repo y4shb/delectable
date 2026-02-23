@@ -7,6 +7,8 @@ import { ColorModeContext } from '../theme/ColorModeContext';
 import { getTheme } from '../theme/theme';
 import { CacheProvider, EmotionCache } from '@emotion/react';
 import createEmotionCache from '../createEmotionCache';
+import { AuthProvider } from '../context/AuthContext';
+import { UserPreferencesProvider } from '../context/UserPreferencesContext';
 
 interface MyAppProps extends AppProps {
   emotionCache?: EmotionCache;
@@ -33,12 +35,16 @@ export default function MyApp({ Component, pageProps, emotionCache = clientSideE
   return (
     <CacheProvider value={emotionCache}>
       <QueryClientProvider client={queryClient}>
-        <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
-          <ThemeProvider theme={muiTheme}>
-            <CssBaseline />
-            <Component {...pageProps} />
-          </ThemeProvider>
-        </ColorModeContext.Provider>
+        <AuthProvider>
+          <UserPreferencesProvider>
+            <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
+              <ThemeProvider theme={muiTheme}>
+                <CssBaseline />
+                <Component {...pageProps} />
+              </ThemeProvider>
+            </ColorModeContext.Provider>
+          </UserPreferencesProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </CacheProvider>
   );

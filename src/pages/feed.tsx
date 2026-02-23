@@ -1,28 +1,15 @@
 import AppShell from '../layouts/AppShell';
-import { Typography, Box } from '@mui/material';
+import { Typography, Box, CircularProgress } from '@mui/material';
 import ReviewCard from '../components/ReviewCard';
 import WelcomeSection from '../components/WelcomeSection';
 import { useState } from 'react';
-import { mockFeedReviews } from '../api/mockApi';
+import { useFeedReviews } from '../hooks/useApi';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 export default function FeedPage() {
+  useRequireAuth();
   const [activeTab, setActiveTab] = useState('top-picks');
-
-  // Filter reviews based on active tab
-  const getFilteredReviews = () => {
-    switch (activeTab) {
-      case 'top-picks':
-        return mockFeedReviews.filter(review => review.rating >= 9.5);
-      case 'recent':
-        return mockFeedReviews.filter(review => review.date.includes('h ago') || review.date.includes('1d ago'));
-      case 'collections':
-        return mockFeedReviews.filter(review => review.tags.some(tag => ['Coffee', 'Desserts', 'Group Dinner'].includes(tag)));
-      case 'explore':
-        return mockFeedReviews;
-      default:
-        return mockFeedReviews;
-    }
-  };
+  const { data: reviews, isLoading } = useFeedReviews(activeTab);
 
   const handleTabChange = (tabValue: string) => {
     setActiveTab(tabValue);
@@ -47,9 +34,15 @@ export default function FeedPage() {
         }}
       >
         <WelcomeSection onTabChange={handleTabChange} />
-        {getFilteredReviews().map((review, i) => (
-          <ReviewCard key={i} {...review} />
-        ))}
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          (reviews ?? []).map((review, i) => (
+            <ReviewCard key={i} {...review} />
+          ))
+        )}
       </Box>
     </AppShell>
   );

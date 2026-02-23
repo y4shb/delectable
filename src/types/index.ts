@@ -45,4 +45,6 @@ export interface Venue {
   rating: number;
   photoUrl?: string;
   tags?: string[];
+  lat?: number;
+  lng?: number;
 }

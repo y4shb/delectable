@@ -1,13 +1,36 @@
 import AppShell from '../../layouts/AppShell';
-import { Box, Typography } from '@mui/material';
+import { Box, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useRouter } from 'next/router';
-import { mockPlaylists, mockVenues } from '../../api/mockApi';
+import { usePlaylistDetail, useVenues } from '../../hooks/useApi';
 
 export default function PlaylistDetailPage() {
   const router = useRouter();
+  const theme = useTheme();
   const { id } = router.query;
 
-  const playlist = mockPlaylists.find((p) => p.id === id);
+  const { data: playlist, isLoading: playlistLoading } = usePlaylistDetail(
+    id as string,
+  );
+  const { data: venues, isLoading: venuesLoading } = useVenues();
+
+  // Handle SSR / static first render where router.query is not yet populated
+  if (!router.isReady || playlistLoading || venuesLoading) {
+    return (
+      <AppShell>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '60vh',
+          }}
+        >
+          <CircularProgress size={32} />
+        </Box>
+      </AppShell>
+    );
+  }
 
   if (!playlist) {
     return (
@@ -34,6 +57,25 @@ export default function PlaylistDetailPage() {
 
   return (
     <AppShell>
+      {/* Back button */}
+      <Box sx={{ mb: 1, px: 1 }}>
+        <IconButton
+          onClick={() => router.back()}
+          aria-label="Go back"
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            bgcolor:
+              theme.palette.mode === 'dark'
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(0,0,0,0.04)',
+          }}
+        >
+          <ArrowBackIcon />
+        </IconButton>
+      </Box>
+
       {/* Header area */}
       <Box sx={{ mb: 3, px: 1 }}>
         <Typography
@@ -56,7 +98,7 @@ export default function PlaylistDetailPage() {
         )}
         <Typography
           variant="body2"
-          sx={{ mt: 0.5, color: '#F24D4F', fontWeight: 600 }}
+          sx={{ mt: 0.5, color: theme.palette.primary.main, fontWeight: 600 }}
         >
           {playlist.items.length} {playlist.items.length === 1 ? 'spot' : 'spots'}
         </Typography>
@@ -72,7 +114,7 @@ export default function PlaylistDetailPage() {
         }}
       >
         {playlist.items.map((item) => {
-          const venue = mockVenues.find((v) => v.id === item.venueId);
+          const venue = (venues ?? []).find((v) => v.id === item.venueId);
 
           return (
             <Box

@@ -1,5 +1,6 @@
 import AppShell from '../layouts/AppShell';
 import { Box, Typography, Avatar, useTheme } from '@mui/material';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 interface Notification {
   id: number;
@@ -48,6 +49,7 @@ const mockNotifications: Notification[] = [
 ];
 
 export default function NotificationsPage() {
+  useRequireAuth();
   const theme = useTheme();
 
   return (
@@ -136,7 +138,7 @@ export default function NotificationsPage() {
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
-                    backgroundColor: '#F24D4F',
+                    backgroundColor: theme.palette.primary.main,
                     flexShrink: 0,
                     ml: 1,
                   }}
