@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Typography, Tab, Tabs, useTheme } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
 
 interface WelcomeSectionProps {
   onTabChange?: (tabValue: string) => void;
@@ -8,6 +9,7 @@ interface WelcomeSectionProps {
 export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
   const [selectedTab, setSelectedTab] = useState('top-picks');
   const theme = useTheme();
+  const { user } = useAuth();
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     setSelectedTab(newValue);
@@ -39,7 +41,7 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
             letterSpacing: 1,
           }}
         >
-          Hi Yash!
+          Hi {user?.name?.split(' ')[0] ?? 'there'}!
         </Typography>
       </Box>
 

@@ -53,13 +53,14 @@ export default function ReviewCard({
       }
     );
 
-    if (cardRef.current) {
-      observer.observe(cardRef.current);
+    const node = cardRef.current;
+    if (node) {
+      observer.observe(node);
     }
 
     return () => {
-      if (cardRef.current) {
-        observer.unobserve(cardRef.current);
+      if (node) {
+        observer.unobserve(node);
       }
     };
   }, []);
@@ -100,7 +101,7 @@ export default function ReviewCard({
       })}
     >
       {/* Image & overlays */}
-      <Box sx={{ position: 'relative', width: '100%', aspectRatio: '0.8', minHeight: 450, background: '#eee' }}>
+      <Box sx={theme => ({ position: 'relative', width: '100%', aspectRatio: '0.8', minHeight: 450, background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#eee' })}>
         <img
           src={photoUrl}
           alt={venue}
@@ -157,15 +158,18 @@ export default function ReviewCard({
                 <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 500, fontSize: 14, textShadow: '0px 2px 8px rgba(0,0,0,0.65)', mt: 0.3, lineHeight: 1.2 }}>{dish}</Typography>
               )}
             </Box>
-            <Box sx={{ 
-              bgcolor: '#F24D4F', 
-              color: '#fff', 
-              width: 22, 
-              height: 20, 
-              fontWeight: 700, 
-              fontSize: 11, 
-              display: 'flex', 
-              alignItems: 'center', 
+            <Box
+              role="img"
+              aria-label={`${likeCount} likes`}
+              sx={{
+              bgcolor: 'primary.main',
+              color: '#fff',
+              width: 22,
+              height: 20,
+              fontWeight: 700,
+              fontSize: 11,
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               textShadow: '0px 2px 8px rgba(0,0,0,0.65)',
               position: 'relative',
@@ -176,7 +180,7 @@ export default function ReviewCard({
                 left: '50%',
                 width: 11,
                 height: 18,
-                bgcolor: '#F24D4F',
+                bgcolor: 'primary.main',
                 borderRadius: '11px 11px 0 0',
                 transform: 'translateX(-50%) rotate(-45deg)',
                 transformOrigin: '0 100%',
@@ -188,7 +192,7 @@ export default function ReviewCard({
                 left: '50%',
                 width: 11,
                 height: 18,
-                bgcolor: '#F24D4F',
+                bgcolor: 'primary.main',
                 borderRadius: '11px 11px 0 0',
                 transform: 'translateX(-50%) rotate(45deg)',
                 transformOrigin: '100% 100%',
@@ -209,7 +213,7 @@ export default function ReviewCard({
             >
               {tags.map((tag, i) => (
                 <Chip
-                  key={i}
+                  key={tag}
                   id={`review-tag-${tag.toLowerCase().replace(/\s+/g, '-')}`}
                   label={tag}
                   role="listitem"
@@ -218,7 +222,7 @@ export default function ReviewCard({
                   onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
                   sx={theme => ({
                     bgcolor: theme.palette.mode === 'dark' ? 'rgba(35, 35, 35, 0.9)' : 'rgba(251, 234, 236, 0.9)',
-                    color: theme.palette.mode === 'dark' ? theme.palette.primary.main : '#F24D4F',
+                    color: theme.palette.primary.main,
                     fontWeight: 600,
                     fontSize: 13,
                     borderRadius: 2,

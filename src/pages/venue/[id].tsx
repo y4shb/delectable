@@ -189,7 +189,7 @@ export default function VenueDetailPage() {
 
         {/* Action buttons */}
         <Stack direction="row" spacing={1.5} sx={{ mt: 2.5, px: 1 }}>
-          <Link href="/review/new" legacyBehavior passHref>
+          <Link href={`/review/new?venueId=${venue.id}`} legacyBehavior passHref>
             <Button
               component="a"
               variant="contained"
@@ -240,9 +240,9 @@ export default function VenueDetailPage() {
             </Typography>
           ) : (
             <Stack spacing={2}>
-              {(reviews ?? []).map((review, idx) => (
+              {(reviews ?? []).map((review) => (
                 <Box
-                  key={idx}
+                  key={`${review.user.name}-${review.rating}`}
                   sx={{
                     display: 'flex',
                     gap: 1.5,

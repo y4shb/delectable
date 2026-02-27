@@ -1,13 +1,11 @@
+import React, { ReactNode, useRef, useState, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { ReactNode } from 'react';
 import Header from '../components/Header';
 import BottomTabBar from '../components/BottomTabBar';
 
 interface AppShellProps {
   children: ReactNode;
 }
-
-import React, { useRef, useState, useEffect } from 'react';
 
 export default function AppShell({ children }: AppShellProps) {
   const [headerVisible, setHeaderVisible] = useState(true);

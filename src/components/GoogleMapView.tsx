@@ -233,6 +233,7 @@ export default function GoogleMapView({ cuisineFilter, minRating }: GoogleMapVie
                 {/* Close button */}
                 <IconButton
                   size="small"
+                  aria-label="Close venue info"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

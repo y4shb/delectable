@@ -563,166 +563,685 @@ These are inconsistencies between the design intent and the current implementati
 
 ### Milestone 4: Backend MVP & Data Storage
 
-**Goal**: Build a Django REST API backend with PostgreSQL, Redis caching, and ElasticSearch for fast search.
+**Goal**: Build a production-grade Django REST API backend with PostgreSQL (PostGIS for geospatial, pg_trgm + tsvector for search). No ElasticSearch, no Redis for MVP — PostgreSQL handles search and LocMemCache handles caching until scale demands otherwise.
 
-#### 4.1 Django REST API
-- **Project setup**: Django 5.x + Django REST Framework + djangorestframework-simplejwt
-- **Authentication endpoints**:
-  - `POST /api/auth/register/` - User registration (email, password, name)
-  - `POST /api/auth/login/` - JWT token pair (access + refresh)
-  - `POST /api/auth/refresh/` - Refresh access token
-  - `POST /api/auth/logout/` - Blacklist refresh token
-  - `GET /api/auth/me/` - Current user profile
-  - Future: OAuth2 social login (Google, Apple) via django-allauth
-- **User endpoints**:
-  - `GET /api/users/{id}/` - User profile
-  - `PATCH /api/users/{id}/` - Update profile
-  - `GET /api/users/{id}/reviews/` - User's reviews
-  - `GET /api/users/{id}/playlists/` - User's playlists
-  - `POST /api/users/{id}/follow/` - Follow user
-  - `DELETE /api/users/{id}/follow/` - Unfollow user
-  - `GET /api/users/{id}/followers/` - Follower list
-  - `GET /api/users/{id}/following/` - Following list
-- **Venue endpoints**:
-  - `GET /api/venues/` - List venues (with filters: cuisine, tags, rating, bounds, radius)
-  - `GET /api/venues/{id}/` - Venue detail
-  - `GET /api/venues/{id}/reviews/` - Reviews for venue
-  - `GET /api/venues/nearby/` - Nearby venues by coordinates + radius
-  - `GET /api/venues/search/` - Full-text search
-- **Review endpoints**:
-  - `POST /api/reviews/` - Create review
-  - `GET /api/reviews/{id}/` - Review detail
-  - `PATCH /api/reviews/{id}/` - Update review
-  - `DELETE /api/reviews/{id}/` - Delete review
-  - `POST /api/reviews/{id}/like/` - Like review
-  - `DELETE /api/reviews/{id}/like/` - Unlike review
-  - `GET /api/reviews/{id}/comments/` - Comments on review
-  - `POST /api/reviews/{id}/comments/` - Add comment
-- **Playlist endpoints**:
-  - `GET /api/playlists/` - List user's playlists
-  - `POST /api/playlists/` - Create playlist
-  - `GET /api/playlists/{id}/` - Playlist detail with items
-  - `PATCH /api/playlists/{id}/` - Update playlist
-  - `DELETE /api/playlists/{id}/` - Delete playlist
-  - `POST /api/playlists/{id}/items/` - Add item to playlist
-  - `DELETE /api/playlists/{id}/items/{itemId}/` - Remove item
-- **Feed endpoint**:
-  - `GET /api/feed/` - Personalized feed (friends' reviews + AI spotlights)
-  - Pagination: cursor-based for infinite scroll
-- **Search endpoint**:
-  - `GET /api/search/?q=...&type=venues|reviews|playlists|users` - Unified search
+**Key Architecture Decisions (from research)**:
+- **No ElasticSearch**: PostgreSQL `tsvector` + `pg_trgm` handles all search use cases (venue name fuzzy search, review full-text, autocomplete) at single-digit ms latency up to 10M+ rows.
+- **No Redis for MVP**: Django's `LocMemCache` is sufficient at single-server scale. The caching abstraction layer (`CacheKeys`/`CacheTTL` classes) is built from day 1 so switching to Redis later is a settings change.
+- **PostGIS**: Sub-millisecond geospatial queries via GIST-indexed `geography(Point, 4326)` columns, replacing naive Haversine formula full-table scans.
+- **ArrayField for tags**: GIN-indexable, no JOINs, `@>` (contains) and `&&` (overlaps) operators. No separate Tags M2M table needed.
+- **Database triggers for counts**: `followers_count`, `following_count`, `like_count`, `comment_count`, `items_count` maintained atomically via PostgreSQL triggers.
+- **Cursor-based pagination for feeds**: Keyset pagination on `(created_at, id)` — O(1) performance, no skipped/duplicated items during scrolling.
+- **UUID primary keys** for all public-facing entities.
+- **Snake_case JSON in API**: Frontend adapter layer converts to camelCase for TypeScript.
+- **JWT auth**: 15-minute access tokens in memory, 7-day refresh tokens in HttpOnly secure cookies, rotation + blacklisting.
 
-#### 4.2 Database Modeling (PostgreSQL)
+---
+
+#### 4.1 Django Project Setup
+
+**Stack**:
+- Django 5.2 LTS + Django REST Framework 3.15.x
+- `djangorestframework-simplejwt` 5.3.x (token auth)
+- `django-cors-headers` 4.x (CORS for Next.js frontend)
+- `django-filter` 24.x (queryset filtering)
+- `psycopg[binary]` 3.x (PostgreSQL adapter)
+- `django.contrib.gis` (GeoDjango for PostGIS)
+- `gunicorn` 22.x (production WSGI server)
+
+**Project structure**:
 ```
-Users
-├── id (UUID, PK)
-├── email (unique)
-├── password_hash
-├── name
-├── avatar_url
-├── bio
-├── level (int, computed from activity)
-├── favorite_cuisines (JSONB)
-├── location_lat, location_lng
-├── created_at, updated_at
-
-Follows
-├── id (PK)
-├── follower_id (FK -> Users)
-├── following_id (FK -> Users)
-├── created_at
-├── UNIQUE(follower_id, following_id)
-
-Venues
-├── id (UUID, PK)
-├── name
-├── address
-├── city
-├── cuisine (varchar)
-├── tags (JSONB array)
-├── lat, lng
-├── avg_rating (float, denormalized)
-├── review_count (int, denormalized)
-├── photo_urls (JSONB array)
-├── venue_type (enum: restaurant, cafe, bar, coffee_shop)
-├── google_place_id (varchar, nullable)
-├── created_at, updated_at
-
-Reviews
-├── id (UUID, PK)
-├── user_id (FK -> Users)
-├── venue_id (FK -> Venues)
-├── rating (float, 0-10)
-├── text (text)
-├── photos (JSONB array of URLs)
-├── tags (JSONB array)
-├── dish_name (varchar, nullable)
-├── like_count (int, denormalized)
-├── comment_count (int, denormalized)
-├── created_at, updated_at
-
-ReviewLikes
-├── id (PK)
-├── review_id (FK -> Reviews)
-├── user_id (FK -> Users)
-├── created_at
-├── UNIQUE(review_id, user_id)
-
-Comments
-├── id (UUID, PK)
-├── review_id (FK -> Reviews)
-├── user_id (FK -> Users)
-├── text (text)
-├── created_at
-
-Playlists
-├── id (UUID, PK)
-├── user_id (FK -> Users)
-├── title
-├── description
-├── cover_photo_url
-├── is_public (bool)
-├── item_count (int, denormalized)
-├── created_at, updated_at
-
-PlaylistItems
-├── id (UUID, PK)
-├── playlist_id (FK -> Playlists)
-├── venue_id (FK -> Venues)
-├── caption
-├── photo_url
-├── order (int)
-├── date_added
-
-Tags (lookup table)
-├── id (PK)
-├── name (unique)
-├── category (cuisine, vibe, occasion, dietary)
-
-Notifications
-├── id (UUID, PK)
-├── user_id (FK -> Users)
-├── type (enum: like, comment, follow, recommendation)
-├── actor_id (FK -> Users, nullable)
-├── target_type (review, playlist, venue)
-├── target_id (UUID)
-├── is_read (bool)
-├── created_at
+backend/
+├── manage.py
+├── requirements.txt
+├── config/
+│   ├── __init__.py
+│   ├── settings/
+│   │   ├── __init__.py
+│   │   ├── base.py         # Shared settings (INSTALLED_APPS, REST_FRAMEWORK, SIMPLE_JWT)
+│   │   ├── dev.py          # DEBUG=True, CORS_ALLOW_ALL, LocMemCache, console email
+│   │   └── prod.py         # Security hardening, Redis cache, S3 media, Sentry
+│   ├── urls.py             # Root URL conf: /api/auth/, /api/users/, /api/venues/, etc.
+│   ├── wsgi.py
+│   └── asgi.py
+├── apps/
+│   ├── __init__.py
+│   ├── core/               # Shared base models, permissions, pagination, cache keys
+│   │   ├── models.py       # TimeStampedModel abstract base
+│   │   ├── permissions.py  # IsOwnerOrReadOnly, IsOwner
+│   │   ├── pagination.py   # CursorPagination, OffsetPagination
+│   │   ├── cache_keys.py   # CacheKeys class (centralized key definitions)
+│   │   ├── cache_ttls.py   # CacheTTL class (centralized TTL definitions)
+│   │   └── exceptions.py   # Custom DRF exception handler
+│   ├── users/              # Custom User model, auth views, Follow model
+│   │   ├── models.py       # User (AbstractBaseUser), Follow
+│   │   ├── managers.py     # UserManager (create_user, create_superuser)
+│   │   ├── serializers.py  # UserSerializer, RegisterSerializer, LoginSerializer
+│   │   ├── views.py        # RegisterView, LoginView (cookie-based), LogoutView, MeView
+│   │   ├── urls.py
+│   │   ├── signals.py      # Update follow counts on Follow create/delete
+│   │   ├── admin.py
+│   │   └── tests/
+│   ├── venues/             # Venue model, geospatial queries
+│   │   ├── models.py       # Venue with PointField, search_vector, ArrayField tags
+│   │   ├── serializers.py  # VenueListSerializer, VenueDetailSerializer
+│   │   ├── views.py        # VenueViewSet (list/detail, bbox, radius, cuisine filter)
+│   │   ├── urls.py
+│   │   ├── services.py     # unified_venue_search() with pg_trgm + tsvector
+│   │   └── tests/
+│   ├── reviews/            # Review CRUD, likes, comments
+│   │   ├── models.py       # Review, ReviewLike, Comment
+│   │   ├── serializers.py  # ReviewSerializer, CommentSerializer
+│   │   ├── views.py        # ReviewViewSet, LikeView, CommentViewSet
+│   │   ├── urls.py
+│   │   ├── signals.py      # Update like_count, comment_count triggers
+│   │   └── tests/
+│   ├── playlists/          # Playlist CRUD, item management, reordering
+│   │   ├── models.py       # Playlist, PlaylistItem
+│   │   ├── serializers.py  # PlaylistSerializer, PlaylistItemSerializer
+│   │   ├── views.py        # PlaylistViewSet, PlaylistItemViewSet
+│   │   ├── urls.py
+│   │   └── tests/
+│   ├── feed/               # Feed generation, tab logic
+│   │   ├── views.py        # FeedView (top-picks, recent, collections, explore tabs)
+│   │   ├── urls.py
+│   │   └── tests/
+│   ├── search/             # Unified search across venues, users, reviews
+│   │   ├── services.py     # unified_search(), autocomplete_search()
+│   │   ├── views.py        # SearchView, AutocompleteView
+│   │   ├── urls.py
+│   │   └── tests/
+│   └── notifications/      # Notification model, feed, mark-read
+│       ├── models.py       # Notification (types: like, comment, follow, playlist_add)
+│       ├── serializers.py  # NotificationSerializer
+│       ├── views.py        # NotificationListView, MarkReadView
+│       ├── urls.py
+│       ├── signals.py      # Create notifications on like, comment, follow
+│       └── tests/
 ```
 
-#### 4.3 Redis Cache
-- **Session storage**: JWT blacklist, active sessions
-- **Hot search results**: Cache top search queries for 5 minutes
-- **Feed cache**: Pre-computed feed for active users (invalidate on new content)
-- **Rate limiting**: Track API request counts per user
-- **Leaderboard/trending**: Sorted sets for trending venues, popular tags
+**Key settings** (`config/settings/base.py`):
+```python
+AUTH_USER_MODEL = "users.User"
 
-#### 4.4 ElasticSearch
-- **Venue index**: name, cuisine, tags, city, rating - for full-text + faceted search
-- **Review index**: text, tags, venue name - for content search
-- **User index**: name, bio - for people search
-- **Autocomplete**: Edge n-gram tokenizer for search-as-you-type
-- **Geo queries**: Filter venues by bounding box or distance from point
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.gis",          # GeoDjango for PostGIS
+    "django.contrib.postgres",     # ArrayField, trgm, SearchVector
+    # Third party
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    "django_filters",
+    "corsheaders",
+    # Local apps
+    "apps.core",
+    "apps.users",
+    "apps.venues",
+    "apps.reviews",
+    "apps.playlists",
+    "apps.feed",
+    "apps.search",
+    "apps.notifications",
+]
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "NAME": os.environ.get("DB_NAME", "delectable"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "postgres"),
+        "HOST": os.environ.get("DB_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
+    }
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/hour",
+        "user": "1000/hour",
+        "login": "5/minute",
+        "register": "3/minute",
+    },
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": os.environ.get("JWT_SECRET_KEY", SECRET_KEY),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+# Cache — MVP uses LocMemCache, switch to Redis at scale
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "delectable-dev",
+        "TIMEOUT": 300,
+    }
+}
+```
+
+**requirements.txt**:
+```
+Django>=5.2,<5.3
+djangorestframework>=3.15,<4.0
+djangorestframework-simplejwt>=5.3,<6.0
+django-cors-headers>=4.4,<5.0
+django-filter>=24.0
+psycopg[binary]>=3.1,<4.0
+gunicorn>=22.0
+python-dotenv>=1.0
+Pillow>=10.0
+```
+
+---
+
+#### 4.2 Database Models (PostgreSQL + PostGIS)
+
+**PostgreSQL extensions** (installed via initial migration):
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;    -- Geospatial
+CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- Fuzzy text matching
+CREATE EXTENSION IF NOT EXISTS unaccent;   -- Accent-insensitive search
+```
+
+**User model** (`apps/users/models.py`):
+```python
+class User(AbstractBaseUser, PermissionsMixin):
+    id            = UUIDField(primary_key=True, default=uuid4)
+    email         = EmailField(unique=True)
+    name          = CharField(max_length=150)
+    avatar_url    = URLField(max_length=500, blank=True, default="")
+    bio           = TextField(max_length=300, blank=True, default="")
+    level         = PositiveIntegerField(default=1)
+    followers_count  = PositiveIntegerField(default=0)  # trigger-maintained
+    following_count  = PositiveIntegerField(default=0)  # trigger-maintained
+    favorite_cuisines = ArrayField(CharField(max_length=50), default=list, blank=True)
+    is_active     = BooleanField(default=True)
+    is_staff      = BooleanField(default=False)
+    search_vector = SearchVectorField(null=True)         # name search
+    created_at    = DateTimeField(auto_now_add=True)
+    updated_at    = DateTimeField(auto_now=True)
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["name"]
+
+    # Indexes: GIN on search_vector, trigram GIN on name
+```
+
+**Follow model** (`apps/users/models.py`):
+```python
+class Follow(Model):
+    follower   = ForeignKey(User, CASCADE, related_name="following_set")
+    following  = ForeignKey(User, CASCADE, related_name="follower_set")
+    created_at = DateTimeField(auto_now_add=True)
+
+    # Constraints: UniqueConstraint(follower, following), CheckConstraint(no self-follow)
+    # Indexes: BTree(follower, following), BTree(following, follower)
+```
+
+**Venue model** (`apps/venues/models.py`):
+```python
+class Venue(Model):
+    id            = UUIDField(primary_key=True, default=uuid4)
+    name          = CharField(max_length=300)
+    location      = PointField(geography=True, srid=4326, null=True)  # PostGIS
+    address       = CharField(max_length=500, blank=True)
+    city          = CharField(max_length=100, blank=True)
+    cuisine_type  = CharField(max_length=100, blank=True)
+    tags          = ArrayField(CharField(max_length=50), default=list, blank=True)
+    rating        = DecimalField(max_digits=3, decimal_places=1, default=0)
+    reviews_count = PositiveIntegerField(default=0)         # trigger-maintained
+    photo_url     = URLField(max_length=500, blank=True)
+    google_place_id = CharField(max_length=200, blank=True)
+    search_vector = SearchVectorField(null=True)             # auto-maintained via trigger
+    created_at    = DateTimeField(auto_now_add=True)
+    updated_at    = DateTimeField(auto_now=True)
+
+    @property
+    def latitude(self):
+        return self.location.y if self.location else None
+
+    @property
+    def longitude(self):
+        return self.location.x if self.location else None
+
+    # Indexes:
+    #   GIST on location (geospatial)
+    #   GIN trigram on name (fuzzy search)
+    #   GIN on tags (array contains/overlaps)
+    #   GIN on search_vector (full-text)
+    #   BTree(cuisine_type, -rating) (browse by cuisine)
+```
+
+**Review model** (`apps/reviews/models.py`):
+```python
+class Review(Model):
+    id            = UUIDField(primary_key=True, default=uuid4)
+    user          = ForeignKey(User, CASCADE, related_name="reviews")
+    venue         = ForeignKey(Venue, CASCADE, related_name="reviews")
+    rating        = DecimalField(max_digits=4, decimal_places=1, validators=[0-10])
+    text          = TextField(max_length=2000, blank=True)
+    photo_url     = URLField(max_length=500, blank=True)
+    dish_name     = CharField(max_length=200, blank=True)
+    tags          = ArrayField(CharField(max_length=50), default=list, blank=True)
+    like_count    = PositiveIntegerField(default=0)     # trigger-maintained
+    comment_count = PositiveIntegerField(default=0)     # trigger-maintained
+    search_vector = SearchVectorField(null=True)
+    created_at    = DateTimeField(auto_now_add=True)
+    updated_at    = DateTimeField(auto_now=True)
+
+    # Constraints: UniqueConstraint(user, venue) — one review per user per venue
+    # Indexes:
+    #   BTree(user, -created_at) — feed query, profile reviews
+    #   BTree(venue, -created_at) — venue detail page
+    #   GIN on tags, GIN on search_vector
+```
+
+**ReviewLike model**:
+```python
+class ReviewLike(Model):
+    user       = ForeignKey(User, CASCADE, related_name="review_likes")
+    review     = ForeignKey(Review, CASCADE, related_name="likes")
+    created_at = DateTimeField(auto_now_add=True)
+    # Constraint: UniqueConstraint(user, review)
+```
+
+**Comment model**:
+```python
+class Comment(Model):
+    id         = UUIDField(primary_key=True, default=uuid4)
+    user       = ForeignKey(User, CASCADE, related_name="comments")
+    review     = ForeignKey(Review, CASCADE, related_name="comments")
+    text       = TextField(max_length=1000)
+    created_at = DateTimeField(auto_now_add=True)
+    # Index: BTree(review, created_at)
+```
+
+**Playlist & PlaylistItem models** (`apps/playlists/models.py`):
+```python
+class Playlist(Model):
+    id          = UUIDField(primary_key=True, default=uuid4)
+    user        = ForeignKey(User, CASCADE, related_name="playlists")
+    title       = CharField(max_length=200)
+    description = TextField(max_length=1000, blank=True)
+    items_count = PositiveIntegerField(default=0)  # trigger-maintained
+    is_public   = BooleanField(default=True)
+    created_at  = DateTimeField(auto_now_add=True)
+    updated_at  = DateTimeField(auto_now=True)
+    # Index: BTree(user, -updated_at)
+
+class PlaylistItem(Model):
+    id         = UUIDField(primary_key=True, default=uuid4)
+    playlist   = ForeignKey(Playlist, CASCADE, related_name="items")
+    venue      = ForeignKey(Venue, CASCADE, related_name="playlist_items")
+    caption    = CharField(max_length=300, blank=True)
+    sort_order = PositiveIntegerField(default=0)
+    created_at = DateTimeField(auto_now_add=True)
+    # Constraints: UniqueConstraint(playlist, venue), UniqueConstraint(playlist, sort_order)
+    # Index: BTree(playlist, sort_order)
+```
+
+**Notification model** (`apps/notifications/models.py`):
+```python
+class Notification(Model):
+    class Type(TextChoices):
+        LIKE = "like"
+        COMMENT = "comment"
+        FOLLOW = "follow"
+        PLAYLIST_ADD = "playlist_add"
+
+    id                = UUIDField(primary_key=True, default=uuid4)
+    recipient         = ForeignKey(User, CASCADE, related_name="notifications")
+    notification_type = CharField(max_length=20, choices=Type.choices)
+    text              = CharField(max_length=500)
+    related_object_id = UUIDField(null=True, blank=True)
+    is_read           = BooleanField(default=False)
+    created_at        = DateTimeField(auto_now_add=True)
+    # Index: BTree(recipient, is_read, -created_at)
+    # Partial index: WHERE is_read = FALSE for fast unread queries
+```
+
+**Database triggers** (applied via `RunSQL` migrations):
+
+1. **Follow count trigger**: On Follow INSERT/DELETE, atomically update `User.followers_count` and `User.following_count`
+2. **Review like count trigger**: On ReviewLike INSERT/DELETE, update `Review.like_count`
+3. **Comment count trigger**: On Comment INSERT/DELETE, update `Review.comment_count`
+4. **Playlist items count trigger**: On PlaylistItem INSERT/DELETE, update `Playlist.items_count`
+5. **Venue search vector trigger**: On Venue INSERT/UPDATE, rebuild `search_vector` from weighted `name` (A) + `cuisine_type` (B) + `tags` (C)
+6. **Review search vector trigger**: On Review INSERT/UPDATE, rebuild `search_vector` from weighted `dish_name` (A) + `text` (B)
+
+---
+
+#### 4.3 API Endpoints (Complete Specification)
+
+**Base URL**: `/api/v1/`
+**JSON convention**: `snake_case` (frontend adapter converts to camelCase)
+**Error format**: `{ "error": { "code": "VALIDATION_ERROR", "message": "...", "status": 422, "details": [...] } }`
+
+**Authentication endpoints**:
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/auth/register/` | No | Register (email, name, password, password_confirm) → access token + refresh cookie + user |
+| `POST` | `/auth/login/` | No | Login (email, password) → access token + refresh cookie + user |
+| `POST` | `/auth/refresh/` | No | Refresh (reads HttpOnly cookie) → new access token + rotated refresh cookie |
+| `POST` | `/auth/logout/` | No* | Blacklist refresh token, clear cookie |
+| `GET` | `/auth/me/` | Yes | Current user profile |
+| `PATCH` | `/auth/me/` | Yes | Update own profile (name, bio, avatar_url, favorite_cuisines) |
+
+**User endpoints**:
+
+| Method | Endpoint | Auth | Pagination | Description |
+|--------|----------|------|------------|-------------|
+| `GET` | `/users/{id}/` | No | — | Public user profile |
+| `GET` | `/users/{id}/reviews/` | No | Cursor | User's reviews |
+| `GET` | `/users/{id}/followers/` | Yes | Cursor | Follower list |
+| `GET` | `/users/{id}/following/` | Yes | Cursor | Following list |
+| `POST` | `/users/{id}/follow/` | Yes | — | Follow user → 201 |
+| `DELETE` | `/users/{id}/follow/` | Yes | — | Unfollow user → 204 |
+
+**Venue endpoints**:
+
+| Method | Endpoint | Auth | Pagination | Description |
+|--------|----------|------|------------|-------------|
+| `GET` | `/venues/` | No | Offset | List venues (filters: `cuisine`, `tags`, `rating_min`, `lat`+`lng`+`radius`, `bbox`) |
+| `GET` | `/venues/{id}/` | No | — | Venue detail (includes top_dishes, hours, website) |
+| `GET` | `/venues/{id}/reviews/` | Yes | Cursor | Reviews for venue (sort: `recent`, `top`) |
+
+**Query params for `GET /venues/`**:
+- `cuisine` — filter by cuisine type (e.g., `Japanese`)
+- `tags` — comma-separated, matches venues containing ALL tags
+- `rating_min` — minimum rating (e.g., `8.0`)
+- `lat`, `lng`, `radius` — radius query in meters (e.g., `lat=28.6&lng=77.2&radius=5000`)
+- `bbox` — bounding box for map view (`sw_lat,sw_lng,ne_lat,ne_lng`)
+- `sort` — one of: `rating`, `distance`, `recent` (default: `rating`)
+- `limit` — items per page (default 20, max 100 for bbox)
+
+**Review endpoints**:
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/reviews/` | Yes | Create review (venue_id, rating 0-10, text min 10 chars, photo_url, dish, tags max 10) |
+| `PATCH` | `/reviews/{id}/` | Yes (owner) | Update own review |
+| `DELETE` | `/reviews/{id}/` | Yes (owner) | Delete own review → 204 |
+| `POST` | `/reviews/{id}/like/` | Yes | Like review → 201 |
+| `DELETE` | `/reviews/{id}/like/` | Yes | Unlike review → 204 |
+| `GET` | `/reviews/{id}/comments/` | Yes | List comments (cursor pagination) |
+| `POST` | `/reviews/{id}/comments/` | Yes | Add comment (text 1-1000 chars) → 201 |
+| `DELETE` | `/reviews/{rid}/comments/{cid}/` | Yes (author) | Delete comment → 204 |
+
+**Feed endpoint**:
+
+| Method | Endpoint | Auth | Pagination | Description |
+|--------|----------|------|------------|-------------|
+| `GET` | `/feed/` | Yes | Cursor | Main feed with `tab` param |
+
+**Feed tab behavior**:
+- `tab=recent` — Chronological reviews from followed users. Cursor encodes `(created_at, id)`.
+- `tab=top-picks` — Algorithmic ranked feed. Cursor encodes `(score, id)`.
+- `tab=explore` — Trending reviews from outside user's network.
+
+**Feed response format** (denormalized — user, venue, review embedded in each item):
+```json
+{
+  "data": [{
+    "id": "fi_...",
+    "item_type": "review",
+    "review": { "id", "rating", "text", "dish", "photo_url", "tags", "like_count", "comment_count", "is_liked", "created_at" },
+    "user": { "id", "name", "avatar_url", "level" },
+    "venue": { "id", "name", "location" }
+  }],
+  "pagination": { "next_cursor": "...", "has_more": true, "limit": 20 }
+}
+```
+
+**Search endpoints**:
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/search/` | Yes | Unified search (q, type=all/venue/user/review, cuisine, tags, lat, lng) |
+| `GET` | `/search/autocomplete/` | Yes | Lightweight autocomplete (q, type=all/venue/user, max 10 results) |
+
+**Search response** (type=all returns grouped results):
+```json
+{
+  "data": {
+    "venues": [{ "id", "name", "cuisine", "location", "rating", "photo_url" }],
+    "users": [{ "id", "name", "avatar_url", "level" }],
+    "reviews": [{ "id", "text", "rating", "user": {...}, "venue": {...} }]
+  },
+  "pagination": { "offset": 0, "limit": 20, "total": 45 }
+}
+```
+
+**Playlist endpoints**:
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/playlists/` | Yes | List playlists (optional `user_id` filter) |
+| `POST` | `/playlists/` | Yes | Create playlist (title, description, is_public) |
+| `GET` | `/playlists/{id}/` | Yes | Playlist detail with embedded venue items |
+| `PATCH` | `/playlists/{id}/` | Yes (owner) | Update playlist metadata |
+| `DELETE` | `/playlists/{id}/` | Yes (owner) | Delete playlist → 204 |
+| `POST` | `/playlists/{id}/items/` | Yes (owner) | Add venue to playlist (venue_id, caption) |
+| `DELETE` | `/playlists/{pid}/items/{iid}/` | Yes (owner) | Remove item → 204 |
+| `PATCH` | `/playlists/{pid}/items/reorder/` | Yes (owner) | Reorder items (item_ids array) |
+
+**Notification endpoints**:
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/notifications/` | Yes | Notification feed (cursor pagination, includes `meta.unread_count`) |
+| `POST` | `/notifications/mark-read/` | Yes | Mark read (notification_ids array or `all: true`) |
+
+---
+
+#### 4.4 Authentication Flow (JWT with HttpOnly Cookies)
+
+**Token strategy**:
+- **Access token** (15 min): Stored in JavaScript memory (NOT localStorage). Sent as `Authorization: Bearer <token>`. If XSS occurs, attacker has at most 15 minutes.
+- **Refresh token** (7 days): Set as `HttpOnly`, `Secure`, `SameSite=Lax` cookie by Django. JavaScript cannot read it. Browser sends it automatically to `/api/auth/refresh/`. Path scoped to `/api/auth/`.
+- **Rotation**: Each refresh generates a new refresh token. Old one is blacklisted via `rest_framework_simplejwt.token_blacklist`.
+
+**Login flow**:
+```
+User submits email + password → POST /api/auth/login/
+  ↓
+Django validates credentials
+  ↓
+Generates access + refresh tokens
+  ↓
+Response body: { "access": "eyJ...", "user": { id, email, name, avatar_url, level, bio } }
+Response cookie: Set-Cookie: de_refresh=eyJ...; HttpOnly; Secure; SameSite=Lax; Path=/api/auth/; Max-Age=604800
+  ↓
+Frontend: setAccessToken(data.access) in memory, setUser(data.user)
+  ↓
+Router.push('/feed')
+```
+
+**Session restoration** (on page load):
+```
+AuthContext.useEffect → POST /api/auth/refresh/ (browser auto-sends cookie)
+  ↓
+If 200: setAccessToken(data.access), GET /api/auth/me/, setUser(data)
+If 401: setUser(null), redirect to /login
+```
+
+**Frontend API client** (`src/api/client.ts`):
+- Axios instance with `withCredentials: true`
+- Request interceptor: attach `Authorization: Bearer <token>` from memory
+- Response interceptor: on 401, attempt refresh with mutex pattern (prevents multiple simultaneous refresh requests)
+- Failed queue: requests that arrive during refresh are queued and retried with new token
+
+**Next.js config** (`next.config.mjs`):
+- API proxy rewrite: `/api/:path*` → `http://localhost:8000/api/:path*` (avoids CORS in dev, cookie domain matches)
+
+---
+
+#### 4.5 Search Implementation (PostgreSQL Only — No ElasticSearch)
+
+**Why not ElasticSearch**: PostgreSQL's `tsvector` + `pg_trgm` handles all our search use cases at <15ms latency up to 10M+ documents. ElasticSearch adds: a separate cluster to manage, data synchronization complexity (dual-writes or CDC pipeline), and operational overhead — none of which is justified at our scale.
+
+**Search capabilities**:
+
+| Use Case | PostgreSQL Solution | Index Type |
+|----------|-------------------|------------|
+| Venue name search with typos | `pg_trgm` with `similarity()` | GIN trigram |
+| Review full-text search | `tsvector`/`tsquery` with weighted vectors | GIN |
+| Tag-based filtering | `ArrayField` with `@>` / `&&` operators | GIN |
+| Autocomplete suggestions | `pg_trgm` with `similarity()` or `LIKE 'prefix%'` | GIN trigram / BTree |
+| Combined geo + text search | PostGIS `ST_DWithin` + `tsvector` in single query | GIST + GIN |
+| People search | `pg_trgm` on username/name | GIN trigram |
+
+**Unified search service** (`apps/search/services.py`):
+```python
+def unified_search(query_text, user_location=None, cuisine=None, tags=None, limit=20):
+    # 1. Text search: combine tsvector full-text + trigram fuzzy matching
+    # 2. Geo filter: PostGIS ST_DWithin if user_location provided
+    # 3. Cuisine filter: iexact match
+    # 4. Tag filter: ArrayField contains
+    # 5. Order by combined_score (Greatest of fts_rank, name_similarity)
+```
+
+**Search vector triggers** (auto-maintained via PostgreSQL triggers):
+- **Venue**: `setweight(name, 'A') || setweight(cuisine_type, 'B') || setweight(tags, 'C')`
+- **Review**: `setweight(dish_name, 'A') || setweight(text, 'B')`
+
+---
+
+#### 4.6 Geospatial Implementation (PostGIS)
+
+**Setup**: `django.contrib.gis` + `geography(Point, 4326)` column + GIST index.
+
+**Key queries**:
+
+| Query | Django ORM | Use Case |
+|-------|-----------|----------|
+| Radius search | `Venue.objects.filter(location__distance_lte=(point, D(km=5)))` | "Nearby" venues |
+| Bounding box | `Venue.objects.filter(location__within=bbox_polygon)` | Map viewport |
+| Distance annotation | `.annotate(distance=Distance("location", point))` | Sort by distance |
+| Combined geo+filter | `.filter(location__distance_lte=..., cuisine_type="Japanese", rating__gte=8)` | Filtered map |
+
+**Performance**: GIST index on `location` column enables sub-millisecond spatial queries. No Haversine formula, no full-table scans.
+
+---
+
+#### 4.7 Caching Strategy (Phased)
+
+**Phase 1 — MVP (current)**: `LocMemCache` with `CacheKeys`/`CacheTTL` abstraction classes.
+
+| Data | TTL | Invalidation |
+|------|-----|-------------|
+| Feed pages | 2 min | On new review from followed user |
+| Venue detail | 15 min | On new review for venue |
+| Venue stats | 5 min | On new review for venue |
+| User profile | 10 min | On profile edit |
+| Search results | 5 min | Time-based only |
+
+**CacheKeys class** (defined from day 1):
+```python
+class CacheKeys:
+    @staticmethod
+    def user_feed(user_id, cursor="first"):
+        return f"v1:feed:user:{user_id}:cursor:{cursor}"
+
+    @staticmethod
+    def venue_detail(venue_id):
+        return f"v1:venue:{venue_id}:detail"
+    # ... etc
+```
+
+**Phase 2 — Growth (1K+ users)**: Switch to Redis via settings change only. Add: session-backed cache, rate limiting cache, signal-based invalidation.
+
+**Phase 3 — Scale (50K+ users)**: Redis sorted sets for leaderboards/trending, Celery async invalidation for high-fanout events.
+
+---
+
+#### 4.8 Frontend Integration Plan
+
+**Step 1: Create API client** (`src/api/client.ts`)
+- Axios instance with `baseURL: ''` (uses Next.js proxy)
+- `withCredentials: true` for refresh cookie
+- Request interceptor: attach Bearer token from in-memory variable
+- Response interceptor: 401 → refresh with mutex → retry failed requests → redirect to /login on refresh failure
+
+**Step 2: Update AuthContext** (`src/context/AuthContext.tsx`)
+- Replace mock login with `POST /api/auth/login/`
+- Add `register()`, `logout()`, `refreshUser()` methods
+- On mount: attempt session restoration via `POST /api/auth/refresh/`
+- `isLoading` state to prevent flash of login page during session check
+
+**Step 3: Replace mock API functions** (`src/api/mockApi.ts` → `src/api/client.ts`)
+- Each `fetch*` function → `apiClient.get()` call
+- Each mutation → `apiClient.post()/patch()/delete()` call
+- Add response adapter layer: snake_case API → camelCase TypeScript
+- React Query hooks stay the same, only `queryFn` changes
+
+**Step 4: Type mapping** (API response → existing TypeScript interfaces):
+
+| Frontend Type | API Source | Mapping |
+|---------------|-----------|---------|
+| `User` | `GET /users/{id}` | `avatar_url` → `avatarUrl`, `followers_count` → `followers` |
+| `Venue` | `GET /venues/{id}` | `photo_url` → `photoUrl`, add `lat`/`lng` from `location` |
+| `FeedReview` | `GET /feed` item | Flatten: `venue = item.venue.name`, `user = item.user`, fields from `item.review` |
+| `Playlist` | `GET /playlists/{id}` | `items` array embedded, map snake_case |
+| `PlaylistItem` | Nested in Playlist | `photo_url` from `item.venue.photo_url`, `venueId = item.venue.id` |
+
+**Step 5: Connect login page** to real auth API
+**Step 6: Connect feed** to `GET /api/feed/`
+**Step 7: Connect map** to `GET /api/venues/?bbox=...`
+**Step 8: Connect profile** to `GET /api/users/{id}/`
+**Step 9: Connect playlists** to playlist API
+**Step 10: Connect search** to `GET /api/search/`
+
+---
+
+#### 4.9 Implementation Order
+
+The backend should be built in this sequence (each step is independently testable):
+
+1. **Django project scaffold** — project structure, settings, requirements, manage.py
+2. **PostgreSQL + PostGIS setup** — database creation, extensions, initial migration
+3. **User model + auth views** — register, login (cookie-based), refresh, logout, me
+4. **Venue model + views** — CRUD, geospatial queries, search vector triggers
+5. **Review model + views** — CRUD, like/unlike, comments, count triggers
+6. **Playlist model + views** — CRUD, item management, reorder
+7. **Feed view** — cursor-paginated feed from followed users' reviews
+8. **Search views** — unified search + autocomplete using pg_trgm + tsvector
+9. **Notification model + views** — create on like/comment/follow, list + mark-read
+10. **Frontend API client** — Axios interceptors, token management
+11. **Frontend AuthContext** — real JWT auth replacing mock
+12. **Frontend integration** — connect all pages to real API, replace mockApi
+13. **Seed data migration** — load mock data into PostgreSQL for testing
 
 ---
 

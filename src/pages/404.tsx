@@ -75,7 +75,7 @@ export default function Custom404() {
               textTransform: 'none',
               fontWeight: 700,
               '&:hover': {
-                backgroundColor: '#d93e40',
+                backgroundColor: theme.palette.primary.dark,
               },
             }}
           >

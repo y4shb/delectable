@@ -107,7 +107,10 @@ export default function NewPlaylistPage() {
               cursor: 'pointer',
               transition: 'background-color 0.2s ease',
               '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                backgroundColor:
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.04)'
+                    : 'rgba(0, 0, 0, 0.04)',
               },
             }}
           >
@@ -125,6 +128,7 @@ export default function NewPlaylistPage() {
               </Typography>
               <Button
                 variant="contained"
+                aria-label="Add a spot to playlist"
                 sx={{
                   minWidth: 0,
                   width: 32,
@@ -133,7 +137,7 @@ export default function NewPlaylistPage() {
                   padding: 0,
                   backgroundColor: theme.palette.primary.main,
                   '&:hover': {
-                    backgroundColor: '#d93d3f',
+                    backgroundColor: theme.palette.primary.dark,
                   },
                 }}
               >
@@ -159,7 +163,7 @@ export default function NewPlaylistPage() {
               textTransform: 'none',
               fontSize: '1rem',
               '&:hover': {
-                backgroundColor: '#d93d3f',
+                backgroundColor: theme.palette.primary.dark,
               },
             }}
           >

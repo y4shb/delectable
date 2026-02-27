@@ -21,8 +21,23 @@ export default function BottomTabBar() {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
-    const idx = tabConfig.findIndex(tab => router.pathname.startsWith(tab.route.replace('/new', '')));
-    setValue(idx === -1 ? 0 : idx);
+    const routeMap: Record<string, number> = {
+      '/feed': 0,
+      '/map': 1,
+      '/playlist/new': 2,
+      '/notifications': 3,
+      '/profile': 4,
+    };
+    const exactMatch = routeMap[router.pathname];
+    if (exactMatch !== undefined) {
+      setValue(exactMatch);
+    } else if (router.pathname.startsWith('/profile')) {
+      setValue(4);
+    } else if (router.pathname.startsWith('/map')) {
+      setValue(1);
+    } else {
+      setValue(0);
+    }
   }, [router.pathname]);
 
   return (

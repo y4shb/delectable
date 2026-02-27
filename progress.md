@@ -170,55 +170,59 @@
 
 ---
 
-## Milestone 4: Backend MVP & Data Storage [NOT STARTED]
+## Milestone 4: Backend MVP & Data Storage [IN PROGRESS]
+
+**Architecture**: Django 5.2 + DRF + PostgreSQL/PostGIS. No ElasticSearch (pg_trgm + tsvector sufficient). No Redis for MVP (LocMemCache).
 
 ### 4.1 Django Project Setup
-- [ ] Initialize Django 5.x project with DRF
-- [ ] Configure djangorestframework-simplejwt
-- [ ] Set up PostgreSQL connection
-- [ ] Set up Redis connection
-- [ ] Set up ElasticSearch connection
-- [ ] Configure CORS for Next.js frontend
+- [ ] Initialize Django 5.2 project with DRF
+- [ ] Configure djangorestframework-simplejwt (cookie-based refresh)
+- [ ] Set up PostgreSQL + PostGIS connection
+- [ ] Install pg_trgm + unaccent + postgis extensions
+- [ ] Configure CORS for Next.js frontend (django-cors-headers)
+- [ ] Configure django-filter for queryset filtering
+- [ ] Set up split settings (base/dev/prod)
+- [ ] Create core app (TimeStampedModel, permissions, pagination, cache_keys, cache_ttls)
 
 ### 4.2 Database Models
-- [ ] Users model with profile fields
-- [ ] Follows model (many-to-many self-referential)
-- [ ] Venues model with location/type fields
-- [ ] Reviews model with photos/tags (JSONB)
-- [ ] ReviewLikes model
-- [ ] Comments model
-- [ ] Playlists model
-- [ ] PlaylistItems model with ordering
-- [ ] Tags lookup table
-- [ ] Notifications model
+- [ ] User model (AbstractBaseUser, UUID PK, email login, SearchVectorField)
+- [ ] Follow model (UniqueConstraint + CheckConstraint no self-follow)
+- [ ] Venue model (PostGIS PointField, ArrayField tags, SearchVectorField)
+- [ ] Review model (0-10 rating, ArrayField tags, UniqueConstraint user+venue)
+- [ ] ReviewLike model (UniqueConstraint)
+- [ ] Comment model
+- [ ] Playlist + PlaylistItem models (sort_order, UniqueConstraints)
+- [ ] Notification model (types: like, comment, follow, playlist_add)
+- [ ] Database triggers: follow counts, like counts, comment counts, playlist item counts
+- [ ] Search vector triggers: venue (name+cuisine+tags), review (dish+text)
+- [ ] Partial indexes: unread notifications, recent trending reviews
 - [ ] Run initial migrations
 
 ### 4.3 API Endpoints
-- [ ] Auth endpoints (register, login, refresh, logout, me)
-- [ ] User CRUD endpoints
-- [ ] Follow/unfollow endpoints
-- [ ] Venue list/detail/search/nearby endpoints
-- [ ] Review CRUD + like/comment endpoints
-- [ ] Playlist CRUD + item management endpoints
-- [ ] Feed endpoint with cursor-based pagination
-- [ ] Unified search endpoint
+- [ ] Auth: register, login (cookie-based), refresh, logout (blacklist), me
+- [ ] User: profile detail, follow/unfollow, followers/following lists
+- [ ] Venue: list (bbox, radius, cuisine, tags, rating filters), detail, reviews
+- [ ] Review: create, update, delete, like/unlike, comments CRUD
+- [ ] Playlist: CRUD, item add/remove/reorder
+- [ ] Feed: cursor-paginated, tabs (recent, top-picks, explore), denormalized items
+- [ ] Search: unified search (pg_trgm + tsvector), autocomplete
+- [ ] Notifications: list with unread_count, mark-read
 
 ### 4.4 Frontend Integration
-- [ ] Set up Axios interceptors for JWT auth
-- [ ] Replace mock API functions with real API calls
-- [ ] Implement token refresh logic
-- [ ] Connect login page to auth API
-- [ ] Connect feed to feed API
-- [ ] Connect map to venues API
-- [ ] Connect profile to users API
-- [ ] Connect playlists to playlists API
-- [ ] Connect search to search API
+- [ ] Create API client (Axios + interceptors + refresh mutex)
+- [ ] Update AuthContext (real JWT auth, session restoration)
+- [ ] Add Next.js API proxy rewrite in next.config.mjs
+- [ ] Create response adapter layer (snake_case → camelCase)
+- [ ] Replace mockApi functions with real API calls
+- [ ] Connect all pages to real API (login, feed, map, profile, playlists, search, notifications)
+- [ ] Seed data migration (load mock data into PostgreSQL)
 
 ### 4.5 Caching & Search
-- [ ] Configure Redis caching for sessions and hot data
-- [ ] Set up ElasticSearch indices (venues, reviews, users)
-- [ ] Implement full-text search with autocomplete
-- [ ] Implement geo-queries for map bounds
+- [ ] CacheKeys + CacheTTL abstraction classes (built for Redis migration later)
+- [ ] LocMemCache for MVP (venue detail 15min, feed 2min, user 10min, search 5min)
+- [ ] PostgreSQL full-text search (tsvector + tsquery + SearchRank)
+- [ ] PostgreSQL fuzzy search (pg_trgm + TrigramSimilarity)
+- [ ] PostGIS geospatial queries (ST_DWithin, bounding box, Distance annotation)
 
 ---
 
@@ -300,3 +304,9 @@
 | 2026-02-23 | M3 map overhaul | Custom SVG cuisine markers, user geolocation blue dot, venue filtering (cuisine chips + rating), map/list toggle, mini-card navigation to venue detail |
 | 2026-02-23 | M3 venue detail page | Created /venue/[id] with hero photo, venue info, reviews, action buttons, related venues |
 | 2026-02-23 | M3 COMPLETE (95%) | Core map features done; remaining radius slider/tag search/sort deferred to backend phase |
+| 2026-02-23 | Comprehensive bug audit | Audited all 15 pages, 6 components, 3 hooks, 2 contexts, 2 layouts — found 3 critical, 18+ major, 22+ minor bugs |
+| 2026-02-23 | Critical bugs fixed (3/3) | Login page: added state, handlers, auth integration, validation, redirect. Search page: wrapped all results in Links to venue detail. Profile page: implemented tab switching (Reviews/Playlists), added useRequireAuth, Edit Profile button, real user data |
+| 2026-02-23 | Major bugs fixed (12+) | Fixed: ReviewCard stale IntersectionObserver ref, WelcomeSection hardcoded "Hi Yash!" → dynamic user name, PhotoCarousel index reset on images change, BottomTabBar fragile route matching, playlist/[id] missing useRequireAuth + items now navigable to venue, venue/[id] Write Review passes venueId, profile/edit uses auth user not mockUser, review/new tags validation fixed, GoogleMapView close button aria-label |
+| 2026-02-23 | Minor bugs fixed (15+) | Replaced all hardcoded #d93d3f/#d93e40 with theme.palette.primary.dark (6 files), replaced #F24D4F in ReviewCard heart with primary.main, replaced #FFD36E/#181818 in profile with theme tokens, fixed #eee dark mode in playlist/[id], consolidated duplicate React imports in Header + AppShell, stable keys in feed/venue/search (replaced index keys), added aria-labels (search input, avatar edit, add spots, close button), added slide id to PhotoCarousel |
+| 2026-02-23 | Bug fix pass complete | TypeScript passes with zero errors after all fixes |
+| 2026-02-24 | Config audit fixes | Added missing deps to package.json (react-hook-form, yup, @hookform/resolvers), created next.config.mjs (reactStrictMode + transpilePackages for MUI), added font-display: swap to @font-face |

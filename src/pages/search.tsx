@@ -12,6 +12,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import AppShell from '../layouts/AppShell';
 import { mockVenues, mockFeedReviews } from '../api/mockApi';
 import { useRequireAuth } from '../hooks/useRequireAuth';
+import Link from 'next/link';
 
 const recentSearches = [
   'SavorWorks',
@@ -59,6 +60,7 @@ export default function SearchPage() {
             placeholder="Search venues, dishes, people..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search venues, dishes, people"
             slotProps={{
               input: {
                 startAdornment: (
@@ -142,49 +144,60 @@ export default function SearchPage() {
                 </Typography>
                 <Stack spacing={1.5}>
                   {filteredVenues.map((venue) => (
-                    <Box
+                    <Link
                       key={venue.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                        cursor: 'pointer',
-                      }}
+                      href={`/venue/${venue.id}`}
+                      legacyBehavior
+                      passHref
                     >
                       <Box
-                        component="img"
-                        src={venue.photoUrl}
-                        alt={venue.name}
+                        component="a"
                         sx={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: '12px',
-                          objectFit: 'cover',
-                          flexShrink: 0,
-                        }}
-                      />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
-                          {venue.name}
-                        </Typography>
-                        <Typography
-                          color="text.secondary"
-                          sx={{ fontSize: 13 }}
-                        >
-                          {venue.cuisine}
-                        </Typography>
-                      </Box>
-                      <Typography
-                        sx={{
-                          color: 'primary.main',
-                          fontWeight: 700,
-                          fontSize: 15,
-                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          color: 'inherit',
                         }}
                       >
-                        {venue.rating.toFixed(1)}
-                      </Typography>
-                    </Box>
+                        {venue.photoUrl && (
+                          <Box
+                            component="img"
+                            src={venue.photoUrl}
+                            alt={venue.name}
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: '12px',
+                              objectFit: 'cover',
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                            {venue.name}
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            sx={{ fontSize: 13 }}
+                          >
+                            {venue.cuisine}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          sx={{
+                            color: 'primary.main',
+                            fontWeight: 700,
+                            fontSize: 15,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {venue.rating.toFixed(1)}
+                        </Typography>
+                      </Box>
+                    </Link>
                   ))}
                 </Stack>
               </Box>
@@ -197,48 +210,61 @@ export default function SearchPage() {
                   Reviews
                 </Typography>
                 <Stack spacing={1.5}>
-                  {filteredReviews.map((review, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <Avatar
-                        src={review.user.avatarUrl}
-                        sx={{ width: 32, height: 32, flexShrink: 0 }}
-                      />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
-                          {review.venue}
-                        </Typography>
-                        <Typography
-                          color="text.secondary"
+                  {filteredReviews.map((review) => {
+                    const matchedVenue = mockVenues.find((v) => v.name === review.venue);
+                    const reviewKey = `${review.venue}-${review.date}`;
+                    return (
+                      <Link
+                        key={reviewKey}
+                        href={matchedVenue ? `/venue/${matchedVenue.id}` : '#'}
+                        legacyBehavior
+                        passHref
+                      >
+                        <Box
+                          component="a"
                           sx={{
-                            fontSize: 13,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
+                            cursor: 'pointer',
+                            textDecoration: 'none',
+                            color: 'inherit',
                           }}
                         >
-                          {review.text}
-                        </Typography>
-                      </Box>
-                      <Typography
-                        sx={{
-                          color: 'primary.main',
-                          fontWeight: 700,
-                          fontSize: 14,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {review.rating.toFixed(1)}
-                      </Typography>
-                    </Box>
-                  ))}
+                          <Avatar
+                            src={review.user.avatarUrl}
+                            sx={{ width: 32, height: 32, flexShrink: 0 }}
+                          />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
+                              {review.venue}
+                            </Typography>
+                            <Typography
+                              color="text.secondary"
+                              sx={{
+                                fontSize: 13,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {review.text}
+                            </Typography>
+                          </Box>
+                          <Typography
+                            sx={{
+                              color: 'primary.main',
+                              fontWeight: 700,
+                              fontSize: 14,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {review.rating.toFixed(1)}
+                          </Typography>
+                        </Box>
+                      </Link>
+                    );
+                  })}
                 </Stack>
               </Box>
             )}

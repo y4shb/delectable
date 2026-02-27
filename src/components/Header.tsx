@@ -2,11 +2,9 @@ import { AppBar, Box, Toolbar, Typography, IconButton, useTheme } from '@mui/mat
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
-import { useContext } from 'react';
+import React, { useContext } from 'react';
 import { ColorModeContext } from '../theme/ColorModeContext';
 import { useRouter } from 'next/router';
-
-import React from 'react';
 
 interface HeaderProps {
   visible?: boolean;

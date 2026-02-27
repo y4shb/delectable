@@ -39,14 +39,14 @@ const reviewSchema = yup.object({
   venue: yup.object().nullable().required('Please select a venue'),
   rating: yup.number().min(0).max(10).required('Rating is required'),
   reviewText: yup.string().required('Please write a review').min(10, 'Review must be at least 10 characters'),
-  selectedTags: yup.array().of(yup.string().defined()).optional().min(1, 'Select at least one tag'),
+  selectedTags: yup.array().of(yup.string().defined()).min(1, 'Select at least one tag'),
 });
 
 interface ReviewFormData {
   venue: Record<string, unknown> | null;
   rating: number;
   reviewText: string;
-  selectedTags?: string[];
+  selectedTags: string[];
 }
 
 export default function NewReviewPage() {
@@ -188,7 +188,7 @@ export default function NewReviewPage() {
                       backgroundColor: '#fff',
                       border: `2px solid ${theme.palette.primary.main}`,
                       '&:hover, &.Mui-focusVisible': {
-                        boxShadow: '0 0 0 8px rgba(242, 77, 79, 0.16)',
+                        boxShadow: `0 0 0 8px ${theme.palette.primary.main}29`,
                       },
                     },
                     '& .MuiSlider-track': {
@@ -302,7 +302,7 @@ export default function NewReviewPage() {
                       transition: 'all 0.2s ease',
                       '&:hover': {
                         bgcolor: isSelected
-                          ? '#d93d3f'
+                          ? theme.palette.primary.dark
                           : theme.palette.mode === 'dark'
                             ? 'rgba(55, 55, 55, 0.9)'
                             : 'rgba(251, 224, 226, 1)',
@@ -332,7 +332,7 @@ export default function NewReviewPage() {
               textTransform: 'none',
               fontSize: '1rem',
               '&:hover': {
-                backgroundColor: '#d93d3f',
+                backgroundColor: theme.palette.primary.dark,
               },
             }}
           >

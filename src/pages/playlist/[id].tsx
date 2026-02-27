@@ -3,8 +3,11 @@ import { Box, CircularProgress, IconButton, Typography, useTheme } from '@mui/ma
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useRouter } from 'next/router';
 import { usePlaylistDetail, useVenues } from '../../hooks/useApi';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
+import Link from 'next/link';
 
 export default function PlaylistDetailPage() {
+  useRequireAuth();
   const router = useRouter();
   const theme = useTheme();
   const { id } = router.query;
@@ -117,9 +120,18 @@ export default function PlaylistDetailPage() {
           const venue = (venues ?? []).find((v) => v.id === item.venueId);
 
           return (
-            <Box
+            <Link
               key={item.id}
+              href={`/venue/${item.venueId}`}
+              legacyBehavior
+              passHref
+            >
+            <Box
+              component="a"
               sx={(theme) => ({
+                textDecoration: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
                 borderRadius: 4,
                 boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)',
                 border:
@@ -140,7 +152,7 @@ export default function PlaylistDetailPage() {
                   position: 'relative',
                   width: '100%',
                   aspectRatio: '1.2',
-                  background: '#eee',
+                  background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#eee',
                 }}
               >
                 {item.photoUrl && (
@@ -201,6 +213,7 @@ export default function PlaylistDetailPage() {
                 </Box>
               </Box>
             </Box>
+            </Link>
           );
         })}
       </Box>

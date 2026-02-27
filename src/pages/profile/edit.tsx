@@ -13,7 +13,7 @@ import {
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useState } from 'react';
-import { mockUser } from '../../api/mockApi';
+import { useAuth } from '../../context/AuthContext';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -45,6 +45,7 @@ export default function EditProfilePage() {
   useRequireAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const { user: authUser } = useAuth();
 
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
 
@@ -56,8 +57,8 @@ export default function EditProfilePage() {
   } = useForm<ProfileFormData>({
     resolver: yupResolver(profileSchema) as any,
     defaultValues: {
-      name: mockUser.name,
-      bio: mockUser.bio,
+      name: authUser?.name ?? '',
+      bio: authUser?.bio ?? '',
     },
   });
 
@@ -93,10 +94,11 @@ export default function EditProfilePage() {
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Box sx={{ position: 'relative', width: 80, height: 80 }}>
               <Avatar
-                src={mockUser.avatarUrl}
+                src={authUser?.avatarUrl}
                 sx={{ width: 80, height: 80 }}
               />
               <IconButton
+                aria-label="Change profile photo"
                 sx={{
                   position: 'absolute',
                   bottom: -2,
@@ -210,7 +212,7 @@ export default function EditProfilePage() {
               textTransform: 'none',
               fontSize: '1rem',
               '&:hover': {
-                backgroundColor: '#d93d3f',
+                backgroundColor: theme.palette.primary.dark,
               },
             }}
           >

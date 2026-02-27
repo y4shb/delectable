@@ -1,7 +1,40 @@
+import { useState } from 'react';
 import { Box, Typography, TextField, Button, useTheme } from '@mui/material';
+import { useRouter } from 'next/router';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const theme = useTheme();
+  const router = useRouter();
+  const { login, isAuthenticated } = useAuth();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    router.replace('/feed');
+    return null;
+  }
+
+  const handleSignIn = async () => {
+    setError('');
+    if (!email.trim()) {
+      setError('Please enter your email');
+      return;
+    }
+    if (!password.trim()) {
+      setError('Please enter your password');
+      return;
+    }
+    try {
+      await login(email, password);
+      router.push('/feed');
+    } catch {
+      setError('Invalid email or password');
+    }
+  };
 
   return (
     <Box
@@ -61,12 +94,29 @@ export default function LoginPage() {
           Discover. Curate. Share.
         </Typography>
 
+        {/* Error message */}
+        {error && (
+          <Typography
+            sx={{
+              color: theme.palette.error.main,
+              fontSize: 14,
+              mb: 2,
+              textAlign: 'center',
+            }}
+          >
+            {error}
+          </Typography>
+        )}
+
         {/* Email field */}
         <TextField
           label="Email"
           variant="outlined"
           type="email"
           fullWidth
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          aria-label="Email address"
           sx={{
             mb: 2,
             '& .MuiOutlinedInput-root': {
@@ -81,6 +131,12 @@ export default function LoginPage() {
           variant="outlined"
           type="password"
           fullWidth
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          aria-label="Password"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSignIn();
+          }}
           sx={{
             mb: 3,
             '& .MuiOutlinedInput-root': {
@@ -94,6 +150,7 @@ export default function LoginPage() {
           variant="contained"
           fullWidth
           disableElevation
+          onClick={handleSignIn}
           sx={{
             backgroundColor: theme.palette.primary.main,
             color: '#fff',
@@ -103,7 +160,7 @@ export default function LoginPage() {
             py: 1.5,
             textTransform: 'none',
             '&:hover': {
-              backgroundColor: '#d93e40',
+              backgroundColor: theme.palette.primary.dark,
             },
           }}
         >
@@ -113,15 +170,19 @@ export default function LoginPage() {
         {/* Create Account link */}
         <Button
           variant="text"
+          disabled
           sx={{
             mt: 2,
             color: theme.palette.primary.main,
             fontWeight: 600,
             textTransform: 'none',
             fontSize: '0.9rem',
+            '&.Mui-disabled': {
+              color: theme.palette.text.secondary,
+            },
           }}
         >
-          Create Account
+          Create Account (Coming Soon)
         </Button>
       </Box>
     </Box>

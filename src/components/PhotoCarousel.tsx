@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface PhotoCarouselProps {
   images: string[];
@@ -7,6 +7,11 @@ interface PhotoCarouselProps {
 
 export default function PhotoCarousel({ images }: PhotoCarouselProps) {
   const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [images]);
+
   if (!images.length) return null;
   return (
     <Box 
@@ -17,8 +22,9 @@ export default function PhotoCarousel({ images }: PhotoCarouselProps) {
       aria-live="polite"
       sx={{ position: 'relative', width: '100%', height: 220, borderRadius: 3, overflow: 'hidden', mb: 2 }}
     >
-      <div 
-        role="group" 
+      <div
+        id={`carousel-slide-${index}`}
+        role="group"
         aria-roledescription="slide"
         aria-label={`Slide ${index + 1} of ${images.length}`}
       >

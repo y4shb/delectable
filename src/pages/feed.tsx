@@ -39,8 +39,8 @@ export default function FeedPage() {
             <CircularProgress />
           </Box>
         ) : (
-          (reviews ?? []).map((review, i) => (
-            <ReviewCard key={i} {...review} />
+          (reviews ?? []).map((review) => (
+            <ReviewCard key={`${review.venue}-${review.date}`} {...review} />
           ))
         )}
       </Box>

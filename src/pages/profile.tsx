@@ -1,14 +1,22 @@
 import AppShell from '../layouts/AppShell';
-import { Box, Typography, Avatar, Tabs, Tab, CircularProgress } from '@mui/material';
+import { Box, Typography, Avatar, Tabs, Tab, CircularProgress, Button, Stack, useTheme } from '@mui/material';
 import { useState } from 'react';
 import ReviewCard from '../components/ReviewCard';
-import { useUser } from '../hooks/useApi';
+import { useUser, useFeedReviews, usePlaylists } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
+import { useRequireAuth } from '../hooks/useRequireAuth';
+import Link from 'next/link';
+import EditIcon from '@mui/icons-material/Edit';
+import StarIcon from '@mui/icons-material/Star';
 
 export default function ProfilePage() {
+  useRequireAuth();
+  const theme = useTheme();
   const [tab, setTab] = useState(0);
   const { user: authUser } = useAuth();
   const { data: user, isLoading } = useUser(authUser?.id);
+  const { data: feedReviews } = useFeedReviews();
+  const { data: playlists } = usePlaylists(authUser?.id);
 
   if (isLoading || !user) {
     return (
@@ -20,6 +28,11 @@ export default function ProfilePage() {
     );
   }
 
+  // Filter reviews by the current user
+  const userReviews = (feedReviews ?? []).filter(
+    (r) => r.user.name === user.name
+  );
+
   return (
     <AppShell>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
@@ -28,8 +41,8 @@ export default function ProfilePage() {
           <Typography variant="h6" fontWeight={700}>{user.name}</Typography>
           <Box
             sx={{
-              backgroundColor: '#FFD36E',
-              color: '#181818',
+              backgroundColor: theme.palette.secondary.main,
+              color: theme.palette.getContrastText(theme.palette.secondary.main),
               fontWeight: 700,
               fontSize: 12,
               borderRadius: '12px',
@@ -45,29 +58,110 @@ export default function ProfilePage() {
           {user.followers.toLocaleString()} followers · {user.following} following
         </Typography>
         <Typography variant="body1" color="text.secondary">{user.bio}</Typography>
+
+        {/* Edit Profile button */}
+        <Link href="/profile/edit" legacyBehavior passHref>
+          <Button
+            component="a"
+            variant="outlined"
+            size="small"
+            startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              mt: 1.5,
+              borderRadius: '48px',
+              textTransform: 'none',
+              fontWeight: 600,
+              borderColor: theme.palette.primary.main,
+              color: theme.palette.primary.main,
+              '&:hover': {
+                borderColor: theme.palette.primary.dark,
+                bgcolor: 'transparent',
+              },
+            }}
+          >
+            Edit Profile
+          </Button>
+        </Link>
+
         <Box sx={{ width: '100%', mt: 2 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
             <Tab label="Reviews" />
             <Tab label="Playlists" />
-            <Tab label="Map" />
           </Tabs>
         </Box>
       </Box>
-      <Box>
-        {/* Example review card for profile */}
-        <ReviewCard
-          venue="Hibacci"
-          location="New Delhi"
-          dish="Omakase"
-          tags={['Sushi', 'Japanese']}
-          user={{ name: user.name, avatarUrl: user.avatarUrl, level: user.level }}
-          rating={9.8}
-          text={'Hibacci is a must-try for sushi lovers.'}
-          photoUrl={'/images/food2.jpg'}
-          date={'2h ago'}
-          likeCount={23}
-          commentCount={8}
-        />
+
+      {/* Tab content */}
+      <Box sx={{ pb: 11 }}>
+        {tab === 0 && (
+          <>
+            {userReviews.length === 0 ? (
+              <Box sx={{ textAlign: 'center', mt: 4 }}>
+                <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                  No reviews yet
+                </Typography>
+              </Box>
+            ) : (
+              userReviews.map((review) => (
+                <ReviewCard
+                  key={`${review.venue}-${review.date}`}
+                  {...review}
+                />
+              ))
+            )}
+          </>
+        )}
+
+        {tab === 1 && (
+          <Stack spacing={1.5} sx={{ px: 1, mt: 1 }}>
+            {(playlists ?? []).length === 0 ? (
+              <Box sx={{ textAlign: 'center', mt: 4 }}>
+                <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                  No playlists yet
+                </Typography>
+              </Box>
+            ) : (
+              (playlists ?? []).map((playlist) => (
+                <Link
+                  key={playlist.id}
+                  href={`/playlist/${playlist.id}`}
+                  legacyBehavior
+                  passHref
+                >
+                  <Box
+                    component="a"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      p: 1.5,
+                      borderRadius: '16px',
+                      bgcolor: theme.palette.mode === 'dark'
+                        ? 'rgba(255,255,255,0.06)'
+                        : theme.palette.background.paper,
+                      boxShadow: theme.palette.mode === 'dark'
+                        ? 'none'
+                        : '0 2px 8px rgba(0,0,0,0.06)',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                        {playlist.title}
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                        {playlist.items.length} {playlist.items.length === 1 ? 'spot' : 'spots'}
+                      </Typography>
+                    </Box>
+                    <StarIcon sx={{ fontSize: 16, color: theme.palette.primary.main }} />
+                  </Box>
+                </Link>
+              ))
+            )}
+          </Stack>
+        )}
       </Box>
     </AppShell>
   );
