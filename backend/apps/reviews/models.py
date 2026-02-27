@@ -1,0 +1,92 @@
+import uuid
+
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+from django.db.models.indexes import Index
+
+from apps.core.models import TimeStampedModel
+
+
+class Review(TimeStampedModel):
+    """A user's review of a venue."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reviews"
+    )
+    venue = models.ForeignKey(
+        "venues.Venue", on_delete=models.CASCADE, related_name="reviews"
+    )
+    rating = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
+    text = models.TextField(max_length=2000, blank=True, default="")
+    photo_url = models.URLField(max_length=500, blank=True, default="")
+    dish_name = models.CharField(max_length=200, blank=True, default="")
+    tags = models.JSONField(default=list, blank=True)
+    like_count = models.PositiveIntegerField(default=0)
+    comment_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "reviews"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "venue"],
+                name="uq_review_user_venue",
+            )
+        ]
+        indexes = [
+            Index(name="idx_review_user_created", fields=["user", "-created_at"]),
+            Index(name="idx_review_venue_created", fields=["venue", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} → {self.venue} ({self.rating})"
+
+
+class ReviewLike(models.Model):
+    """Like on a review."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="review_likes"
+    )
+    review = models.ForeignKey(
+        Review, on_delete=models.CASCADE, related_name="likes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "review_likes"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "review"],
+                name="uq_reviewlike_user_review",
+            )
+        ]
+
+
+class Comment(TimeStampedModel):
+    """Comment on a review."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments"
+    )
+    review = models.ForeignKey(
+        Review, on_delete=models.CASCADE, related_name="comments"
+    )
+    text = models.TextField(max_length=1000)
+
+    class Meta:
+        db_table = "comments"
+        ordering = ["created_at"]
+        indexes = [
+            Index(name="idx_comment_review_created", fields=["review", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} on {self.review.id}: {self.text[:50]}"
