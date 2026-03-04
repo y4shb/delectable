@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   TextField,
   InputAdornment,
@@ -7,10 +7,11 @@ import {
   Box,
   Stack,
   Chip,
+  CircularProgress,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AppShell from '../layouts/AppShell';
-import { mockVenues, mockFeedReviews } from '../api/mockApi';
+import { useSearch } from '../hooks/useApi';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import Link from 'next/link';
 
@@ -23,32 +24,25 @@ const recentSearches = [
 ];
 
 export default function SearchPage() {
-  useRequireAuth();
+  const { isLoading: authLoading } = useRequireAuth();
   const [query, setQuery] = useState('');
 
-  const trimmed = query.trim().toLowerCase();
+  const trimmed = query.trim();
+  const { data: results, isLoading: searchLoading } = useSearch(trimmed);
 
-  const filteredVenues = useMemo(() => {
-    if (!trimmed) return [];
-    return mockVenues.filter(
-      (v) =>
-        v.name.toLowerCase().includes(trimmed) ||
-        v.cuisine.toLowerCase().includes(trimmed) ||
-        (v.tags ?? []).some((t) => t.toLowerCase().includes(trimmed))
+  if (authLoading) {
+    return (
+      <AppShell>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      </AppShell>
     );
-  }, [trimmed]);
+  }
 
-  const filteredReviews = useMemo(() => {
-    if (!trimmed) return [];
-    return mockFeedReviews.filter(
-      (r) =>
-        r.venue.toLowerCase().includes(trimmed) ||
-        (r.dish && r.dish.toLowerCase().includes(trimmed)) ||
-        r.text.toLowerCase().includes(trimmed)
-    );
-  }, [trimmed]);
-
-  const hasResults = filteredVenues.length > 0 || filteredReviews.length > 0;
+  const venues = results?.venues ?? [];
+  const reviews = results?.reviews ?? [];
+  const hasResults = venues.length > 0 || reviews.length > 0;
 
   return (
     <AppShell>
@@ -125,8 +119,15 @@ export default function SearchPage() {
           </Box>
         )}
 
+        {/* Loading state */}
+        {trimmed && searchLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress size={28} />
+          </Box>
+        )}
+
         {/* Search results */}
-        {trimmed && !hasResults && (
+        {trimmed && !searchLoading && !hasResults && (
           <Box sx={{ textAlign: 'center', mt: 6 }}>
             <Typography color="text.secondary" sx={{ fontSize: 16 }}>
               No results found
@@ -134,16 +135,16 @@ export default function SearchPage() {
           </Box>
         )}
 
-        {trimmed && hasResults && (
+        {trimmed && !searchLoading && hasResults && (
           <Stack spacing={3} sx={{ maxWidth: 420, mx: 'auto' }}>
             {/* Venues section */}
-            {filteredVenues.length > 0 && (
+            {venues.length > 0 && (
               <Box>
                 <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1.5 }}>
                   Venues
                 </Typography>
                 <Stack spacing={1.5}>
-                  {filteredVenues.map((venue) => (
+                  {venues.map((venue) => (
                     <Link
                       key={venue.id}
                       href={`/venue/${venue.id}`}
@@ -183,7 +184,7 @@ export default function SearchPage() {
                             color="text.secondary"
                             sx={{ fontSize: 13 }}
                           >
-                            {venue.cuisine}
+                            {venue.cuisineType}
                           </Typography>
                         </Box>
                         <Typography
@@ -204,67 +205,63 @@ export default function SearchPage() {
             )}
 
             {/* Reviews section */}
-            {filteredReviews.length > 0 && (
+            {reviews.length > 0 && (
               <Box>
                 <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1.5 }}>
                   Reviews
                 </Typography>
                 <Stack spacing={1.5}>
-                  {filteredReviews.map((review) => {
-                    const matchedVenue = mockVenues.find((v) => v.name === review.venue);
-                    const reviewKey = `${review.venue}-${review.date}`;
-                    return (
-                      <Link
-                        key={reviewKey}
-                        href={matchedVenue ? `/venue/${matchedVenue.id}` : '#'}
-                        legacyBehavior
-                        passHref
+                  {reviews.map((review) => (
+                    <Link
+                      key={review.id}
+                      href={review.venueDetail ? `/venue/${review.venueDetail.id}` : '#'}
+                      legacyBehavior
+                      passHref
+                    >
+                      <Box
+                        component="a"
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          color: 'inherit',
+                        }}
                       >
-                        <Box
-                          component="a"
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1.5,
-                            cursor: 'pointer',
-                            textDecoration: 'none',
-                            color: 'inherit',
-                          }}
-                        >
-                          <Avatar
-                            src={review.user.avatarUrl}
-                            sx={{ width: 32, height: 32, flexShrink: 0 }}
-                          />
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
-                              {review.venue}
-                            </Typography>
-                            <Typography
-                              color="text.secondary"
-                              sx={{
-                                fontSize: 13,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {review.text}
-                            </Typography>
-                          </Box>
+                        <Avatar
+                          src={review.user.avatarUrl}
+                          sx={{ width: 32, height: 32, flexShrink: 0 }}
+                        />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
+                            {review.venueDetail?.name ?? ''}
+                          </Typography>
                           <Typography
+                            color="text.secondary"
                             sx={{
-                              color: 'primary.main',
-                              fontWeight: 700,
-                              fontSize: 14,
-                              flexShrink: 0,
+                              fontSize: 13,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            {review.rating.toFixed(1)}
+                            {review.text}
                           </Typography>
                         </Box>
-                      </Link>
-                    );
-                  })}
+                        <Typography
+                          sx={{
+                            color: 'primary.main',
+                            fontWeight: 700,
+                            fontSize: 14,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {review.rating.toFixed(1)}
+                        </Typography>
+                      </Box>
+                    </Link>
+                  ))}
                 </Stack>
               </Box>
             )}

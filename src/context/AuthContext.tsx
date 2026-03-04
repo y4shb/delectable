@@ -1,36 +1,112 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+} from 'react';
 import type { User } from '../types';
-import { mockUser } from '../api/mockApi';
+import api, { setAccessToken } from '../api/client';
 
 interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  register: (
+    email: string,
+    name: string,
+    password: string,
+    passwordConfirm: string,
+  ) => Promise<void>;
+  logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(mockUser);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = useCallback(async (_email: string, _password: string): Promise<void> => {
-    // Stub: always sets the mock user
-    setUser(mockUser);
+  // On mount, try to restore session via the refresh-token cookie
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreSession() {
+      try {
+        const { data: refreshData } = await api.post('/auth/refresh/');
+        if (cancelled) return;
+        setAccessToken(refreshData.access);
+
+        const { data: me } = await api.get('/auth/me/');
+        if (cancelled) return;
+        setUser(me);
+      } catch {
+        // No valid refresh token — user needs to log in
+        setAccessToken(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const logout = useCallback(() => {
+  const login = useCallback(async (email: string, password: string) => {
+    const { data } = await api.post('/auth/login/', { email, password });
+    setAccessToken(data.access);
+    setUser(data.user);
+  }, []);
+
+  const register = useCallback(
+    async (
+      email: string,
+      name: string,
+      password: string,
+      passwordConfirm: string,
+    ) => {
+      const { data } = await api.post('/auth/register/', {
+        email,
+        name,
+        password,
+        passwordConfirm,
+      });
+      setAccessToken(data.access);
+      setUser(data.user);
+    },
+    [],
+  );
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout/');
+    } catch {
+      // best effort
+    }
+    setAccessToken(null);
     setUser(null);
+  }, []);
+
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...updates } : null));
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isAuthenticated: user !== null,
+      isLoading,
       login,
+      register,
       logout,
+      updateUser,
     }),
-    [user, login, logout],
+    [user, isLoading, login, register, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

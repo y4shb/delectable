@@ -1,26 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import {
-  fetchUser,
-  fetchReviews,
+  fetchMe,
+  fetchUser as fetchUserApi,
   fetchFeedReviews,
+  fetchUserReviews,
   fetchPlaylists,
   fetchPlaylistDetail,
   fetchVenues,
   fetchVenueDetail,
   fetchVenueReviews,
-} from '../api/mockApi';
+  fetchNotifications,
+  searchAll,
+} from '../api/api';
 
 export function useUser(id?: string) {
   return useQuery({
     queryKey: ['user', id],
-    queryFn: () => fetchUser(id),
-  });
-}
-
-export function useReviews(filters?: { minRating?: number; tags?: string[] }) {
-  return useQuery({
-    queryKey: ['reviews', filters],
-    queryFn: () => fetchReviews(filters),
+    queryFn: () => (id ? fetchUserApi(id) : fetchMe()),
   });
 }
 
@@ -31,10 +27,18 @@ export function useFeedReviews(tab?: string) {
   });
 }
 
-export function usePlaylists(userId?: string) {
+export function useUserReviews(userId?: string) {
   return useQuery({
-    queryKey: ['playlists', userId],
-    queryFn: () => fetchPlaylists(userId),
+    queryKey: ['userReviews', userId],
+    queryFn: () => fetchUserReviews(userId!),
+    enabled: !!userId,
+  });
+}
+
+export function usePlaylists() {
+  return useQuery({
+    queryKey: ['playlists'],
+    queryFn: () => fetchPlaylists(),
   });
 }
 
@@ -46,10 +50,10 @@ export function usePlaylistDetail(id: string) {
   });
 }
 
-export function useVenues(filters?: { bounds?: any; cuisine?: string }) {
+export function useVenues() {
   return useQuery({
-    queryKey: ['venues', filters],
-    queryFn: () => fetchVenues(filters),
+    queryKey: ['venues'],
+    queryFn: () => fetchVenues(),
   });
 }
 
@@ -66,5 +70,23 @@ export function useVenueReviews(venueId: string) {
     queryKey: ['venueReviews', venueId],
     queryFn: () => fetchVenueReviews(venueId),
     enabled: !!venueId,
+  });
+}
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => fetchNotifications(),
+  });
+}
+
+export function useSearch(
+  q: string,
+  type: 'all' | 'venue' | 'user' | 'review' = 'all',
+) {
+  return useQuery({
+    queryKey: ['search', q, type],
+    queryFn: () => searchAll(q, type),
+    enabled: q.length >= 1,
   });
 }

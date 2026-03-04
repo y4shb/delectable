@@ -11,10 +11,7 @@ export function useRequireAuth(): {
   isLoading: boolean;
 } {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
-
-  // TODO: Add isLoading state when async token validation is implemented
-  const isLoading = false;
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

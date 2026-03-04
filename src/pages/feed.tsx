@@ -7,7 +7,7 @@ import { useFeedReviews } from '../hooks/useApi';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 
 export default function FeedPage() {
-  useRequireAuth();
+  const { isLoading: authLoading } = useRequireAuth();
   const [activeTab, setActiveTab] = useState('top-picks');
   const { data: reviews, isLoading } = useFeedReviews(activeTab);
 
@@ -34,7 +34,7 @@ export default function FeedPage() {
         }}
       >
         <WelcomeSection onTabChange={handleTabChange} />
-        {isLoading ? (
+        {isLoading || authLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
           </Box>

@@ -2,7 +2,7 @@ import AppShell from '../layouts/AppShell';
 import { Box, Typography, Avatar, Tabs, Tab, CircularProgress, Button, Stack, useTheme } from '@mui/material';
 import { useState } from 'react';
 import ReviewCard from '../components/ReviewCard';
-import { useUser, useFeedReviews, usePlaylists } from '../hooks/useApi';
+import { useUser, useUserReviews, usePlaylists } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import Link from 'next/link';
@@ -10,15 +10,15 @@ import EditIcon from '@mui/icons-material/Edit';
 import StarIcon from '@mui/icons-material/Star';
 
 export default function ProfilePage() {
-  useRequireAuth();
+  const { isLoading: authLoading } = useRequireAuth();
   const theme = useTheme();
   const [tab, setTab] = useState(0);
   const { user: authUser } = useAuth();
   const { data: user, isLoading } = useUser(authUser?.id);
-  const { data: feedReviews } = useFeedReviews();
-  const { data: playlists } = usePlaylists(authUser?.id);
+  const { data: userReviews } = useUserReviews(authUser?.id);
+  const { data: playlists } = usePlaylists();
 
-  if (isLoading || !user) {
+  if (authLoading || isLoading || !user) {
     return (
       <AppShell>
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -28,10 +28,7 @@ export default function ProfilePage() {
     );
   }
 
-  // Filter reviews by the current user
-  const userReviews = (feedReviews ?? []).filter(
-    (r) => r.user.name === user.name
-  );
+  const reviews = userReviews ?? [];
 
   return (
     <AppShell>
@@ -55,7 +52,7 @@ export default function ProfilePage() {
           </Box>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          {user.followers.toLocaleString()} followers · {user.following} following
+          {user.followersCount.toLocaleString()} followers · {user.followingCount} following
         </Typography>
         <Typography variant="body1" color="text.secondary">{user.bio}</Typography>
 
@@ -95,16 +92,16 @@ export default function ProfilePage() {
       <Box sx={{ pb: 11 }}>
         {tab === 0 && (
           <>
-            {userReviews.length === 0 ? (
+            {reviews.length === 0 ? (
               <Box sx={{ textAlign: 'center', mt: 4 }}>
                 <Typography color="text.secondary" sx={{ fontSize: 14 }}>
                   No reviews yet
                 </Typography>
               </Box>
             ) : (
-              userReviews.map((review) => (
+              reviews.map((review) => (
                 <ReviewCard
-                  key={`${review.venue}-${review.date}`}
+                  key={review.id}
                   {...review}
                 />
               ))
@@ -152,7 +149,7 @@ export default function ProfilePage() {
                         {playlist.title}
                       </Typography>
                       <Typography color="text.secondary" sx={{ fontSize: 13 }}>
-                        {playlist.items.length} {playlist.items.length === 1 ? 'spot' : 'spots'}
+                        {playlist.itemsCount} {playlist.itemsCount === 1 ? 'spot' : 'spots'}
                       </Typography>
                     </Box>
                     <StarIcon sx={{ fontSize: 16, color: theme.palette.primary.main }} />

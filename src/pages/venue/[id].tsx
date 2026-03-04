@@ -136,10 +136,10 @@ export default function VenueDetailPage() {
             {venue.name}
           </Typography>
           <Typography color="text.secondary" sx={{ fontSize: 14, mt: 0.5 }}>
-            {venue.cuisine}
+            {venue.cuisineType}
           </Typography>
           <Typography color="text.secondary" sx={{ fontSize: 14, mt: 0.25 }}>
-            {venue.location}
+            {venue.locationText}
           </Typography>
 
           {/* Rating badge */}

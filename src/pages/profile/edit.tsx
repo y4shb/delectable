@@ -14,7 +14,9 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { updateMe } from '../../api/api';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/router';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 
@@ -45,9 +47,13 @@ export default function EditProfilePage() {
   useRequireAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const { user: authUser } = useAuth();
+  const router = useRouter();
+  const { user: authUser, updateUser } = useAuth();
+  const [saving, setSaving] = useState(false);
 
-  const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
+  const [selectedCuisines, setSelectedCuisines] = useState<string[]>(
+    authUser?.favoriteCuisines ?? [],
+  );
 
   const {
     register,
@@ -70,8 +76,21 @@ export default function EditProfilePage() {
     );
   };
 
-  const onSubmit = (data: ProfileFormData) => {
-    console.log('Save Changes', { ...data, selectedCuisines });
+  const onSubmit = async (data: ProfileFormData) => {
+    setSaving(true);
+    try {
+      const updated = await updateMe({
+        name: data.name,
+        bio: data.bio,
+        favoriteCuisines: selectedCuisines,
+      });
+      updateUser(updated);
+      router.push('/profile');
+    } catch {
+      // TODO: show error toast
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -203,6 +222,7 @@ export default function EditProfilePage() {
             variant="contained"
             fullWidth
             onClick={handleSubmit(onSubmit)}
+            disabled={saving}
             sx={{
               backgroundColor: theme.palette.primary.main,
               color: '#fff',
@@ -216,7 +236,7 @@ export default function EditProfilePage() {
               },
             }}
           >
-            Save Changes
+            {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </Stack>
       </Box>

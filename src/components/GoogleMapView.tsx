@@ -4,7 +4,6 @@ import { useTheme, Box, Typography, IconButton, Fab } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import Link from 'next/link';
-import { mockVenues } from '../api/mockApi';
 import { Venue } from '../types';
 
 const containerStyle = {
@@ -71,7 +70,6 @@ const infoWindowStyleOverride = `
   }
 `;
 
-// TODO: Replace with your actual API key or prompt user to add it to .env
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 /** Build an SVG data URL for a map pin marker with an embedded icon glyph */
@@ -115,11 +113,12 @@ function getUserLocationIcon(): { url: string; scaledSize: google.maps.Size } {
 }
 
 export interface GoogleMapViewProps {
+  venues: Venue[];
   cuisineFilter?: string | null;
   minRating?: number;
 }
 
-export default function GoogleMapView({ cuisineFilter, minRating }: GoogleMapViewProps) {
+export default function GoogleMapView({ venues, cuisineFilter, minRating }: GoogleMapViewProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -134,13 +133,13 @@ export default function GoogleMapView({ cuisineFilter, minRating }: GoogleMapVie
 
   // Filter venues: must have lat/lng, and respect cuisine / rating filters
   const filteredVenues = useMemo(() => {
-    return mockVenues.filter((v) => {
-      if (v.lat == null || v.lng == null) return false;
-      if (cuisineFilter && v.cuisine !== cuisineFilter) return false;
+    return venues.filter((v) => {
+      if (v.latitude == null || v.longitude == null) return false;
+      if (cuisineFilter && v.cuisineType !== cuisineFilter) return false;
       if (minRating != null && v.rating < minRating) return false;
       return true;
     });
-  }, [cuisineFilter, minRating]);
+  }, [venues, cuisineFilter, minRating]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -192,8 +191,8 @@ export default function GoogleMapView({ cuisineFilter, minRating }: GoogleMapVie
         {filteredVenues.map((venue) => (
           <Marker
             key={venue.id}
-            position={{ lat: venue.lat!, lng: venue.lng! }}
-            icon={getMarkerIcon(venue.cuisine, isDark)}
+            position={{ lat: venue.latitude, lng: venue.longitude }}
+            icon={getMarkerIcon(venue.cuisineType, isDark)}
             onClick={() => setSelectedVenue(venue)}
           />
         ))}
@@ -208,9 +207,9 @@ export default function GoogleMapView({ cuisineFilter, minRating }: GoogleMapVie
           />
         )}
 
-        {selectedVenue && selectedVenue.lat != null && selectedVenue.lng != null && (
+        {selectedVenue && selectedVenue.latitude != null && selectedVenue.longitude != null && (
           <InfoWindow
-            position={{ lat: selectedVenue.lat, lng: selectedVenue.lng }}
+            position={{ lat: selectedVenue.latitude, lng: selectedVenue.longitude }}
             onCloseClick={() => setSelectedVenue(null)}
             options={{ disableAutoPan: false, pixelOffset: new window.google.maps.Size(0, -10) }}
           >
@@ -290,7 +289,7 @@ export default function GoogleMapView({ cuisineFilter, minRating }: GoogleMapVie
                       mt: 0.25,
                     }}
                   >
-                    {selectedVenue.cuisine}
+                    {selectedVenue.cuisineType}
                   </Typography>
 
                   <Typography

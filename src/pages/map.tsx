@@ -1,20 +1,22 @@
 import AppShell from '../layouts/AppShell';
-import { Box, Chip, Stack, Typography, IconButton, useTheme } from '@mui/material';
+import { Box, Chip, Stack, Typography, IconButton, CircularProgress, useTheme } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import StarIcon from '@mui/icons-material/Star';
 import GoogleMapView from '../components/GoogleMapView';
 import { useEffect, useState } from 'react';
 import { useRequireAuth } from '../hooks/useRequireAuth';
-import { mockVenues } from '../api/mockApi';
+import { useVenues } from '../hooks/useApi';
 import Link from 'next/link';
 
 const CUISINE_OPTIONS = ['Japanese', 'Italian', 'American', 'European', 'Experimental'];
 
 export default function MapPage() {
-  useRequireAuth();
+  const { isLoading: authLoading } = useRequireAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+
+  const { data: venues, isLoading: venuesLoading } = useVenues();
 
   const [cuisineFilter, setCuisineFilter] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<number | undefined>(undefined);
@@ -46,9 +48,21 @@ export default function MapPage() {
     }
   };
 
+  if (authLoading || venuesLoading) {
+    return (
+      <AppShell>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      </AppShell>
+    );
+  }
+
+  const allVenues = venues ?? [];
+
   // Filter venues for list view
-  const filteredVenues = mockVenues.filter((v) => {
-    if (cuisineFilter && v.cuisine !== cuisineFilter) return false;
+  const filteredVenues = allVenues.filter((v) => {
+    if (cuisineFilter && v.cuisineType !== cuisineFilter) return false;
     if (minRating != null && v.rating < minRating) return false;
     return true;
   });
@@ -215,6 +229,7 @@ export default function MapPage() {
             }}
           >
             <GoogleMapView
+              venues={allVenues}
               cuisineFilter={cuisineFilter}
               minRating={minRating}
             />
@@ -295,7 +310,7 @@ export default function MapPage() {
                           color="text.secondary"
                           sx={{ fontSize: 13 }}
                         >
-                          {venue.cuisine} &middot; {venue.location}
+                          {venue.cuisineType} &middot; {venue.locationText}
                         </Typography>
                       </Box>
                       <Box

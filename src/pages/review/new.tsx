@@ -11,14 +11,17 @@ import {
   Autocomplete,
   useTheme,
   FormHelperText,
+  CircularProgress,
 } from '@mui/material';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import { mockVenues } from '../../api/mockApi';
+import { useVenues } from '../../hooks/useApi';
+import { createReview } from '../../api/api';
 import { Venue } from '../../types';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useRouter } from 'next/router';
 
 const TAGS = [
   'Coffee',
@@ -43,17 +46,22 @@ const reviewSchema = yup.object({
 });
 
 interface ReviewFormData {
-  venue: Record<string, unknown> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  venue: any;
   rating: number;
   reviewText: string;
   selectedTags: string[];
 }
 
 export default function NewReviewPage() {
-  useRequireAuth();
+  const { isLoading: authLoading } = useRequireAuth();
   const theme = useTheme();
+  const router = useRouter();
 
+  const { data: venues, isLoading: venuesLoading } = useVenues();
   const [photo, setPhoto] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const {
     control,
@@ -83,12 +91,35 @@ export default function NewReviewPage() {
     setValue('selectedTags', updated, { shouldValidate: true });
   };
 
-  const onSubmit = (data: ReviewFormData) => {
-    console.log('Review submitted:', {
-      ...data,
-      photo,
-    });
+  const onSubmit = async (data: ReviewFormData) => {
+    setSubmitError('');
+    setSubmitting(true);
+    try {
+      const selectedVenue = data.venue as Venue;
+      await createReview({
+        venue: selectedVenue.id,
+        rating: data.rating,
+        text: data.reviewText,
+        tags: data.selectedTags,
+        photoUrl: photo ?? undefined,
+      });
+      router.push('/feed');
+    } catch {
+      setSubmitError('Failed to submit review. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (authLoading || venuesLoading) {
+    return (
+      <AppShell>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -112,7 +143,7 @@ export default function NewReviewPage() {
             control={control}
             render={({ field }) => (
               <Autocomplete
-                options={mockVenues}
+                options={venues ?? []}
                 getOptionLabel={(option) => option.name}
                 value={field.value as Venue | null}
                 onChange={(_e, newValue) => field.onChange(newValue)}
@@ -121,7 +152,7 @@ export default function NewReviewPage() {
                     <Box>
                       <Typography sx={{ fontWeight: 600 }}>{option.name}</Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        {option.cuisine} &middot; {option.location}
+                        {option.cuisineType} &middot; {option.locationText}
                       </Typography>
                     </Box>
                   </li>
@@ -318,11 +349,19 @@ export default function NewReviewPage() {
             )}
           </Box>
 
+          {/* Error message */}
+          {submitError && (
+            <Typography color="error" sx={{ fontSize: 14, textAlign: 'center' }}>
+              {submitError}
+            </Typography>
+          )}
+
           {/* Submit button */}
           <Button
             variant="contained"
             fullWidth
             onClick={handleSubmit(onSubmit)}
+            disabled={submitting}
             sx={{
               backgroundColor: theme.palette.primary.main,
               color: '#fff',
@@ -336,7 +375,7 @@ export default function NewReviewPage() {
               },
             }}
           >
-            Post Review
+            {submitting ? <CircularProgress size={24} color="inherit" /> : 'Post Review'}
           </Button>
         </Stack>
       </Box>

@@ -1,16 +1,34 @@
 import { useState } from 'react';
-import { Box, Typography, TextField, Button, useTheme } from '@mui/material';
+import { Box, Typography, TextField, Button, CircularProgress, useTheme } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const theme = useTheme();
   const router = useRouter();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Show nothing while restoring session
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: theme.palette.background.default,
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -28,11 +46,14 @@ export default function LoginPage() {
       setError('Please enter your password');
       return;
     }
+    setSubmitting(true);
     try {
       await login(email, password);
       router.push('/feed');
     } catch {
       setError('Invalid email or password');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -117,6 +138,7 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           aria-label="Email address"
+          disabled={submitting}
           sx={{
             mb: 2,
             '& .MuiOutlinedInput-root': {
@@ -134,6 +156,7 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           aria-label="Password"
+          disabled={submitting}
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSignIn();
           }}
@@ -151,6 +174,7 @@ export default function LoginPage() {
           fullWidth
           disableElevation
           onClick={handleSignIn}
+          disabled={submitting}
           sx={{
             backgroundColor: theme.palette.primary.main,
             color: '#fff',
@@ -164,7 +188,7 @@ export default function LoginPage() {
             },
           }}
         >
-          Sign In
+          {submitting ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
         </Button>
 
         {/* Create Account link */}

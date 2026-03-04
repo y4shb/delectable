@@ -11,7 +11,7 @@
 | M1: Front-End Foundations | COMPLETE | 100% |
 | M2: UI Polish & State Management | COMPLETE | 100% |
 | M3: Google Maps & Location Filtering | COMPLETE | 95% |
-| M4: Backend MVP & Data Storage | IN PROGRESS | 60% |
+| M4: Backend MVP & Data Storage | COMPLETE | 100% |
 | M5: Social Features & Content Interaction | NOT STARTED | 0% |
 | M6: Feed Intelligence & Personalization | NOT STARTED | 0% |
 | M7: Enhanced Search & Discovery | NOT STARTED | 0% |
@@ -177,7 +177,7 @@
 
 ---
 
-## Milestone 4: Backend MVP & Data Storage [IN PROGRESS]
+## Milestone 4: Backend MVP & Data Storage [COMPLETE]
 
 **Architecture**: Django 5.2 + DRF + PostgreSQL/PostGIS. No ElasticSearch (pg_trgm + tsvector sufficient). No Redis for MVP (LocMemCache).
 
@@ -213,12 +213,14 @@
 - [x] Notifications: list with unread_count, mark-read
 
 ### 4.4 Frontend Integration
-- [ ] Create API client (Axios + interceptors + refresh mutex)
-- [ ] Update AuthContext (real JWT auth, session restoration)
-- [ ] Add Next.js API proxy rewrite in next.config.mjs
-- [ ] Create response adapter layer (snake_case → camelCase)
-- [ ] Replace mockApi functions with real API calls
-- [ ] Connect all pages to real API (login, feed, map, profile, playlists, search, notifications)
+- [x] Create API client (Axios + interceptors + refresh mutex) — `src/api/client.ts`
+- [x] Update AuthContext (real JWT auth, session restoration via refresh cookie)
+- [x] Add Next.js API proxy rewrite in next.config.mjs (`/api/*` → `localhost:8000/api/*`)
+- [x] Create response adapter layer (snake_case → camelCase key transforms in interceptors)
+- [x] Replace mockApi functions with real API calls — `src/api/api.ts`
+- [x] Connect all pages to real API (login, feed, map, profile, playlists, search, notifications, review/new, venue detail, playlist detail)
+- [x] Wire up UserReviewsView backend endpoint (`/api/auth/users/<uuid>/reviews/`)
+- [x] Update all TypeScript types to match backend serializer shapes
 - [x] Seed data command (`python manage.py seed` — 5 users, 8 venues, 15 reviews, playlists, notifications)
 
 ### 4.5 Caching & Search
