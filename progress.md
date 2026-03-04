@@ -1,6 +1,6 @@
 # Delectable - Development Progress Tracker
 
-> Last updated: 2026-02-27
+> Last updated: 2026-03-04
 
 ---
 
@@ -12,8 +12,15 @@
 | M2: UI Polish & State Management | COMPLETE | 100% |
 | M3: Google Maps & Location Filtering | COMPLETE | 95% |
 | M4: Backend MVP & Data Storage | IN PROGRESS | 60% |
-| M5: Deployment, CI/CD & Containerization | NOT STARTED | 0% |
-| M6: AI Recommendation & Quality Filtering | NOT STARTED | 0% |
+| M5: Social Features & Content Interaction | NOT STARTED | 0% |
+| M6: Feed Intelligence & Personalization | NOT STARTED | 0% |
+| M7: Enhanced Search & Discovery | NOT STARTED | 0% |
+| M8: Onboarding & Growth | NOT STARTED | 0% |
+| M9: Notifications & Real-Time | NOT STARTED | 0% |
+| M10: Gamification & Retention | NOT STARTED | 0% |
+| M11: Sharing & Virality | NOT STARTED | 0% |
+| M12: Deployment & Infrastructure | NOT STARTED | 0% |
+| M13: AI, ML & Advanced Intelligence | NOT STARTED | 0% |
 
 ---
 
@@ -224,9 +231,253 @@
 
 ---
 
-## Milestone 5: Deployment, CI/CD & Containerization [NOT STARTED]
+## Milestone 5: Social Features & Content Interaction [NOT STARTED]
 
-### 5.1 Dockerization
+### 5.1 Social Graph Frontend
+- [ ] Follow/unfollow button on user profile and user cards
+- [ ] Followers/following list pages with infinite scroll
+- [ ] `is_following` / `is_followed_by` annotation flags in UserSerializer
+- [ ] Follow button states (Follow → Following → Unfollow on hover)
+- [ ] "Suggested Users" section on explore tab (friend-of-friend, venue overlap, cuisine match)
+- [ ] Taste match percentage badge on user profiles
+
+### 5.2 Content Interactions
+- [ ] Like toggle with heart burst animation (Framer Motion)
+- [ ] Double-tap to like on ReviewCard photo area
+- [ ] Optimistic UI updates for likes
+- [ ] Comment model: add `parent` ForeignKey for threaded replies
+- [ ] Inline comment preview on review cards (2 most recent)
+- [ ] Bookmark model + BookmarkCollection model
+- [ ] Save button on ReviewCard and venue detail
+- [ ] Saved items page accessible from profile
+- [ ] "Add to Playlist" quick action bottom sheet
+
+### 5.3 Review Detail Page
+- [ ] Create `/review/[id]` page with full layout
+- [ ] Hero photo carousel, user info bar, rating display
+- [ ] Action bar (Like, Comment, Bookmark, Share)
+- [ ] Threaded comments section with reply
+- [ ] "More from this user" / "More about this venue" horizontal scroll
+- [ ] OG meta tags for social sharing
+- [ ] `GET /api/reviews/{id}/` endpoint with embedded user, venue, comments
+
+### 5.4 Taste Match Algorithm (Backend)
+- [ ] TasteMatchCache model (user_a, user_b, score, shared_venues, computed_at)
+- [ ] Adjusted Cosine Similarity + Jaccard Similarity implementation
+- [ ] Confidence dampening for < 3 shared venues
+- [ ] Celery task for precomputing top-50 matches per user (daily)
+
+---
+
+## Milestone 6: Feed Intelligence & Personalization [NOT STARTED]
+
+### 6.1 Feed Scoring Algorithm
+- [ ] EdgeRank-style feed_score() function (Social 0.30, Engagement 0.25, Preference 0.25, Quality 0.20)
+- [ ] Time decay: `(age_hours + 2)^1.5`
+- [ ] Precompute quality_score on review save
+- [ ] UserAffinity table for cached social signals
+- [ ] PostgreSQL window functions for engagement percentiles
+
+### 6.2 Explore Tab & Trending
+- [ ] Explore feed 3-stage pipeline (candidate generation → scoring → diversity)
+- [ ] TrendingEngine: Z-score anomaly + velocity + exponential decay scoring
+- [ ] VenueTrendingScore model (recomputed every 30 min via Celery beat)
+- [ ] Trending section in explore tab UI
+
+### 6.3 Cold-Start Handling
+- [ ] 4-tier feed fallback (Anonymous → Cold Start → Augmented → Healthy)
+- [ ] UserTasteProfile model (preferred_cuisines, dietary_restrictions, maturity_level)
+- [ ] Auto-follow 3-5 curated tastemaker accounts on signup
+- [ ] Tier detection logic in feed view
+
+### 6.4 Diversity Enforcement (MMR)
+- [ ] MMR re-ranking algorithm (lambda=0.7)
+- [ ] Similarity function (same-venue 0.5, same-cuisine 0.3, same-user 0.2)
+- [ ] Hard rules: max 2 same-venue, 4 same-cuisine, 3 same-user in top 20
+
+---
+
+## Milestone 7: Enhanced Search & Discovery [NOT STARTED]
+
+### 7.1 Dish as First-Class Entity
+- [ ] Dish model (venue FK, name, category, avg_rating, review_count, search_vector)
+- [ ] Review model update: add dish FK, remove UniqueConstraint(user, venue)
+- [ ] Dish-level pages: `/dish/[id]`
+- [ ] Dish search API: `GET /api/dishes/?q=...`
+
+### 7.2 Occasion Tags
+- [ ] OccasionTag model (slug, label, emoji, category)
+- [ ] VenueOccasion model (venue, occasion, vote_count)
+- [ ] OccasionVote model (user, venue, occasion)
+- [ ] Seed predefined taxonomy (Date Night, Group Dinner, Brunch, etc.)
+- [ ] "Perfect For" section on venue detail page
+- [ ] Occasion voting UI (tap to agree)
+- [ ] API: `POST /api/venues/{id}/occasions/{slug}/vote/`
+
+### 7.3 Dietary Filtering
+- [ ] DietaryReport model (venue, user, category, scope, dish, is_available, confidence)
+- [ ] Confidence scoring aggregation
+- [ ] Dietary filter chips on venue list and search
+- [ ] Dietary badges on venue cards (confidence >= 0.7)
+
+### 7.4 Map Enhancements
+- [ ] Friends' venues layer with avatar cluster dots
+- [ ] Heatmap visualization (deck.gl HeatmapLayer)
+- [ ] Toggle between markers and heatmap view
+- [ ] Collaborative filtering: venue_similarity materialized view
+- [ ] `GET /api/venues/{id}/similar/` endpoint
+- [ ] Daily materialized view refresh via Celery
+
+### 7.5 AI-Powered Search (Optional)
+- [ ] Conversational search with OpenAI function calling (GPT-4o-mini)
+- [ ] Keyword-based regex parser fallback
+- [ ] Search query extraction: cuisine, occasion, radius, price
+
+---
+
+## Milestone 8: Onboarding & Growth [NOT STARTED]
+
+### 8.1 Content-First Onboarding
+- [ ] ReadPublicWriteAuthenticated permission class
+- [ ] Apply to feed, venue, review list, search, explore endpoints
+- [ ] AuthGate frontend component (wraps interactive elements, shows signup prompt)
+- [ ] Next.js middleware for partial auth (allow /feed, /venue/*, /review/* unauthenticated)
+- [ ] Anonymous feed fallback (popular/trending, no social signal)
+
+### 8.2 Taste Profile Wizard
+- [ ] Create `/onboarding` page with 3-step flow
+- [ ] Step 1: Visual emoji cuisine grid (multi-select, min 3, max 8)
+- [ ] Step 2: Dietary preference toggle chips
+- [ ] Step 3: Suggested tastemaker accounts to follow
+- [ ] Skip behavior with sensible defaults
+- [ ] Redirect to /onboarding after registration
+
+### 8.3 Progressive Feature Disclosure
+- [ ] Maturity level tracking (0-5) based on user activity
+- [ ] FeatureGate component (renders children if user meets level)
+- [ ] LockedFeaturePrompt component with progress info
+- [ ] Contextual nudge messages for next actions
+
+### 8.4 First Post Wizard
+- [ ] QuickReviewView: simplified 3-field form (photo, venue, rating)
+- [ ] QuickReviewSerializer with relaxed validation
+- [ ] Photo-first flow with Google Places autocomplete
+- [ ] Celebration animation on first review submission
+
+---
+
+## Milestone 9: Notifications & Real-Time [NOT STARTED]
+
+### 9.1 Notification System Overhaul
+- [ ] Expand Notification model (actor, priority, channel, group_key fields)
+- [ ] Add notification types: mention, trending, streak, badge, nudge, digest
+- [ ] Notification bundling service (group by group_key within 1-hour window)
+- [ ] Frequency caps (max 10/hour per user, max 3 same type/hour)
+- [ ] Smart timing: suppress during quiet hours, deliver at 7 AM
+
+### 9.2 Real-Time Badge Updates (SSE)
+- [ ] BadgeStreamView SSE endpoint (`GET /api/notifications/stream/`)
+- [ ] Polling fallback: `GET /api/notifications/unread-count/`
+- [ ] Frontend EventSource API with auto-reconnect
+- [ ] Tab bar badge indicator for unread count
+
+### 9.3 Smart Nudges
+- [ ] NearbySavedVenuesView: `GET /api/venues/nearby-saved/?lat=&lng=&radius=500`
+- [ ] Location-based push notifications ("You're near {venue}!")
+- [ ] VenueSaveReminder model for want-to-try follow-ups (7-day trigger)
+- [ ] Re-engagement nudges from friend activity
+
+### 9.4 Weekly Digest
+- [ ] Celery beat task (Sunday 10 AM per timezone)
+- [ ] Digest content: top reviews, trending venues, streak status, badge progress
+- [ ] In-app notification + optional email delivery
+
+### 9.5 Notification Preferences
+- [ ] NotificationPreference model (per-category frequency, push/email toggles, quiet hours)
+- [ ] Preference center UI page with toggles and frequency selectors
+- [ ] Quiet hours picker
+
+---
+
+## Milestone 10: Gamification & Retention [NOT STARTED]
+
+### 10.1 XP & Level System
+- [ ] UserXP model (total_xp, level 1-20)
+- [ ] XPTransaction audit log model
+- [ ] XP awards: review 100, photo +50, comment 25, like 15/10, streak 50, badge 200
+- [ ] Level formula: `XP = 75 * level^1.8` (20 levels)
+- [ ] Level-up full-screen animation + notification
+
+### 10.2 Dining Streaks
+- [ ] DiningStreak model (current_streak, longest_streak, streak_freezes, timezone)
+- [ ] Timezone-aware day tracking with 4-hour grace period
+- [ ] Streak freeze system (earned every 7 days, max 2 banked)
+- [ ] Weekly flexible mode (5 of 7 days)
+- [ ] GitHub-style contribution grid on profile
+
+### 10.3 Achievement Badges
+- [ ] Badge definition system (8 categories × 4 tiers)
+- [ ] Badge progress tracking and unlock detection
+- [ ] Unlock notifications with shimmer animation
+- [ ] Profile badge shelf with locked/unlocked states
+
+### 10.4 Leaderboards
+- [ ] LeaderboardEntry model (board_type, period, score, rank)
+- [ ] Redis sorted sets for real-time ranking
+- [ ] Leaderboard views: city, friends, cuisine-specific
+- [ ] Weekly/monthly/all-time period switching
+
+### 10.5 Year in Review ("de. Wrapped")
+- [ ] WrappedStats model (annual statistics generation)
+- [ ] Celery task for December 31 computation
+- [ ] Swipeable card carousel UI (5-7 animated cards)
+- [ ] Shareable image cards (reuse M11 share system)
+- [ ] UserStatsCache model for activity dashboard (refreshed daily)
+
+---
+
+## Milestone 11: Sharing & Virality [NOT STARTED]
+
+### 11.1 Share Card Generation
+- [ ] Django Pillow backend for server-side share image generation
+- [ ] Platform-specific sizes (Instagram Story/Feed, Twitter, OG)
+- [ ] Next.js `@vercel/og` edge function for OG images
+- [ ] Share button with Web Share API + clipboard fallback
+
+### 11.2 Deep Linking
+- [ ] Universal Links: `/.well-known/apple-app-site-association`
+- [ ] App Links: `/.well-known/assetlinks.json`
+- [ ] Web fallback with OG meta tags on all shareable pages
+- [ ] DeferredDeepLink model for attribution tracking
+
+### 11.3 Referral Program
+- [ ] InviteCode model (code, user, max_uses, use_count)
+- [ ] Referral model (inviter, invitee, status: signed_up/activated/churned)
+- [ ] ReferralReward model (reward_type, tier, claimed)
+- [ ] Two-sided rewards (inviter + invitee)
+- [ ] K-factor tracking (invites × conversion rate)
+- [ ] Tiered incentives (3/10/25 referrals)
+
+### 11.4 Collaborative Playlists
+- [ ] PlaylistCollaborator model (playlist, user, role: editor/viewer)
+- [ ] Playlist model additions: slug, share_code, fork_count
+- [ ] Share via link: `delectable.app/playlist/{slug}`
+- [ ] Fork functionality with attribution
+- [ ] Activity feed within playlist
+
+### 11.5 Food Challenges
+- [ ] Challenge model (title, rules, dates, target_count, cuisine_filter, rewards)
+- [ ] ChallengeParticipant model (progress, completed)
+- [ ] ChallengeSubmission model (review FK, verified)
+- [ ] Redis sorted set leaderboard per challenge
+- [ ] Challenge discovery page: `/challenges`
+- [ ] Challenge validation service
+
+---
+
+## Milestone 12: Deployment & Infrastructure [NOT STARTED]
+
+### 12.1 Dockerization
 - [ ] Create Next.js Dockerfile (multi-stage)
 - [ ] Create Django Dockerfile
 - [ ] Create docker-compose.yml (frontend, backend, postgres, redis, elasticsearch)
@@ -234,7 +485,7 @@
 - [ ] Test local development with Docker Compose
 - [ ] Add health check endpoints
 
-### 5.2 Kubernetes
+### 12.2 Kubernetes
 - [ ] Create Deployment manifests (frontend, backend)
 - [ ] Create Service manifests
 - [ ] Create Ingress manifest with TLS
@@ -242,7 +493,7 @@
 - [ ] Create HorizontalPodAutoscaler
 - [ ] Create PersistentVolumeClaims
 
-### 5.3 CI/CD (GitHub Actions)
+### 12.3 CI/CD (GitHub Actions)
 - [ ] PR workflow: lint + type-check + test + build
 - [ ] Main branch workflow: build + push Docker images + deploy staging
 - [ ] Release workflow: deploy production + run migrations
@@ -251,22 +502,22 @@
 
 ---
 
-## Milestone 6: AI Recommendation & Quality Filtering [NOT STARTED]
+## Milestone 13: AI, ML & Advanced Intelligence [NOT STARTED]
 
-### 6.1 Data Ingestion
+### 13.1 Data Ingestion
 - [ ] Google Maps Places API integration for venue seeding
 - [ ] ETL pipeline: extract, transform, load
 - [ ] Periodic sync job (Celery + Redis)
 - [ ] Data quality validation
 
-### 6.2 ML Models
+### 13.2 ML Models
 - [ ] Review authenticity classifier (DistilBERT fine-tuned)
 - [ ] Venue ranking algorithm (hybrid collaborative + content-based)
 - [ ] Personalized feed ranker
 - [ ] Model training pipeline
 - [ ] Model serving infrastructure
 
-### 6.3 Integration
+### 13.3 Integration
 - [ ] Recommendation API endpoint
 - [ ] ML-scored feed endpoint
 - [ ] "Trusted Review" badge UI
@@ -311,3 +562,5 @@
 | 2026-02-27 | M4 backend scaffolded | Django 5.2 + DRF project, split settings, 8 apps, all models + views + serializers |
 | 2026-02-27 | M4 migrations + seed | 30 migrations applied (SQLite dev), seed command with 5 users, 8 venues, 15 reviews |
 | 2026-02-27 | M4 API verified | All endpoints tested: auth, venues, feed, search, playlists, notifications |
+| 2026-03-04 | Feature research complete | 8 parallel research agents completed deep dives: social graph, content interaction, feed algorithms, onboarding, gamification, search/discovery, notifications, sharing/virality |
+| 2026-03-04 | Plan restructured (M5-M13) | Added 7 new milestones (M5-M11) from research. Renamed old M5→M12 (Deployment), old M6→M13 (AI/ML). Total: 13 milestones |
