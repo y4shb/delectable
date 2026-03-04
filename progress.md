@@ -1,6 +1,6 @@
 # Delectable - Development Progress Tracker
 
-> Last updated: 2026-02-23
+> Last updated: 2026-02-27
 
 ---
 
@@ -11,7 +11,7 @@
 | M1: Front-End Foundations | COMPLETE | 100% |
 | M2: UI Polish & State Management | COMPLETE | 100% |
 | M3: Google Maps & Location Filtering | COMPLETE | 95% |
-| M4: Backend MVP & Data Storage | IN PROGRESS | 0% |
+| M4: Backend MVP & Data Storage | IN PROGRESS | 60% |
 | M5: Deployment, CI/CD & Containerization | NOT STARTED | 0% |
 | M6: AI Recommendation & Quality Filtering | NOT STARTED | 0% |
 
@@ -175,38 +175,35 @@
 **Architecture**: Django 5.2 + DRF + PostgreSQL/PostGIS. No ElasticSearch (pg_trgm + tsvector sufficient). No Redis for MVP (LocMemCache).
 
 ### 4.1 Django Project Setup
-- [ ] Initialize Django 5.2 project with DRF
-- [ ] Configure djangorestframework-simplejwt (cookie-based refresh)
-- [ ] Set up PostgreSQL + PostGIS connection
-- [ ] Install pg_trgm + unaccent + postgis extensions
-- [ ] Configure CORS for Next.js frontend (django-cors-headers)
-- [ ] Configure django-filter for queryset filtering
-- [ ] Set up split settings (base/dev/prod)
-- [ ] Create core app (TimeStampedModel, permissions, pagination, cache_keys, cache_ttls)
+- [x] Initialize Django 5.2 project with DRF
+- [x] Configure djangorestframework-simplejwt (cookie-based refresh)
+- [x] Set up SQLite dev fallback (PostgreSQL+PostGIS in prod)
+- [x] Configure CORS for Next.js frontend (django-cors-headers)
+- [x] Configure django-filter for queryset filtering
+- [x] Set up split settings (base/dev/prod)
+- [x] Create core app (TimeStampedModel, permissions, pagination, cache_keys, cache_ttls)
 
 ### 4.2 Database Models
-- [ ] User model (AbstractBaseUser, UUID PK, email login, SearchVectorField)
-- [ ] Follow model (UniqueConstraint + CheckConstraint no self-follow)
-- [ ] Venue model (PostGIS PointField, ArrayField tags, SearchVectorField)
-- [ ] Review model (0-10 rating, ArrayField tags, UniqueConstraint user+venue)
-- [ ] ReviewLike model (UniqueConstraint)
-- [ ] Comment model
-- [ ] Playlist + PlaylistItem models (sort_order, UniqueConstraints)
-- [ ] Notification model (types: like, comment, follow, playlist_add)
-- [ ] Database triggers: follow counts, like counts, comment counts, playlist item counts
-- [ ] Search vector triggers: venue (name+cuisine+tags), review (dish+text)
-- [ ] Partial indexes: unread notifications, recent trending reviews
-- [ ] Run initial migrations
+- [x] User model (AbstractBaseUser, UUID PK, email login)
+- [x] Follow model (UniqueConstraint + CheckConstraint no self-follow)
+- [x] Venue model (JSONField tags, latitude/longitude decimals)
+- [x] Review model (0-10 rating, JSONField tags, UniqueConstraint user+venue)
+- [x] ReviewLike model (UniqueConstraint)
+- [x] Comment model
+- [x] Playlist + PlaylistItem models (sort_order, UniqueConstraints)
+- [x] Notification model (types: like, comment, follow, playlist_add)
+- [x] Denormalized counts (followers_count, like_count, comment_count, items_count)
+- [x] Run initial migrations (30 migrations applied)
 
 ### 4.3 API Endpoints
-- [ ] Auth: register, login (cookie-based), refresh, logout (blacklist), me
-- [ ] User: profile detail, follow/unfollow, followers/following lists
-- [ ] Venue: list (bbox, radius, cuisine, tags, rating filters), detail, reviews
-- [ ] Review: create, update, delete, like/unlike, comments CRUD
-- [ ] Playlist: CRUD, item add/remove/reorder
-- [ ] Feed: cursor-paginated, tabs (recent, top-picks, explore), denormalized items
-- [ ] Search: unified search (pg_trgm + tsvector), autocomplete
-- [ ] Notifications: list with unread_count, mark-read
+- [x] Auth: register, login (cookie-based), refresh, logout (blacklist), me
+- [x] User: profile detail, follow/unfollow, followers/following lists
+- [x] Venue: list (bbox, radius, cuisine, tags, rating filters), detail
+- [x] Review: create, update, delete, like/unlike, comments CRUD
+- [x] Playlist: CRUD, item add/remove/reorder
+- [x] Feed: cursor-paginated, tabs (recent, top-picks, explore)
+- [x] Search: unified search (icontains + tag filter), autocomplete
+- [x] Notifications: list with unread_count, mark-read
 
 ### 4.4 Frontend Integration
 - [ ] Create API client (Axios + interceptors + refresh mutex)
@@ -215,14 +212,15 @@
 - [ ] Create response adapter layer (snake_case → camelCase)
 - [ ] Replace mockApi functions with real API calls
 - [ ] Connect all pages to real API (login, feed, map, profile, playlists, search, notifications)
-- [ ] Seed data migration (load mock data into PostgreSQL)
+- [x] Seed data command (`python manage.py seed` — 5 users, 8 venues, 15 reviews, playlists, notifications)
 
 ### 4.5 Caching & Search
-- [ ] CacheKeys + CacheTTL abstraction classes (built for Redis migration later)
-- [ ] LocMemCache for MVP (venue detail 15min, feed 2min, user 10min, search 5min)
-- [ ] PostgreSQL full-text search (tsvector + tsquery + SearchRank)
-- [ ] PostgreSQL fuzzy search (pg_trgm + TrigramSimilarity)
-- [ ] PostGIS geospatial queries (ST_DWithin, bounding box, Distance annotation)
+- [x] CacheKeys + CacheTTL abstraction classes (built for Redis migration later)
+- [x] LocMemCache for MVP (settings configured)
+- [x] Database-agnostic tag filter helper (json_array_contains — PostgreSQL __contains / SQLite __icontains fallback)
+- [ ] PostgreSQL full-text search (tsvector + tsquery + SearchRank) — deferred to PostgreSQL migration
+- [ ] PostgreSQL fuzzy search (pg_trgm + TrigramSimilarity) — deferred to PostgreSQL migration
+- [ ] PostGIS geospatial queries (ST_DWithin, bounding box) — deferred to PostgreSQL migration
 
 ---
 
@@ -310,3 +308,6 @@
 | 2026-02-23 | Minor bugs fixed (15+) | Replaced all hardcoded #d93d3f/#d93e40 with theme.palette.primary.dark (6 files), replaced #F24D4F in ReviewCard heart with primary.main, replaced #FFD36E/#181818 in profile with theme tokens, fixed #eee dark mode in playlist/[id], consolidated duplicate React imports in Header + AppShell, stable keys in feed/venue/search (replaced index keys), added aria-labels (search input, avatar edit, add spots, close button), added slide id to PhotoCarousel |
 | 2026-02-23 | Bug fix pass complete | TypeScript passes with zero errors after all fixes |
 | 2026-02-24 | Config audit fixes | Added missing deps to package.json (react-hook-form, yup, @hookform/resolvers), created next.config.mjs (reactStrictMode + transpilePackages for MUI), added font-display: swap to @font-face |
+| 2026-02-27 | M4 backend scaffolded | Django 5.2 + DRF project, split settings, 8 apps, all models + views + serializers |
+| 2026-02-27 | M4 migrations + seed | 30 migrations applied (SQLite dev), seed command with 5 users, 8 venues, 15 reviews |
+| 2026-02-27 | M4 API verified | All endpoints tested: auth, venues, feed, search, playlists, notifications |
