@@ -11,9 +11,10 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AppShell from '../layouts/AppShell';
-import { useSearch } from '../hooks/useApi';
+import { useSearch, useSuggestedUsers } from '../hooks/useApi';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import Link from 'next/link';
+import FollowButton from '../components/FollowButton';
 
 const recentSearches = [
   'SavorWorks',
@@ -29,6 +30,7 @@ export default function SearchPage() {
 
   const trimmed = query.trim();
   const { data: results, isLoading: searchLoading } = useSearch(trimmed);
+  const { data: suggestedUsers } = useSuggestedUsers();
 
   if (authLoading) {
     return (
@@ -84,7 +86,7 @@ export default function SearchPage() {
           />
         </Box>
 
-        {/* Empty state: Recent Searches */}
+        {/* Empty state: Recent Searches + Suggested Users */}
         {!trimmed && (
           <Box sx={{ maxWidth: 420, mx: 'auto' }}>
             <Typography
@@ -116,6 +118,53 @@ export default function SearchPage() {
                 />
               ))}
             </Stack>
+
+            {/* Suggested Users */}
+            {(suggestedUsers ?? []).length > 0 && (
+              <Box sx={{ mt: 3 }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 700, mb: 1.5 }}
+                >
+                  Suggested for You
+                </Typography>
+                <Stack spacing={1}>
+                  {(suggestedUsers ?? []).slice(0, 5).map((user) => (
+                    <Box
+                      key={user.id}
+                      sx={(theme) => ({
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1.5,
+                        borderRadius: '16px',
+                        bgcolor: theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.04)'
+                          : theme.palette.background.paper,
+                        boxShadow: theme.palette.mode === 'dark'
+                          ? 'none'
+                          : '0 2px 8px rgba(0,0,0,0.04)',
+                      })}
+                    >
+                      <Avatar src={user.avatarUrl} sx={{ width: 40, height: 40 }} />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                          {user.name}
+                        </Typography>
+                        <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                          Lvl {user.level}
+                        </Typography>
+                      </Box>
+                      <FollowButton
+                        userId={user.id}
+                        isFollowing={user.isFollowing ?? false}
+                        size="small"
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
           </Box>
         )}
 

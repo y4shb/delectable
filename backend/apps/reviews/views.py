@@ -6,8 +6,14 @@ from rest_framework.views import APIView
 from apps.core.pagination import FeedCursorPagination
 from apps.core.permissions import IsOwnerOrReadOnly
 
-from .models import Comment, Review, ReviewLike
-from .serializers import CommentSerializer, ReviewCreateSerializer, ReviewSerializer
+from .models import Bookmark, Comment, Review, ReviewLike
+from .serializers import (
+    BookmarkSerializer,
+    CommentCreateSerializer,
+    CommentSerializer,
+    ReviewCreateSerializer,
+    ReviewSerializer,
+)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -101,6 +107,15 @@ class LikeView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
         Review.objects.filter(id=id).update(like_count=db_models.F("like_count") + 1)
+        # Create notification for review owner
+        if review.user_id != request.user.id:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                recipient=review.user,
+                notification_type="like",
+                text=f"{request.user.name} liked your review",
+                related_object_id=review.id,
+            )
         return Response(
             {"data": {"review_id": str(id), "user_id": str(request.user.id)}},
             status=status.HTTP_201_CREATED,
@@ -116,23 +131,82 @@ class LikeView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CommentListCreateView(generics.ListCreateAPIView):
-    """GET/POST /api/reviews/{id}/comments/"""
+class BookmarkView(APIView):
+    """POST/DELETE /api/reviews/{id}/bookmark/ — Bookmark/unbookmark a review."""
 
-    serializer_class = CommentSerializer
+    def post(self, request, id):
+        review = generics.get_object_or_404(Review, id=id)
+        _, created = Bookmark.objects.get_or_create(
+            user=request.user, review=review
+        )
+        if not created:
+            return Response(
+                {"error": {"code": "CONFLICT", "message": "Already bookmarked.", "status": 409}},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(
+            {"data": {"review_id": str(id), "user_id": str(request.user.id)}},
+            status=status.HTTP_201_CREATED,
+        )
+
+    def delete(self, request, id):
+        deleted, _ = Bookmark.objects.filter(
+            user=request.user, review_id=id
+        ).delete()
+        if not deleted:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BookmarkListView(generics.ListAPIView):
+    """GET /api/bookmarks/ — User's bookmarked reviews."""
+
+    serializer_class = BookmarkSerializer
     pagination_class = FeedCursorPagination
 
     def get_queryset(self):
-        return Comment.objects.filter(
-            review_id=self.kwargs["id"]
-        ).select_related("user").order_by("created_at")
+        return (
+            Bookmark.objects.filter(user=self.request.user)
+            .select_related("review__user", "review__venue")
+            .order_by("-created_at")
+        )
+
+
+class CommentListCreateView(generics.ListCreateAPIView):
+    """GET/POST /api/reviews/{id}/comments/"""
+
+    pagination_class = FeedCursorPagination
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return CommentCreateSerializer
+        return CommentSerializer
+
+    def get_queryset(self):
+        return (
+            Comment.objects.filter(
+                review_id=self.kwargs["id"], parent__isnull=True
+            )
+            .select_related("user")
+            .prefetch_related("replies__user")
+            .order_by("created_at")
+        )
 
     def perform_create(self, serializer):
         review = generics.get_object_or_404(Review, id=self.kwargs["id"])
-        serializer.save(user=self.request.user, review=review)
+        comment = serializer.save(user=self.request.user, review=review)
         Review.objects.filter(id=review.id).update(
             comment_count=db_models.F("comment_count") + 1
         )
+        # Create notification for review owner
+        if review.user_id != self.request.user.id:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                recipient=review.user,
+                notification_type="comment",
+                text=f"{self.request.user.name} commented on your review",
+                related_object_id=review.id,
+            )
 
 
 class CommentDeleteView(generics.DestroyAPIView):
@@ -150,7 +224,9 @@ class CommentDeleteView(generics.DestroyAPIView):
 
     def perform_destroy(self, instance):
         review_id = instance.review_id
+        # Count replies too
+        reply_count = instance.replies.count()
         instance.delete()
         Review.objects.filter(id=review_id).update(
-            comment_count=db_models.F("comment_count") - 1
+            comment_count=db_models.F("comment_count") - 1 - reply_count
         )

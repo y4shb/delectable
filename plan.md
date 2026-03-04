@@ -1245,9 +1245,22 @@ The backend should be built in this sequence (each step is independently testabl
 
 ---
 
-### Milestone 5: Social Features & Content Interaction
+### Milestone 5: Social Features & Content Interaction [COMPLETE]
 
 **Goal**: Bring the social graph and content interaction features to life across frontend and backend. Users should be able to follow/unfollow, interact with content (like, comment, bookmark), view detailed review pages, and discover new users through taste matching.
+
+**Implementation Notes (completed)**:
+- Backend: Added `parent` FK to Comment model (max depth 1), Bookmark model, TasteMatchCache model
+- Backend: Added `is_following`/`is_followed_by` to UserSerializer, `is_bookmarked`/`recent_comments` to ReviewSerializer
+- Backend: New endpoints — bookmark (POST/DELETE), bookmarks list, taste-match, suggested-users
+- Backend: Notifications auto-created on follow, like, and comment actions
+- Frontend: FollowButton component (3 states: Follow/Following/Unfollow-on-hover)
+- Frontend: ReviewCard updated with like animation (CSS keyframes heart burst), double-tap to like, bookmark toggle, inline comments
+- Frontend: Review detail page `/review/[id]` with threaded comments, action bar, "More from" sections
+- Frontend: AddToPlaylistSheet bottom sheet on venue detail page
+- Frontend: Saved tab on profile, followers/following list pages, suggested users on search page
+- Taste match uses Adjusted Cosine Similarity (0.7) + Jaccard Similarity (0.3) with confidence dampening
+- OG meta tags deferred to future milestone (requires SSR changes)
 
 #### 5.1 Social Graph Frontend
 

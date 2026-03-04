@@ -9,6 +9,8 @@ import type {
   FeedReview,
   AutocompleteResult,
   Comment,
+  Bookmark,
+  TasteMatch,
   CursorPaginatedResponse,
 } from '../types';
 
@@ -38,6 +40,7 @@ export function reviewToFeedReview(review: Review): FeedReview {
   return {
     id: review.id,
     venue: review.venueDetail?.name ?? '',
+    venueId: review.venueDetail?.id ?? review.venue,
     location: review.venueDetail?.locationText ?? '',
     dish: review.dishName || undefined,
     tags: review.tags ?? [],
@@ -52,6 +55,9 @@ export function reviewToFeedReview(review: Review): FeedReview {
     date: formatRelativeTime(review.createdAt),
     likeCount: review.likeCount ?? 0,
     commentCount: review.commentCount ?? 0,
+    isLiked: review.isLiked ?? false,
+    isBookmarked: review.isBookmarked ?? false,
+    recentComments: review.recentComments ?? [],
   };
 }
 
@@ -180,8 +186,12 @@ export async function fetchReviewComments(reviewId: string): Promise<Comment[]> 
 export async function createComment(
   reviewId: string,
   text: string,
+  parentId?: string,
 ): Promise<Comment> {
-  const { data } = await api.post(`/reviews/${reviewId}/comments/`, { text });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body: any = { text };
+  if (parentId) body.parent = parentId;
+  const { data } = await api.post(`/reviews/${reviewId}/comments/`, body);
   return data;
 }
 
@@ -264,4 +274,46 @@ export async function markNotificationsRead(ids?: string[]): Promise<void> {
   } else {
     await api.post('/notifications/mark-read/', { all: true });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Bookmarks
+// ---------------------------------------------------------------------------
+export async function bookmarkReview(reviewId: string): Promise<void> {
+  await api.post(`/reviews/${reviewId}/bookmark/`);
+}
+
+export async function unbookmarkReview(reviewId: string): Promise<void> {
+  await api.delete(`/reviews/${reviewId}/bookmark/`);
+}
+
+export async function fetchBookmarks(): Promise<Bookmark[]> {
+  const { data } = await api.get('/bookmarks/');
+  return data.results ?? data;
+}
+
+// ---------------------------------------------------------------------------
+// Social Graph
+// ---------------------------------------------------------------------------
+export async function fetchFollowers(userId: string): Promise<User[]> {
+  const { data } = await api.get(`/auth/users/${userId}/followers/`);
+  return data.results ?? data;
+}
+
+export async function fetchFollowing(userId: string): Promise<User[]> {
+  const { data } = await api.get(`/auth/users/${userId}/following/`);
+  return data.results ?? data;
+}
+
+export async function fetchSuggestedUsers(): Promise<User[]> {
+  const { data } = await api.get('/auth/suggested-users/');
+  return data.results ?? data;
+}
+
+// ---------------------------------------------------------------------------
+// Taste Match
+// ---------------------------------------------------------------------------
+export async function fetchTasteMatch(userId: string): Promise<TasteMatch> {
+  const { data } = await api.get(`/auth/users/${userId}/taste-match/`);
+  return data;
 }

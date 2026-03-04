@@ -61,3 +61,29 @@ class Follow(models.Model):
 
     def __str__(self):
         return f"{self.follower} -> {self.following}"
+
+
+class TasteMatchCache(models.Model):
+    """Pre-computed taste match score between two users."""
+
+    user_a = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="taste_matches_as_a"
+    )
+    user_b = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="taste_matches_as_b"
+    )
+    score = models.FloatField()
+    shared_venues = models.JSONField(default=list)
+    computed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "taste_match_cache"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user_a", "user_b"],
+                name="uq_taste_match_pair",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user_a} ↔ {self.user_b}: {self.score:.0%}"

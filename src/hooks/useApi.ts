@@ -4,12 +4,19 @@ import {
   fetchUser as fetchUserApi,
   fetchFeedReviews,
   fetchUserReviews,
+  fetchReview,
+  fetchReviewComments,
   fetchPlaylists,
   fetchPlaylistDetail,
   fetchVenues,
   fetchVenueDetail,
   fetchVenueReviews,
   fetchNotifications,
+  fetchBookmarks,
+  fetchFollowers,
+  fetchFollowing,
+  fetchSuggestedUsers,
+  fetchTasteMatch,
   searchAll,
 } from '../api/api';
 
@@ -32,6 +39,22 @@ export function useUserReviews(userId?: string) {
     queryKey: ['userReviews', userId],
     queryFn: () => fetchUserReviews(userId!),
     enabled: !!userId,
+  });
+}
+
+export function useReviewDetail(id?: string) {
+  return useQuery({
+    queryKey: ['reviewDetail', id],
+    queryFn: () => fetchReview(id!),
+    enabled: !!id,
+  });
+}
+
+export function useReviewComments(reviewId?: string) {
+  return useQuery({
+    queryKey: ['reviewComments', reviewId],
+    queryFn: () => fetchReviewComments(reviewId!),
+    enabled: !!reviewId,
   });
 }
 
@@ -65,10 +88,10 @@ export function useVenueDetail(id: string) {
   });
 }
 
-export function useVenueReviews(venueId: string) {
+export function useVenueReviews(venueId?: string) {
   return useQuery({
     queryKey: ['venueReviews', venueId],
-    queryFn: () => fetchVenueReviews(venueId),
+    queryFn: () => fetchVenueReviews(venueId!),
     enabled: !!venueId,
   });
 }
@@ -77,6 +100,44 @@ export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
     queryFn: () => fetchNotifications(),
+  });
+}
+
+export function useBookmarks() {
+  return useQuery({
+    queryKey: ['bookmarks'],
+    queryFn: () => fetchBookmarks(),
+  });
+}
+
+export function useFollowers(userId?: string) {
+  return useQuery({
+    queryKey: ['followers', userId],
+    queryFn: () => fetchFollowers(userId!),
+    enabled: !!userId,
+  });
+}
+
+export function useFollowing(userId?: string) {
+  return useQuery({
+    queryKey: ['following', userId],
+    queryFn: () => fetchFollowing(userId!),
+    enabled: !!userId,
+  });
+}
+
+export function useSuggestedUsers() {
+  return useQuery({
+    queryKey: ['suggestedUsers'],
+    queryFn: () => fetchSuggestedUsers(),
+  });
+}
+
+export function useTasteMatch(userId?: string) {
+  return useQuery({
+    queryKey: ['tasteMatch', userId],
+    queryFn: () => fetchTasteMatch(userId!),
+    enabled: !!userId,
   });
 }
 

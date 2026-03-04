@@ -11,6 +11,8 @@ export interface User {
   followersCount: number;
   followingCount: number;
   favoriteCuisines?: string[];
+  isFollowing?: boolean;
+  isFollowedBy?: boolean;
   createdAt?: string;
 }
 
@@ -51,14 +53,30 @@ export interface Review {
   likeCount: number;
   commentCount: number;
   isLiked: boolean;
+  isBookmarked: boolean;
+  recentComments: Comment[];
   createdAt: string;
 }
 
 export interface Comment {
   id: string;
   user: UserPublic;
+  parent?: string | null;
   text: string;
+  replies?: Comment[];
   createdAt: string;
+}
+
+export interface Bookmark {
+  id: string;
+  review: string;
+  reviewDetail: Review;
+  createdAt: string;
+}
+
+export interface TasteMatch {
+  score: number;
+  sharedVenues: string[];
 }
 
 export interface PlaylistItem {
@@ -110,6 +128,7 @@ export interface Notification {
 export interface FeedReview {
   id: string;
   venue: string; // venue name (display)
+  venueId?: string; // venue UUID for linking
   location: string; // venue location text
   dish?: string;
   tags: string[];
@@ -120,6 +139,9 @@ export interface FeedReview {
   date: string; // relative time string (e.g. "2h ago")
   likeCount: number;
   commentCount: number;
+  isLiked: boolean;
+  isBookmarked: boolean;
+  recentComments?: Comment[];
 }
 
 /** Search autocomplete result */

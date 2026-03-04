@@ -2,12 +2,14 @@ import AppShell from '../layouts/AppShell';
 import { Box, Typography, Avatar, Tabs, Tab, CircularProgress, Button, Stack, useTheme } from '@mui/material';
 import { useState } from 'react';
 import ReviewCard from '../components/ReviewCard';
-import { useUser, useUserReviews, usePlaylists } from '../hooks/useApi';
+import { useUser, useUserReviews, usePlaylists, useBookmarks } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import Link from 'next/link';
 import EditIcon from '@mui/icons-material/Edit';
 import StarIcon from '@mui/icons-material/Star';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import { reviewToFeedReview } from '../api/api';
 
 export default function ProfilePage() {
   const { isLoading: authLoading } = useRequireAuth();
@@ -17,6 +19,7 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useUser(authUser?.id);
   const { data: userReviews } = useUserReviews(authUser?.id);
   const { data: playlists } = usePlaylists();
+  const { data: bookmarks } = useBookmarks();
 
   if (authLoading || isLoading || !user) {
     return (
@@ -29,6 +32,7 @@ export default function ProfilePage() {
   }
 
   const reviews = userReviews ?? [];
+  const savedItems = bookmarks ?? [];
 
   return (
     <AppShell>
@@ -51,10 +55,32 @@ export default function ProfilePage() {
             Lvl {user.level}
           </Box>
         </Box>
-        <Typography variant="body2" color="text.secondary">
-          {user.followersCount.toLocaleString()} followers · {user.followingCount} following
-        </Typography>
-        <Typography variant="body1" color="text.secondary">{user.bio}</Typography>
+
+        {/* Clickable followers/following counts */}
+        <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+          <Link href={`/user/${user.id}/followers`} legacyBehavior passHref>
+            <Typography
+              component="a"
+              variant="body2"
+              color="text.secondary"
+              sx={{ textDecoration: 'none', cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+            >
+              <strong>{user.followersCount.toLocaleString()}</strong> followers
+            </Typography>
+          </Link>
+          <Link href={`/user/${user.id}/following`} legacyBehavior passHref>
+            <Typography
+              component="a"
+              variant="body2"
+              color="text.secondary"
+              sx={{ textDecoration: 'none', cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+            >
+              <strong>{user.followingCount}</strong> following
+            </Typography>
+          </Link>
+        </Box>
+
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>{user.bio}</Typography>
 
         {/* Edit Profile button */}
         <Link href="/profile/edit" legacyBehavior passHref>
@@ -84,6 +110,7 @@ export default function ProfilePage() {
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>
             <Tab label="Reviews" />
             <Tab label="Playlists" />
+            <Tab label="Saved" />
           </Tabs>
         </Box>
       </Box>
@@ -158,6 +185,24 @@ export default function ProfilePage() {
               ))
             )}
           </Stack>
+        )}
+
+        {tab === 2 && (
+          <>
+            {savedItems.length === 0 ? (
+              <Box sx={{ textAlign: 'center', mt: 4 }}>
+                <BookmarkIcon sx={{ fontSize: 36, color: 'text.secondary', mb: 0.5 }} />
+                <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                  No saved reviews yet
+                </Typography>
+              </Box>
+            ) : (
+              savedItems.map((bookmark) => {
+                const feedReview = reviewToFeedReview(bookmark.reviewDetail);
+                return <ReviewCard key={bookmark.id} {...feedReview} />;
+              })
+            )}
+          </>
         )}
       </Box>
     </AppShell>

@@ -1,12 +1,16 @@
+import math
+from collections import defaultdict
+
 from django.conf import settings
 from django.db import models
+from django.db.models import Count, Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from .models import Follow, User
+from .models import Follow, TasteMatchCache, User
 from .serializers import (
     LoginSerializer,
     RegisterSerializer,
@@ -184,6 +188,15 @@ class FollowView(APIView):
             followers_count=models.F("followers_count") + 1
         )
 
+        # Create notification
+        from apps.notifications.models import Notification
+        Notification.objects.create(
+            recipient=target,
+            notification_type="follow",
+            text=f"{request.user.name} started following you",
+            related_object_id=request.user.id,
+        )
+
         return Response(
             {
                 "data": {
@@ -241,3 +254,175 @@ class FollowingListView(generics.ListAPIView):
             follower_id=user_id
         ).values_list("following_id", flat=True)
         return User.objects.filter(id__in=following_ids)
+
+
+class SuggestedUsersView(generics.ListAPIView):
+    """GET /api/auth/suggested-users/ — Suggest users based on social/taste signals."""
+
+    serializer_class = UserSerializer
+
+    def get_queryset(self):
+        me = self.request.user
+        # Users I already follow
+        following_ids = set(
+            Follow.objects.filter(follower=me).values_list("following_id", flat=True)
+        )
+
+        # Candidates: not me, not already followed
+        candidates = User.objects.exclude(id=me.id).exclude(id__in=following_ids)
+
+        # Score each candidate
+        # 1. Mutual followers (friends of friends)
+        my_followers = set(
+            Follow.objects.filter(following=me).values_list("follower_id", flat=True)
+        )
+        mutual_map = defaultdict(int)
+        for fid in following_ids:
+            their_following = Follow.objects.filter(
+                follower_id=fid
+            ).values_list("following_id", flat=True)
+            for uid in their_following:
+                if uid != me.id and uid not in following_ids:
+                    mutual_map[uid] += 1
+
+        # 2. Venue overlap (shared reviewed venues)
+        from apps.reviews.models import Review
+        my_venue_ids = set(
+            Review.objects.filter(user=me).values_list("venue_id", flat=True)
+        )
+        venue_overlap_map = {}
+        if my_venue_ids:
+            overlap_qs = (
+                Review.objects.filter(venue_id__in=my_venue_ids)
+                .exclude(user=me)
+                .exclude(user_id__in=following_ids)
+                .values("user_id")
+                .annotate(shared=Count("venue_id", distinct=True))
+            )
+            venue_overlap_map = {r["user_id"]: r["shared"] for r in overlap_qs}
+
+        # 3. Cuisine match
+        my_cuisines = set(me.favorite_cuisines or [])
+
+        scored = []
+        for c in candidates[:200]:  # limit to prevent slow queries
+            mutual = mutual_map.get(c.id, 0)
+            venue_overlap = venue_overlap_map.get(c.id, 0)
+            their_cuisines = set(c.favorite_cuisines or [])
+            cuisine_match = (
+                len(my_cuisines & their_cuisines) / max(len(my_cuisines | their_cuisines), 1)
+                if my_cuisines
+                else 0
+            )
+            popularity = min(c.followers_count / 100, 1.0)
+
+            score = (
+                0.4 * min(mutual / 3, 1.0)
+                + 0.3 * min(venue_overlap / 5, 1.0)
+                + 0.2 * cuisine_match
+                + 0.1 * popularity
+            )
+            if score > 0:
+                scored.append((c.id, score))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top_ids = [uid for uid, _ in scored[:10]]
+
+        if not top_ids:
+            # Fallback: popular users
+            return candidates.order_by("-followers_count")[:10]
+
+        # Preserve ordering
+        preserved = {uid: idx for idx, uid in enumerate(top_ids)}
+        result = list(User.objects.filter(id__in=top_ids))
+        result.sort(key=lambda u: preserved.get(u.id, 999))
+        return result
+
+
+def compute_taste_match(user_a, user_b):
+    """Compute taste match between two users using Adjusted Cosine + Jaccard."""
+    from apps.reviews.models import Review
+
+    reviews_a = {
+        r["venue_id"]: float(r["rating"])
+        for r in Review.objects.filter(user=user_a).values("venue_id", "rating")
+    }
+    reviews_b = {
+        r["venue_id"]: float(r["rating"])
+        for r in Review.objects.filter(user=user_b).values("venue_id", "rating")
+    }
+
+    all_venues_a = set(reviews_a.keys())
+    all_venues_b = set(reviews_b.keys())
+    shared_venues = all_venues_a & all_venues_b
+
+    # Jaccard similarity
+    union = all_venues_a | all_venues_b
+    jaccard = len(shared_venues) / max(len(union), 1)
+
+    # Adjusted cosine similarity
+    adj_cosine = 0.0
+    if len(shared_venues) >= 1:
+        mean_a = sum(reviews_a.values()) / max(len(reviews_a), 1)
+        mean_b = sum(reviews_b.values()) / max(len(reviews_b), 1)
+
+        dot = 0.0
+        norm_a = 0.0
+        norm_b = 0.0
+        for v in shared_venues:
+            da = reviews_a[v] - mean_a
+            db = reviews_b[v] - mean_b
+            dot += da * db
+            norm_a += da * da
+            norm_b += db * db
+
+        denom = math.sqrt(norm_a) * math.sqrt(norm_b)
+        if denom > 0:
+            adj_cosine = max(0, (dot / denom + 1) / 2)  # normalize to 0-1
+        else:
+            adj_cosine = 0.5  # identical ratings on shared venues
+
+    raw_score = 0.7 * adj_cosine + 0.3 * jaccard
+
+    # Confidence dampening for < 3 shared venues
+    confidence = min(len(shared_venues) / 3, 1.0)
+    score = raw_score * confidence
+
+    return score, list(shared_venues)
+
+
+class TasteMatchView(APIView):
+    """GET /api/auth/users/{id}/taste-match/ — Taste match with another user."""
+
+    def get(self, request, id):
+        other = generics.get_object_or_404(User, id=id)
+        me = request.user
+
+        if me.id == other.id:
+            return Response(
+                {"score": 1.0, "shared_venues": []},
+                status=status.HTTP_200_OK,
+            )
+
+        # Check cache
+        user_a, user_b = sorted([me, other], key=lambda u: str(u.id))
+        cached = TasteMatchCache.objects.filter(user_a=user_a, user_b=user_b).first()
+
+        if cached:
+            score = cached.score
+            shared_venues = cached.shared_venues
+        else:
+            score, shared_venues = compute_taste_match(me, other)
+            TasteMatchCache.objects.update_or_create(
+                user_a=user_a,
+                user_b=user_b,
+                defaults={"score": score, "shared_venues": shared_venues},
+            )
+
+        return Response(
+            {
+                "score": round(score, 3),
+                "shared_venues": shared_venues,
+            },
+            status=status.HTTP_200_OK,
+        )

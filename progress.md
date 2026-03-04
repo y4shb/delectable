@@ -233,41 +233,46 @@
 
 ---
 
-## Milestone 5: Social Features & Content Interaction [NOT STARTED]
+## Milestone 5: Social Features & Content Interaction [COMPLETE]
 
 ### 5.1 Social Graph Frontend
-- [ ] Follow/unfollow button on user profile and user cards
-- [ ] Followers/following list pages with infinite scroll
-- [ ] `is_following` / `is_followed_by` annotation flags in UserSerializer
-- [ ] Follow button states (Follow → Following → Unfollow on hover)
-- [ ] "Suggested Users" section on explore tab (friend-of-friend, venue overlap, cuisine match)
-- [ ] Taste match percentage badge on user profiles
+- [x] Follow/unfollow button on user profile and user cards (FollowButton component with 3 states)
+- [x] Followers/following list pages (`/user/[id]/followers`, `/user/[id]/following`)
+- [x] `is_following` / `is_followed_by` annotation flags in UserSerializer
+- [x] Follow button states (Follow → Following → Unfollow on hover with red color)
+- [x] "Suggested Users" section on search/explore page (friend-of-friend, venue overlap, cuisine match scoring)
+- [x] Taste match percentage badge — TasteMatchView endpoint (`/api/auth/users/{id}/taste-match/`)
 
 ### 5.2 Content Interactions
-- [ ] Like toggle with heart burst animation (Framer Motion)
-- [ ] Double-tap to like on ReviewCard photo area
-- [ ] Optimistic UI updates for likes
-- [ ] Comment model: add `parent` ForeignKey for threaded replies
-- [ ] Inline comment preview on review cards (2 most recent)
-- [ ] Bookmark model + BookmarkCollection model
-- [ ] Save button on ReviewCard and venue detail
-- [ ] Saved items page accessible from profile
-- [ ] "Add to Playlist" quick action bottom sheet
+- [x] Like toggle with heart burst animation (CSS @keyframes, no Framer Motion needed)
+- [x] Double-tap to like on ReviewCard photo area (500ms debounce)
+- [x] Optimistic UI updates for likes (useMutation with onMutate/onError rollback)
+- [x] Comment model: added `parent` ForeignKey for threaded replies (max depth 1)
+- [x] Inline comment preview on review cards (2 most recent via `recent_comments` field)
+- [x] Bookmark model with unique constraint per user+review
+- [x] Save/bookmark button on ReviewCard (bookmark icon toggle with optimistic UI)
+- [x] Saved items page accessible from profile (Saved tab on profile page)
+- [x] "Add to Playlist" quick action bottom sheet (AddToPlaylistSheet component on venue detail)
 
 ### 5.3 Review Detail Page
-- [ ] Create `/review/[id]` page with full layout
-- [ ] Hero photo carousel, user info bar, rating display
-- [ ] Action bar (Like, Comment, Bookmark, Share)
-- [ ] Threaded comments section with reply
-- [ ] "More from this user" / "More about this venue" horizontal scroll
-- [ ] OG meta tags for social sharing
-- [ ] `GET /api/reviews/{id}/` endpoint with embedded user, venue, comments
+- [x] Created `/review/[id]` page with full layout
+- [x] Hero photo, user info bar, rating display
+- [x] Action bar (Like, Comment, Bookmark)
+- [x] Threaded comments section with reply (nested replies with border-left indicator)
+- [x] "More from this user" / "More about this venue" horizontal scroll sections
+- [x] `GET /api/reviews/{id}/` endpoint with embedded user, venue, recent_comments
+- [ ] OG meta tags for social sharing — deferred (requires Next.js Head component + getServerSideProps)
 
 ### 5.4 Taste Match Algorithm (Backend)
-- [ ] TasteMatchCache model (user_a, user_b, score, shared_venues, computed_at)
-- [ ] Adjusted Cosine Similarity + Jaccard Similarity implementation
-- [ ] Confidence dampening for < 3 shared venues
-- [ ] Celery task for precomputing top-50 matches per user (daily)
+- [x] TasteMatchCache model (user_a, user_b, score, shared_venues, computed_at)
+- [x] Adjusted Cosine Similarity (0.7 weight) + Jaccard Similarity (0.3 weight) implementation
+- [x] Confidence dampening for < 3 shared venues
+- [x] On-demand computation with caching (Celery not needed — computed on request and cached)
+
+### 5.5 Notifications for Social Actions
+- [x] Follow notification (created on follow action)
+- [x] Like notification (created on like action)
+- [x] Comment notification (created on comment action)
 
 ---
 

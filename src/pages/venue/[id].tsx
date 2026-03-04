@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -16,12 +17,14 @@ import StarIcon from '@mui/icons-material/Star';
 import AppShell from '../../layouts/AppShell';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useVenueDetail, useVenueReviews, useVenues } from '../../hooks/useApi';
+import AddToPlaylistSheet from '../../components/AddToPlaylistSheet';
 
 export default function VenueDetailPage() {
   useRequireAuth();
   const router = useRouter();
   const theme = useTheme();
   const { id } = router.query;
+  const [playlistSheetOpen, setPlaylistSheetOpen] = useState(false);
 
   const { data: venue, isLoading: venueLoading } = useVenueDetail(id as string);
   const { data: reviews, isLoading: reviewsLoading } = useVenueReviews(id as string);
@@ -211,6 +214,7 @@ export default function VenueDetailPage() {
           </Link>
           <Button
             variant="outlined"
+            onClick={() => setPlaylistSheetOpen(true)}
             sx={{
               flex: 1,
               borderRadius: '48px',
@@ -383,6 +387,12 @@ export default function VenueDetailPage() {
             </Box>
           </Box>
         )}
+        {/* Add to Playlist sheet */}
+        <AddToPlaylistSheet
+          open={playlistSheetOpen}
+          onClose={() => setPlaylistSheetOpen(false)}
+          venueId={venue.id}
+        />
       </Box>
     </AppShell>
   );

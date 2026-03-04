@@ -70,7 +70,7 @@ class ReviewLike(models.Model):
 
 
 class Comment(TimeStampedModel):
-    """Comment on a review."""
+    """Comment on a review, with optional threading (max depth 1)."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -78,6 +78,13 @@ class Comment(TimeStampedModel):
     )
     review = models.ForeignKey(
         Review, on_delete=models.CASCADE, related_name="comments"
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        related_name="replies",
+        null=True,
+        blank=True,
     )
     text = models.TextField(max_length=1000)
 
@@ -87,6 +94,46 @@ class Comment(TimeStampedModel):
         indexes = [
             Index(name="idx_comment_review_created", fields=["review", "created_at"]),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(parent__isnull=True)
+                | models.Q(parent__isnull=False),
+                name="chk_comment_parent_valid",
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.parent and self.parent.review_id != self.review_id:
+            raise ValidationError("Parent comment must belong to the same review.")
+        if self.parent and self.parent.parent_id is not None:
+            raise ValidationError("Cannot reply to a reply (max depth 1).")
 
     def __str__(self):
         return f"{self.user} on {self.review.id}: {self.text[:50]}"
+
+
+class Bookmark(models.Model):
+    """User bookmark on a review."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks"
+    )
+    review = models.ForeignKey(
+        Review, on_delete=models.CASCADE, related_name="bookmarks"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "bookmarks"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "review"],
+                name="uq_bookmark_user_review",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user} bookmarked {self.review.id}"

@@ -1,11 +1,14 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 
-from .models import User
+from .models import Follow, User
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Public user profile serializer."""
+    """Public user profile serializer with social graph flags."""
+
+    is_following = serializers.SerializerMethodField()
+    is_followed_by = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -19,6 +22,8 @@ class UserSerializer(serializers.ModelSerializer):
             "followers_count",
             "following_count",
             "favorite_cuisines",
+            "is_following",
+            "is_followed_by",
             "created_at",
         ]
         read_only_fields = [
@@ -27,8 +32,26 @@ class UserSerializer(serializers.ModelSerializer):
             "level",
             "followers_count",
             "following_count",
+            "is_following",
+            "is_followed_by",
             "created_at",
         ]
+
+    def get_is_following(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        if request.user.id == obj.id:
+            return False
+        return Follow.objects.filter(follower=request.user, following=obj).exists()
+
+    def get_is_followed_by(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        if request.user.id == obj.id:
+            return False
+        return Follow.objects.filter(follower=obj, following=request.user).exists()
 
 
 class UserPublicSerializer(serializers.ModelSerializer):
