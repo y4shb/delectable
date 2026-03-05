@@ -134,7 +134,7 @@ export async function unfollowUser(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 export async function fetchVenues(): Promise<Venue[]> {
   const { data } = await api.get('/venues/');
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function fetchVenueDetail(id: string): Promise<Venue> {
@@ -157,6 +157,18 @@ export async function createReview(review: {
   return data;
 }
 
+export async function createQuickReview(review: {
+  venue: string;
+  rating: number;
+  photoUrl: string;
+  dishName?: string;
+  text?: string;
+  tags?: string[];
+}): Promise<{ data: Review; isFirstReview: boolean }> {
+  const { data } = await api.post('/reviews/quick/', review);
+  return data;
+}
+
 export async function fetchReview(id: string): Promise<Review> {
   const { data } = await api.get(`/reviews/${id}/`);
   return data;
@@ -172,19 +184,19 @@ export async function unlikeReview(id: string): Promise<void> {
 
 export async function fetchVenueReviews(venueId: string): Promise<FeedReview[]> {
   const { data } = await api.get(`/venues/${venueId}/reviews/`);
-  const reviews: Review[] = data.results ?? data;
+  const reviews: Review[] = data.data ?? data.results ?? data;
   return reviews.map(reviewToFeedReview);
 }
 
 export async function fetchUserReviews(userId: string): Promise<FeedReview[]> {
   const { data } = await api.get(`/auth/users/${userId}/reviews/`);
-  const reviews: Review[] = data.results ?? data;
+  const reviews: Review[] = data.data ?? data.results ?? data;
   return reviews.map(reviewToFeedReview);
 }
 
 export async function fetchReviewComments(reviewId: string): Promise<Comment[]> {
   const { data } = await api.get(`/reviews/${reviewId}/comments/`);
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function createComment(
@@ -206,7 +218,7 @@ export async function fetchFeedReviews(tab?: string): Promise<FeedReview[]> {
   const params: Record<string, string> = {};
   if (tab) params.tab = tab;
   const { data } = await api.get('/feed/', { params });
-  const reviews: Review[] = data.results ?? data;
+  const reviews: Review[] = data.data ?? data.results ?? data;
   return reviews.map(reviewToFeedReview);
 }
 
@@ -215,7 +227,7 @@ export async function fetchFeedReviews(tab?: string): Promise<FeedReview[]> {
 // ---------------------------------------------------------------------------
 export async function fetchPlaylists(): Promise<PlaylistSummary[]> {
   const { data } = await api.get('/playlists/');
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function fetchPlaylistDetail(id: string): Promise<Playlist> {
@@ -300,7 +312,7 @@ export async function unbookmarkReview(reviewId: string): Promise<void> {
 
 export async function fetchBookmarks(): Promise<Bookmark[]> {
   const { data } = await api.get('/bookmarks/');
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,17 +320,17 @@ export async function fetchBookmarks(): Promise<Bookmark[]> {
 // ---------------------------------------------------------------------------
 export async function fetchFollowers(userId: string): Promise<User[]> {
   const { data } = await api.get(`/auth/users/${userId}/followers/`);
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function fetchFollowing(userId: string): Promise<User[]> {
   const { data } = await api.get(`/auth/users/${userId}/following/`);
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function fetchSuggestedUsers(): Promise<User[]> {
   const { data } = await api.get('/auth/suggested-users/');
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +346,7 @@ export async function fetchTasteMatch(userId: string): Promise<TasteMatch> {
 // ---------------------------------------------------------------------------
 export async function fetchTrendingVenues(): Promise<TrendingVenue[]> {
   const { data } = await api.get('/feed/trending/');
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function fetchTasteProfile(): Promise<TasteProfile> {
@@ -364,7 +376,7 @@ export async function fetchDishes(params?: {
   q?: string;
 }): Promise<Dish[]> {
   const { data } = await api.get('/dishes/', { params });
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function fetchDishDetail(id: string): Promise<Dish> {
@@ -375,7 +387,7 @@ export async function fetchDishDetail(id: string): Promise<Dish> {
 // Occasions
 export async function fetchOccasions(): Promise<OccasionTag[]> {
   const { data } = await api.get('/occasions/');
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 export async function voteOccasion(
@@ -403,11 +415,11 @@ export async function reportDietary(
 // Similar Venues
 export async function fetchSimilarVenues(venueId: string): Promise<Venue[]> {
   const { data } = await api.get(`/venues/${venueId}/similar/`);
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }
 
 // Friends Venues
 export async function fetchFriendsVenues(): Promise<FriendsVenue[]> {
   const { data } = await api.get('/venues/friends/');
-  return data.results ?? data;
+  return data.data ?? data.results ?? data;
 }

@@ -5,9 +5,11 @@ import BottomTabBar from '../components/BottomTabBar';
 
 interface AppShellProps {
   children: ReactNode;
+  /** Hide the bottom tab bar (used for onboarding, quick review) */
+  hideTabBar?: boolean;
 }
 
-export default function AppShell({ children }: AppShellProps) {
+export default function AppShell({ children, hideTabBar = false }: AppShellProps) {
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
@@ -38,7 +40,7 @@ export default function AppShell({ children }: AppShellProps) {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Header visible={headerVisible} />
       <Box sx={{ flex: 1, width: '100%', maxWidth: 600, mx: 'auto', px: 2, py: 1, pt: '72px' }}>{children}</Box>
-      <BottomTabBar />
+      {!hideTabBar && <BottomTabBar />}
     </Box>
   );
 }

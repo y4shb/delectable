@@ -120,3 +120,26 @@ class BookmarkSerializer(serializers.ModelSerializer):
         model = Bookmark
         fields = ["id", "review", "review_detail", "created_at"]
         read_only_fields = ["id", "review_detail", "created_at"]
+
+
+class QuickReviewSerializer(serializers.ModelSerializer):
+    """
+    Simplified serializer for first-review wizard.
+
+    Only requires: venue, rating, photo_url
+    Optional: dish_name, text, tags
+    """
+
+    class Meta:
+        model = Review
+        fields = ["venue", "rating", "photo_url", "dish_name", "text", "tags"]
+
+    def validate_rating(self, value):
+        if value < 0 or value > 10:
+            raise serializers.ValidationError("Rating must be between 0 and 10.")
+        return value
+
+    def validate_photo_url(self, value):
+        if not value:
+            raise serializers.ValidationError("Photo is required for quick review.")
+        return value

@@ -12,6 +12,7 @@ from .serializers import (
     BookmarkSerializer,
     CommentCreateSerializer,
     CommentSerializer,
+    QuickReviewSerializer,
     ReviewCreateSerializer,
     ReviewSerializer,
 )
@@ -258,3 +259,59 @@ class CommentDeleteView(generics.DestroyAPIView):
             Review.objects.filter(id=review_id).update(
                 comment_count=Greatest(db_models.F("comment_count") - 1 - reply_count, 0)
             )
+
+
+class QuickReviewView(APIView):
+    """
+    POST /api/reviews/quick/ — Simplified first-review wizard.
+
+    Accepts: photo_url, venue_id, rating (required only)
+    Optional: dish_name, text, tags
+
+    Updates maturity_level on first review.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = QuickReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            # Check if this is user's first review
+            is_first_review = not Review.objects.filter(user=request.user).exists()
+
+            review = serializer.save(user=request.user)
+
+            # Compute and save quality score
+            from apps.feed.engine import compute_quality_score
+            review.quality_score = compute_quality_score(review)
+            review.save(update_fields=["quality_score"])
+
+            # Update venue review count and rating
+            venue = review.venue
+            from django.db.models import Avg
+            agg = Review.objects.filter(venue=venue).aggregate(
+                avg_rating=Avg("rating"),
+                count=db_models.Count("id"),
+            )
+            venue.rating = agg["avg_rating"] or 0
+            venue.reviews_count = agg["count"]
+            venue.save(update_fields=["rating", "reviews_count"])
+
+            # Update maturity level on first review
+            if is_first_review:
+                from apps.feed.models import UserTasteProfile
+                profile, _ = UserTasteProfile.objects.get_or_create(user=request.user)
+                if profile.maturity_level < 1:
+                    profile.maturity_level = 1
+                    profile.save(update_fields=["maturity_level"])
+
+        response_serializer = ReviewSerializer(review, context={"request": request})
+        return Response(
+            {
+                "data": response_serializer.data,
+                "is_first_review": is_first_review,
+            },
+            status=status.HTTP_201_CREATED,
+        )

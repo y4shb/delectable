@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.db import json_array_contains
+from apps.core.permissions import ReadPublicWriteAuthenticated
 from apps.users.models import User
 from apps.users.serializers import UserPublicSerializer
 from apps.venues.models import Dish, Venue, VenueOccasion, DietaryReport
@@ -21,9 +22,11 @@ class SearchView(APIView):
     Unified search across venues, users, reviews, and dishes.
     Uses case-insensitive name/text matching (pg_trgm when available).
     Integrates smart search parser for natural language queries.
+
+    Supports anonymous access for content-first onboarding.
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ReadPublicWriteAuthenticated]
 
     def get(self, request):
         q = request.query_params.get("q", "").strip()

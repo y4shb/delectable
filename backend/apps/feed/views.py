@@ -3,12 +3,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.pagination import FeedCursorPagination
+from apps.core.permissions import ReadPublicWriteAuthenticated
 from apps.reviews.models import Review
 from apps.reviews.serializers import ReviewSerializer
 from apps.users.models import Follow
 from apps.venues.serializers import VenueListSerializer
 
 from .engine import (
+    anonymous_feed,
     augmented_feed,
     cold_start_feed,
     compute_feed_score,
@@ -26,6 +28,8 @@ class FeedView(generics.ListAPIView):
     """
     GET /api/feed/ — Main feed endpoint with intelligent ranking.
 
+    Supports anonymous access (content-first onboarding).
+
     Query params:
         tab: "recent" | "top-picks" | "explore" (default: "top-picks")
         cursor: pagination cursor
@@ -33,7 +37,7 @@ class FeedView(generics.ListAPIView):
     """
 
     serializer_class = ReviewSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ReadPublicWriteAuthenticated]
 
     def get_queryset(self):
         # This won't be used for scored feeds; overridden in list()
@@ -42,6 +46,12 @@ class FeedView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         user = request.user
         tab = request.query_params.get("tab", "top-picks")
+
+        # Anonymous users (tier 0) get trending/popular feed
+        if not user.is_authenticated:
+            reviews = anonymous_feed(limit=20)
+            serializer = self.get_serializer(reviews, many=True)
+            return Response({"results": serializer.data})
 
         tier = get_user_tier(user)
 

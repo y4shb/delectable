@@ -420,6 +420,49 @@ def auto_follow_tastemakers(user):
                 )
 
 
+def anonymous_feed(limit=20):
+    """Feed for anonymous users (tier 0) — trending/popular reviews, no personalization."""
+    now = timezone.now()
+
+    # Combine trending venues with popular recent reviews
+    trending_venue_ids = VenueTrendingScore.objects.filter(
+        score__gt=0
+    ).values_list("venue_id", flat=True)[:10]
+
+    trending_reviews = list(
+        Review.objects.filter(venue_id__in=trending_venue_ids)
+        .select_related("user", "venue")
+        .order_by("-like_count", "-created_at")[:int(limit * 0.6)]
+    )
+
+    exclude_ids = {r.id for r in trending_reviews}
+    popular_reviews = list(
+        Review.objects.filter(
+            created_at__gte=now - timedelta(days=14),
+            rating__gte=7.0,
+        )
+        .exclude(id__in=exclude_ids)
+        .select_related("user", "venue")
+        .order_by("-like_count", "-created_at")[:limit - len(trending_reviews)]
+    )
+
+    # Interleave
+    result = []
+    ti, pi = 0, 0
+    for i in range(limit):
+        if ti < len(trending_reviews) and (i % 3 < 2 or pi >= len(popular_reviews)):
+            result.append(trending_reviews[ti])
+            ti += 1
+        elif pi < len(popular_reviews):
+            result.append(popular_reviews[pi])
+            pi += 1
+        elif ti < len(trending_reviews):
+            result.append(trending_reviews[ti])
+            ti += 1
+
+    return result[:limit]
+
+
 def cold_start_feed(viewer, limit=20):
     """Feed for cold-start users (tier 1) — cuisine-preference-based."""
     # Try taste profile preferences

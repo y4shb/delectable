@@ -6,10 +6,13 @@ import { useAuth } from '../context/AuthContext';
 export default function LoginPage() {
   const theme = useTheme();
   const router = useRouter();
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, register, isAuthenticated, isLoading } = useAuth();
 
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,9 +50,45 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push('/feed');
+      // Check for redirect param
+      const redirect = router.query.redirect as string;
+      router.push(redirect || '/feed');
     } catch {
       setError('Invalid email or password');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSignUp = async () => {
+    setError('');
+    if (!name.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Please enter your email');
+      return;
+    }
+    if (!password.trim()) {
+      setError('Please enter a password');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await register(email, name, password, passwordConfirm);
+      // Redirect new users to onboarding
+      router.push('/onboarding');
+    } catch {
+      setError('Registration failed. Email may already be in use.');
     } finally {
       setSubmitting(false);
     }
@@ -127,6 +166,25 @@ export default function LoginPage() {
           </Typography>
         )}
 
+        {/* Name field (sign up only) */}
+        {isSignUp && (
+          <TextField
+            label="Name"
+            variant="outlined"
+            fullWidth
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            aria-label="Your name"
+            disabled={submitting}
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '16px',
+              },
+            }}
+          />
+        )}
+
         {/* Email field */}
         <TextField
           label="Email"
@@ -156,22 +214,45 @@ export default function LoginPage() {
           aria-label="Password"
           disabled={submitting}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSignIn();
+            if (e.key === 'Enter' && !isSignUp) handleSignIn();
           }}
           sx={{
-            mb: 3,
+            mb: isSignUp ? 2 : 3,
             '& .MuiOutlinedInput-root': {
               borderRadius: '16px',
             },
           }}
         />
 
-        {/* Sign In button */}
+        {/* Confirm password (sign up only) */}
+        {isSignUp && (
+          <TextField
+            label="Confirm Password"
+            variant="outlined"
+            type="password"
+            fullWidth
+            value={passwordConfirm}
+            onChange={(e) => setPasswordConfirm(e.target.value)}
+            aria-label="Confirm password"
+            disabled={submitting}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSignUp();
+            }}
+            sx={{
+              mb: 3,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '16px',
+              },
+            }}
+          />
+        )}
+
+        {/* Sign In / Sign Up button */}
         <Button
           variant="contained"
           fullWidth
           disableElevation
-          onClick={handleSignIn}
+          onClick={isSignUp ? handleSignUp : handleSignIn}
           disabled={submitting}
           sx={{
             backgroundColor: theme.palette.primary.main,
@@ -186,25 +267,31 @@ export default function LoginPage() {
             },
           }}
         >
-          {submitting ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
+          {submitting ? (
+            <CircularProgress size={24} color="inherit" />
+          ) : isSignUp ? (
+            'Create Account'
+          ) : (
+            'Sign In'
+          )}
         </Button>
 
-        {/* Create Account link */}
+        {/* Toggle between sign in and sign up */}
         <Button
           variant="text"
-          disabled
+          onClick={() => {
+            setIsSignUp(!isSignUp);
+            setError('');
+          }}
           sx={{
             mt: 2,
             color: theme.palette.primary.main,
             fontWeight: 600,
             textTransform: 'none',
             fontSize: '0.9rem',
-            '&.Mui-disabled': {
-              color: theme.palette.text.secondary,
-            },
           }}
         >
-          Create Account (Coming Soon)
+          {isSignUp ? 'Already have an account? Sign In' : 'Create Account'}
         </Button>
       </Box>
     </Box>

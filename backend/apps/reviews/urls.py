@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path("reviews/", views.ReviewViewSet.as_view({"post": "create"}), name="review-create"),
+    path("reviews/quick/", views.QuickReviewView.as_view(), name="quick-review"),
     path("reviews/<uuid:id>/", views.ReviewViewSet.as_view({
         "get": "retrieve", "patch": "partial_update", "delete": "destroy"
     }), name="review-detail"),
