@@ -4,8 +4,27 @@ import uuid
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
+from django.utils.text import slugify
 
 import apps.playlists.models
+
+
+def populate_slugs(apps, schema_editor):
+    """Generate unique slugs for existing playlists."""
+    Playlist = apps.get_model('playlists', 'Playlist')
+    for playlist in Playlist.objects.all():
+        base_slug = slugify(playlist.title)[:200] or 'playlist'
+        playlist.slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
+        playlist.save(update_fields=['slug'])
+
+
+def populate_share_codes(apps, schema_editor):
+    """Generate unique share codes for existing playlists."""
+    import secrets
+    Playlist = apps.get_model('playlists', 'Playlist')
+    for playlist in Playlist.objects.filter(share_code=''):
+        playlist.share_code = secrets.token_urlsafe(4)[:6].lower()
+        playlist.save(update_fields=['share_code'])
 
 
 class Migration(migrations.Migration):
@@ -16,13 +35,22 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Add new fields to Playlist
+        # Step 1: Add slug field WITHOUT unique constraint
         migrations.AddField(
             model_name='playlist',
             name='slug',
-            field=models.SlugField(blank=True, max_length=220, unique=True, default=''),
+            field=models.SlugField(blank=True, max_length=220, default=''),
             preserve_default=False,
         ),
+        # Step 2: Populate unique slugs for existing rows
+        migrations.RunPython(populate_slugs, migrations.RunPython.noop),
+        # Step 3: Now add the unique constraint
+        migrations.AlterField(
+            model_name='playlist',
+            name='slug',
+            field=models.SlugField(blank=True, max_length=220, unique=True),
+        ),
+        # Add visibility field
         migrations.AddField(
             model_name='playlist',
             name='visibility',
@@ -32,7 +60,19 @@ class Migration(migrations.Migration):
                 max_length=20,
             ),
         ),
+        # Step 4: Add share_code WITHOUT unique first
         migrations.AddField(
+            model_name='playlist',
+            name='share_code',
+            field=models.CharField(
+                default=apps.playlists.models.generate_share_code,
+                max_length=10,
+            ),
+        ),
+        # Step 5: Populate share codes for existing rows
+        migrations.RunPython(populate_share_codes, migrations.RunPython.noop),
+        # Step 6: Now add unique constraint
+        migrations.AlterField(
             model_name='playlist',
             name='share_code',
             field=models.CharField(

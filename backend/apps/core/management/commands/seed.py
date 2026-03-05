@@ -691,7 +691,7 @@ class Command(BaseCommand):
             p, created = Playlist.objects.get_or_create(
                 user=users[user_idx],
                 title=title,
-                defaults={"description": desc, "is_public": is_public},
+                defaults={"description": desc, "visibility": "public" if is_public else "private"},
             )
             if created:
                 for order, vi in enumerate(venue_indices):

@@ -68,7 +68,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-APPEND_SLASH = False
+APPEND_SLASH = True
 
 ROOT_URLCONF = "config.urls"
 
