@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Typography, Tab, Tabs, useTheme } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
 
 interface WelcomeSectionProps {
   onTabChange?: (tabValue: string) => void;
@@ -8,6 +9,7 @@ interface WelcomeSectionProps {
 export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
   const [selectedTab, setSelectedTab] = useState('top-picks');
   const theme = useTheme();
+  const { user } = useAuth();
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     setSelectedTab(newValue);
@@ -39,17 +41,19 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
             letterSpacing: 1,
           }}
         >
-          Hi Yash!
+          Hi {user?.name?.split(' ')[0] ?? 'there'}!
         </Typography>
       </Box>
 
       {/* Tabs */}
       <Box sx={{ mb: 2 }}>
         <Tabs
+          id="feed-tabs"
           value={selectedTab}
           onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
+          aria-label="Feed navigation tabs"
           sx={{
             '& .MuiTabs-indicator': {
               display: 'none', // Hide the default indicator
@@ -92,10 +96,10 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
             },
           }}
         >
-          <Tab label="Top picks" value="top-picks" />
-          <Tab label="Recent" value="recent" />
-          <Tab label="Collections" value="collections" />
-          <Tab label="Explore" value="explore" />
+          <Tab id="tab-top-picks" label="Top picks" value="top-picks" aria-controls="tabpanel-top-picks" />
+          <Tab id="tab-recent" label="Recent" value="recent" aria-controls="tabpanel-recent" />
+          <Tab id="tab-collections" label="Collections" value="collections" aria-controls="tabpanel-collections" />
+          <Tab id="tab-explore" label="Explore" value="explore" aria-controls="tabpanel-explore" />
         </Tabs>
       </Box>
     </Box>

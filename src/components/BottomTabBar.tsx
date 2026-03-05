@@ -1,5 +1,5 @@
 import React from 'react';
-import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
+import { BottomNavigation, BottomNavigationAction, Paper, Badge } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import MapIcon from '@mui/icons-material/Map';
 import PersonIcon from '@mui/icons-material/Person';
@@ -7,22 +7,39 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
+import { useNotificationBadge } from './NotificationBadgeProvider';
 
 const tabConfig = [
-  { label: 'Feed', icon: <HomeIcon />, route: '/feed' },
-  { label: 'Map', icon: <MapIcon />, route: '/map' },
-  { label: 'Add', icon: <AddCircleIcon />, route: '/playlist/new' },
-  { label: 'Alerts', icon: <NotificationsIcon />, route: '/notifications' },
-  { label: 'Profile', icon: <PersonIcon />, route: '/profile' },
+  { id: 'tab-feed', label: 'Feed', icon: <HomeIcon />, route: '/feed', 'aria-label': 'Feed' },
+  { id: 'tab-map', label: 'Map', icon: <MapIcon />, route: '/map', 'aria-label': 'Map' },
+  { id: 'tab-add', label: 'Add', icon: <AddCircleIcon />, route: '/playlist/new', 'aria-label': 'Add new item' },
+  { id: 'tab-alerts', label: 'Alerts', icon: <NotificationsIcon />, route: '/notifications', 'aria-label': 'Notifications' },
+  { id: 'tab-profile', label: 'Profile', icon: <PersonIcon />, route: '/profile', 'aria-label': 'User profile' },
 ];
 
 export default function BottomTabBar() {
   const router = useRouter();
   const [value, setValue] = useState(0);
+  const { unreadCount } = useNotificationBadge();
 
   useEffect(() => {
-    const idx = tabConfig.findIndex(tab => router.pathname.startsWith(tab.route.replace('/new', '')));
-    setValue(idx === -1 ? 0 : idx);
+    const routeMap: Record<string, number> = {
+      '/feed': 0,
+      '/map': 1,
+      '/playlist/new': 2,
+      '/notifications': 3,
+      '/profile': 4,
+    };
+    const exactMatch = routeMap[router.pathname];
+    if (exactMatch !== undefined) {
+      setValue(exactMatch);
+    } else if (router.pathname.startsWith('/profile')) {
+      setValue(4);
+    } else if (router.pathname.startsWith('/map')) {
+      setValue(1);
+    } else {
+      setValue(0);
+    }
   }, [router.pathname]);
 
   return (
@@ -51,6 +68,7 @@ export default function BottomTabBar() {
       elevation={5}
     >
       <BottomNavigation
+        id="bottom-navigation"
         showLabels={false}
         value={value}
         onChange={(_, newValue) => {
@@ -61,12 +79,49 @@ export default function BottomTabBar() {
           width: '100%',
           background: 'transparent',
         }}
+        role="navigation"
+        aria-label="Main navigation"
       >
         {tabConfig.map(tab => (
           <BottomNavigationAction
-            key={tab.label}
-            icon={React.cloneElement(tab.icon, { sx: { fontSize: 26 } })}
-            sx={{ minWidth: 0, px: 1.2, py: 0.3, color: 'inherit' }}
+            id={tab.id}
+            key={tab.id}
+            icon={
+              tab.id === 'tab-alerts' ? (
+                <Badge
+                  badgeContent={unreadCount}
+                  color="error"
+                  max={99}
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      fontSize: 10,
+                      height: 16,
+                      minWidth: 16,
+                    },
+                  }}
+                >
+                  {React.cloneElement(tab.icon, {
+                    sx: { fontSize: 26 },
+                    'aria-hidden': 'true'
+                  })}
+                </Badge>
+              ) : (
+                React.cloneElement(tab.icon, {
+                  sx: { fontSize: 26 },
+                  'aria-hidden': 'true'
+                })
+              )
+            }
+            aria-label={tab['aria-label']}
+            sx={{
+              minWidth: 0,
+              px: 1.2,
+              py: 0.3,
+              color: 'inherit',
+              '&.Mui-selected': {
+                color: (theme) => theme.palette.primary.main,
+              }
+            }}
           />
         ))}
       </BottomNavigation>

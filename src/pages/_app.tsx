@@ -1,4 +1,4 @@
-// import '../styles/globals.css';
+import '../../styles/globals.css';
 import type { AppProps } from 'next/app';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
@@ -7,6 +7,9 @@ import { ColorModeContext } from '../theme/ColorModeContext';
 import { getTheme } from '../theme/theme';
 import { CacheProvider, EmotionCache } from '@emotion/react';
 import createEmotionCache from '../createEmotionCache';
+import { AuthProvider } from '../context/AuthContext';
+import { UserPreferencesProvider } from '../context/UserPreferencesContext';
+import { NotificationBadgeProvider } from '../components/NotificationBadgeProvider';
 
 interface MyAppProps extends AppProps {
   emotionCache?: EmotionCache;
@@ -17,7 +20,15 @@ const clientSideEmotionCache = createEmotionCache();
 export default function MyApp({ Component, pageProps, emotionCache = clientSideEmotionCache }: MyAppProps) {
   const [mode, setMode] = useState<'light' | 'dark'>('light');
   const muiTheme = useMemo(() => getTheme(mode), [mode]);
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30_000,
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  }));
 
   // Removed system theme detection - app now defaults to light mode
   // useEffect(() => {
@@ -33,12 +44,18 @@ export default function MyApp({ Component, pageProps, emotionCache = clientSideE
   return (
     <CacheProvider value={emotionCache}>
       <QueryClientProvider client={queryClient}>
-        <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
-          <ThemeProvider theme={muiTheme}>
-            <CssBaseline />
-            <Component {...pageProps} />
-          </ThemeProvider>
-        </ColorModeContext.Provider>
+        <AuthProvider>
+          <UserPreferencesProvider>
+            <NotificationBadgeProvider>
+              <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
+                <ThemeProvider theme={muiTheme}>
+                  <CssBaseline />
+                  <Component {...pageProps} />
+                </ThemeProvider>
+              </ColorModeContext.Provider>
+            </NotificationBadgeProvider>
+          </UserPreferencesProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </CacheProvider>
   );
