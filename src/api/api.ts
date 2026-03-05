@@ -39,7 +39,7 @@ export function formatRelativeTime(isoDate: string): string {
   if (diffDay < 7) return `${diffDay}d ago`;
   const diffWeek = Math.floor(diffDay / 7);
   if (diffWeek < 5) return `${diffWeek}w ago`;
-  const diffMonth = Math.floor(diffDay / 30);
+  const diffMonth = Math.floor(diffDay / 30.44);
   if (diffMonth < 12) return `${diffMonth}mo ago`;
   return `${Math.floor(diffDay / 365)}y ago`;
 }

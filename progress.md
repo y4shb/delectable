@@ -10,7 +10,7 @@
 |-----------|--------|----------|
 | M1: Front-End Foundations | COMPLETE | 100% |
 | M2: UI Polish & State Management | COMPLETE | 100% |
-| M3: Google Maps & Location Filtering | COMPLETE | 95% |
+| M3: Google Maps & Location Filtering | COMPLETE | 100% |
 | M4: Backend MVP & Data Storage | COMPLETE | 100% |
 | M5: Social Features & Content Interaction | COMPLETE | 100% |
 | M6: Feed Intelligence & Personalization | COMPLETE | 100% |
@@ -150,17 +150,17 @@
 ### 3.1 Enhanced Map Integration
 - [x] Replace hardcoded 2-venue `venueCoords` array with all 6 venues (done during M1 bug fixes)
 - [x] Venues now use lat/lng from Venue type (removed separate venueCoords array)
-- [ ] Install and configure `@googlemaps/markerclusterer`
+- [x] Install and configure `@googlemaps/markerclusterer` — package.json updated, MarkerClusterer integrated in GoogleMapView.tsx with custom SVG renderer
 - [x] Design custom SVG marker icons per venue type — cuisine-specific pin markers (Japanese=coral/sushi, Italian=red/pizza, American=amber/burger, European=golden/croissant, Experimental=teal/flask)
 - [x] Implement user geolocation (blue dot) — MyLocation FAB, navigator.geolocation, blue circle SVG marker
 - [x] Map bounds-based venue fetching — filteredVenues with cuisine/rating filters applied via props
 
 ### 3.2 Venue Filtering UI (overlaid on map, matching design language)
 - [x] POI type toggle chips — cuisine chips (Japanese, Italian, American, European, Experimental) in floating frosted-glass filter bar
-- [ ] Radius slider with translucent circle overlay on map
-- [ ] Tag-based search input with autocomplete
+- [x] Radius slider with translucent circle overlay on map — radiusKm state, Slider component (0-20km), Circle component renders translucent overlay on map
+- [x] Tag-based search input with autocomplete — TAG_OPTIONS array, Autocomplete component, showTagSearch toggle, tagFilter state with chip display
 - [x] Minimum rating filter — "8+" star chip toggle in filter bar
-- [ ] Sort options (distance, rating, recency)
+- [x] Sort options (rating, recency, reviews) — SORT_OPTIONS array, Menu component, sortBy state, useMemo sorting logic
 
 ### 3.3 Map-List Synchronization
 - [x] Custom floating mini-card on marker click (replace default Google InfoWindow) — done during M1 bug fixes
@@ -711,3 +711,4 @@
 | 2026-03-05 | M8 backend | ReadPublicWriteAuthenticated permission class, anonymous_feed() function, QuickReviewView + QuickReviewSerializer endpoints, FeedView + SearchView allow anonymous GET |
 | 2026-03-05 | M8 frontend | /onboarding page (3-step wizard with cuisines, dietary, follow tastemakers), /review/quick page (photo-first 3-step wizard with celebration animation), AuthGate component, FeatureGate component, LockedFeaturePrompt component, NudgeMessage component, login page with registration flow |
 | 2026-03-05 | M8 COMPLETE | All 17 items checked off. Content-first onboarding, taste wizard, progressive disclosure, first-post wizard all operational |
+| 2026-03-05 | M3 COMPLETE | Finished remaining 4 items: @googlemaps/markerclusterer installed + integrated (MarkerClusterer with custom SVG cluster renderer), radius slider with Circle overlay (0-20km range), tag-based search autocomplete (14 tags), sort options (rating/recency/reviews) with Menu dropdown |

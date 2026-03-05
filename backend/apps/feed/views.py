@@ -51,7 +51,7 @@ class FeedView(generics.ListAPIView):
         if not user.is_authenticated:
             reviews = anonymous_feed(limit=20)
             serializer = self.get_serializer(reviews, many=True)
-            return Response({"results": serializer.data})
+            return Response({"data": serializer.data})
 
         tier = get_user_tier(user)
 
@@ -59,26 +59,26 @@ class FeedView(generics.ListAPIView):
         if tier == 1 and tab != "explore":
             reviews = cold_start_feed(user, limit=20)
             serializer = self.get_serializer(reviews, many=True)
-            return Response({"results": serializer.data})
+            return Response({"data": serializer.data})
 
         # Augmented users (tier 2)
         if tier == 2 and tab != "explore":
             reviews = augmented_feed(user, limit=20)
             serializer = self.get_serializer(reviews, many=True)
-            return Response({"results": serializer.data})
+            return Response({"data": serializer.data})
 
         if tab == "recent":
-            # Chronological from followed users
-            following_ids = Follow.objects.filter(
+            # Chronological from followed users - use subquery for large IN clause
+            following_subquery = Follow.objects.filter(
                 follower=user
-            ).values_list("following_id", flat=True)
+            ).values("following_id")
             reviews = list(
-                Review.objects.filter(user_id__in=following_ids)
+                Review.objects.filter(user_id__in=following_subquery)
                 .select_related("user", "venue")
                 .order_by("-created_at")[:20]
             )
             serializer = self.get_serializer(reviews, many=True)
-            return Response({"results": serializer.data})
+            return Response({"data": serializer.data})
 
         elif tab == "top-picks":
             # EdgeRank-scored feed from followed users
@@ -100,7 +100,7 @@ class FeedView(generics.ListAPIView):
                     .order_by("-like_count", "-created_at")[:20]
                 )
                 serializer = self.get_serializer(candidates, many=True)
-                return Response({"results": serializer.data})
+                return Response({"data": serializer.data})
 
             engagement_pcts = get_engagement_percentiles()
             scored = []
@@ -114,12 +114,12 @@ class FeedView(generics.ListAPIView):
             # Apply MMR diversity
             diversified = mmr_rerank(ranked, limit=20)
             serializer = self.get_serializer(diversified, many=True)
-            return Response({"results": serializer.data})
+            return Response({"data": serializer.data})
 
         elif tab == "explore":
             reviews = explore_feed(user, limit=20)
             serializer = self.get_serializer(reviews, many=True)
-            return Response({"results": serializer.data})
+            return Response({"data": serializer.data})
 
         # Default fallback
         reviews = list(
@@ -127,7 +127,7 @@ class FeedView(generics.ListAPIView):
             .order_by("-created_at")[:20]
         )
         serializer = self.get_serializer(reviews, many=True)
-        return Response({"results": serializer.data})
+        return Response({"data": serializer.data})
 
 
 class TrendingView(APIView):
@@ -143,7 +143,7 @@ class TrendingView(APIView):
             venue_data["trending_score"] = round(ts.score, 2)
             venue_data["review_velocity"] = round(ts.review_velocity, 2)
             data.append(venue_data)
-        return Response({"results": data})
+        return Response({"data": data})
 
 
 class TasteProfileView(APIView):

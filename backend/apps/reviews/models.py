@@ -105,7 +105,12 @@ class Comment(TimeStampedModel):
         indexes = [
             Index(name="idx_comment_review_created", fields=["review", "created_at"]),
         ]
-        constraints = []
+        constraints = [
+            models.CheckConstraint(
+                check=Q(parent__isnull=True) | Q(parent__isnull=False),
+                name="chk_comment_parent_valid",
+            ),
+        ]
 
     def clean(self):
         from django.core.exceptions import ValidationError

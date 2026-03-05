@@ -194,7 +194,7 @@ export function useDishes(params?: { venue?: string; q?: string }) {
   return useQuery({
     queryKey: ['dishes', params],
     queryFn: () => fetchDishes(params),
-    enabled: !!params?.venue || !!params?.q,
+    enabled: params !== undefined && (!!params.venue || !!params.q),
   });
 }
 

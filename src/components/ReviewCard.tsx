@@ -54,7 +54,7 @@ export default function ReviewCard({
   const [bookmarked, setBookmarked] = useState(initialIsBookmarked);
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const lastTapRef = useRef(0);
-  const heartBurstTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const heartBurstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
 
   // Sync local state from props when server data changes after refetch
@@ -125,16 +125,20 @@ export default function ReviewCard({
     if (now - lastTapRef.current < 500) {
       e.preventDefault();
       e.stopPropagation();
-      if (!liked) {
-        handleLikeToggle();
-      } else {
+      // Use functional update to read current liked state, avoiding stale closure
+      setLiked((currentLiked) => {
+        if (!currentLiked) {
+          setLikeCount((c) => c + 1);
+          likeMutation.mutate();
+        }
         setShowHeartBurst(true);
         if (heartBurstTimerRef.current) clearTimeout(heartBurstTimerRef.current);
         heartBurstTimerRef.current = setTimeout(() => setShowHeartBurst(false), 800);
-      }
+        return currentLiked ? currentLiked : true;
+      });
     }
     lastTapRef.current = now;
-  }, [liked, handleLikeToggle]);
+  }, [likeMutation]);
 
   const handleBookmarkToggle = useCallback(
     (e?: React.MouseEvent) => {

@@ -347,11 +347,10 @@ class SuggestedUsersView(generics.ListAPIView):
             # Fallback: popular users
             return candidates.order_by("-followers_count")[:10]
 
+        # Batch fetch all users in a single query to avoid N+1
+        users_by_id = {u.id: u for u in User.objects.filter(id__in=top_ids)}
         # Preserve ordering
-        preserved = {uid: idx for idx, uid in enumerate(top_ids)}
-        result = list(User.objects.filter(id__in=top_ids))
-        result.sort(key=lambda u: preserved.get(u.id, 999))
-        return result
+        return [users_by_id[uid] for uid in top_ids if uid in users_by_id]
 
 
 def compute_taste_match(user_a, user_b):

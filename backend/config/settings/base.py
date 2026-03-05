@@ -168,3 +168,12 @@ CACHES = {
         "TIMEOUT": 300,
     }
 }
+
+# --------------------------------------------------------------------------
+# Feed Intelligence - Tastemaker accounts for cold-start onboarding
+# --------------------------------------------------------------------------
+TASTEMAKER_EMAILS = [
+    "tastemaker1@delectable.app",
+    "tastemaker2@delectable.app",
+    "tastemaker3@delectable.app",
+]

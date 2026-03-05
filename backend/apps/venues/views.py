@@ -44,7 +44,7 @@ class VenueViewSet(viewsets.ReadOnlyModelViewSet):
         if rating_min:
             try:
                 qs = qs.filter(rating__gte=Decimal(rating_min))
-            except Exception:
+            except (ValueError, TypeError, ArithmeticError):
                 pass
 
         # Bounding box filter: bbox=sw_lat,sw_lng,ne_lat,ne_lng
@@ -60,7 +60,7 @@ class VenueViewSet(viewsets.ReadOnlyModelViewSet):
                         longitude__gte=sw_lng,
                         longitude__lte=ne_lng,
                     )
-            except Exception:
+            except (ValueError, TypeError, ArithmeticError):
                 pass
 
         # Radius filter: lat, lng, radius (meters)
@@ -82,7 +82,7 @@ class VenueViewSet(viewsets.ReadOnlyModelViewSet):
                     longitude__gte=lng_val - lng_delta,
                     longitude__lte=lng_val + lng_delta,
                 )
-            except Exception:
+            except (ValueError, TypeError, ArithmeticError, ZeroDivisionError):
                 pass
 
         # Sort

@@ -1,5 +1,6 @@
-import React, { useCallback, useRef, useMemo, useState } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow, HeatmapLayer } from '@react-google-maps/api';
+import React, { useCallback, useRef, useMemo, useState, useEffect } from 'react';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow, HeatmapLayer, Circle } from '@react-google-maps/api';
+import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { useTheme, Box, Typography, IconButton, Fab } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
@@ -120,9 +121,21 @@ export interface GoogleMapViewProps {
   minRating?: number;
   heatmapMode?: boolean;
   friendsVenues?: FriendsVenue[];
+  radiusKm?: number | null;
+  userLocation?: { lat: number; lng: number } | null;
+  enableClustering?: boolean;
 }
 
-export default function GoogleMapView({ venues, cuisineFilter, minRating, heatmapMode, friendsVenues }: GoogleMapViewProps) {
+export default function GoogleMapView({
+  venues,
+  cuisineFilter,
+  minRating,
+  heatmapMode,
+  friendsVenues,
+  radiusKm,
+  userLocation: propUserLocation,
+  enableClustering = true,
+}: GoogleMapViewProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -133,8 +146,13 @@ export default function GoogleMapView({ venues, cuisineFilter, minRating, heatma
   });
 
   const mapRef = useRef<google.maps.Map | null>(null);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [localUserLocation, setLocalUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Use prop user location if provided, otherwise use local
+  const userLocation = propUserLocation ?? localUserLocation;
 
   // Filter venues: must have lat/lng, and respect cuisine / rating filters
   const filteredVenues = useMemo(() => {
@@ -169,7 +187,7 @@ export default function GoogleMapView({ venues, cuisineFilter, minRating, heatma
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserLocation(loc);
+        setLocalUserLocation(loc);
         if (mapRef.current) {
           mapRef.current.panTo(loc);
         }
@@ -179,6 +197,57 @@ export default function GoogleMapView({ venues, cuisineFilter, minRating, heatma
       },
     );
   }, []);
+
+  // Set up marker clustering
+  useEffect(() => {
+    if (!mapRef.current || !enableClustering || !isLoaded) return;
+
+    // Clear old clusterer
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+    }
+
+    // Create markers
+    const markers = filteredVenues.map((venue) => {
+      const marker = new window.google.maps.Marker({
+        position: { lat: venue.latitude, lng: venue.longitude },
+        icon: getMarkerIcon(venue.cuisineType, isDark),
+      });
+      marker.addListener('click', () => setSelectedVenue(venue));
+      return marker;
+    });
+
+    markersRef.current = markers;
+
+    // Create clusterer
+    clustererRef.current = new MarkerClusterer({
+      map: mapRef.current,
+      markers,
+      renderer: {
+        render: ({ count, position }) => {
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+            <circle cx="24" cy="24" r="20" fill="${isDark ? '#E8654A' : '#D64545'}" stroke="#fff" stroke-width="3"/>
+            <text x="24" y="28" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold" font-family="Arial">${count}</text>
+          </svg>`;
+          return new window.google.maps.Marker({
+            position,
+            icon: {
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+              scaledSize: new window.google.maps.Size(48, 48),
+            },
+            zIndex: 1000,
+          });
+        },
+      },
+    });
+
+    return () => {
+      if (clustererRef.current) {
+        clustererRef.current.clearMarkers();
+        clustererRef.current = null;
+      }
+    };
+  }, [filteredVenues, isLoaded, enableClustering, isDark]);
 
   return isLoaded ? (
     <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -193,7 +262,8 @@ export default function GoogleMapView({ venues, cuisineFilter, minRating, heatma
         onLoad={onLoad}
         onUnmount={onUnmount}
       >
-        {filteredVenues.map((venue) => (
+        {/* Render markers only when clustering is disabled */}
+        {!enableClustering && filteredVenues.map((venue) => (
           <Marker
             key={venue.id}
             position={{ lat: venue.latitude, lng: venue.longitude }}
@@ -201,6 +271,22 @@ export default function GoogleMapView({ venues, cuisineFilter, minRating, heatma
             onClick={() => setSelectedVenue(venue)}
           />
         ))}
+
+        {/* Radius circle overlay */}
+        {radiusKm && userLocation && (
+          <Circle
+            center={userLocation}
+            radius={radiusKm * 1000} // Convert km to meters
+            options={{
+              fillColor: isDark ? 'rgba(232, 101, 74, 0.15)' : 'rgba(214, 69, 69, 0.1)',
+              fillOpacity: 0.4,
+              strokeColor: isDark ? '#E8654A' : '#D64545',
+              strokeOpacity: 0.8,
+              strokeWeight: 2,
+              clickable: false,
+            }}
+          />
+        )}
 
         {/* Heatmap layer */}
         {heatmapMode && isLoaded && (

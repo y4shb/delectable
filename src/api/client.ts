@@ -92,8 +92,13 @@ let failedQueue: Array<{
 
 function processQueue(error: unknown, token: string | null) {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
-    else resolve(token!);
+    if (error) {
+      reject(error);
+    } else if (token) {
+      resolve(token);
+    } else {
+      reject(new Error('Token refresh failed: no token received'));
+    }
   });
   failedQueue = [];
 }

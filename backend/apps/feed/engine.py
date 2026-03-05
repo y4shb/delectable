@@ -32,7 +32,7 @@ def compute_quality_score(review):
         score += 0.1
     # Specific rating — not rounded to whole number (+0.1)
     rating_f = float(review.rating)
-    if rating_f != round(rating_f):
+    if abs(rating_f - round(rating_f)) > 1e-9:
         score += 0.1
     # Has 2+ tags (+0.1)
     if review.tags and len(review.tags) >= 2:
@@ -379,11 +379,14 @@ def explore_feed(viewer, limit=20):
 # 6.3 Cold-Start Tier Detection & Feed Strategy
 # ---------------------------------------------------------------------------
 
-TASTEMAKER_EMAILS = [
-    "tastemaker1@delectable.app",
-    "tastemaker2@delectable.app",
-    "tastemaker3@delectable.app",
-]
+def _get_tastemaker_emails():
+    """Get tastemaker emails from settings with fallback."""
+    from django.conf import settings
+    return getattr(settings, 'TASTEMAKER_EMAILS', [
+        "tastemaker1@delectable.app",
+        "tastemaker2@delectable.app",
+        "tastemaker3@delectable.app",
+    ])
 
 
 def get_user_tier(user):
@@ -406,7 +409,7 @@ def get_user_tier(user):
 
 def auto_follow_tastemakers(user):
     """Auto-follow curated tastemaker accounts for new users."""
-    tastemakers = User.objects.filter(email__in=TASTEMAKER_EMAILS)
+    tastemakers = User.objects.filter(email__in=_get_tastemaker_emails())
     for tm in tastemakers:
         if tm.id != user.id:
             _, created = Follow.objects.get_or_create(follower=user, following=tm)
@@ -537,7 +540,7 @@ def _review_similarity(r1, r2):
     if r1.venue_id == r2.venue_id:
         sim += 0.5
     # Same cuisine type (0.3 weight)
-    if r1.venue.cuisine_type and r1.venue.cuisine_type == r2.venue.cuisine_type:
+    if r1.venue.cuisine_type and r2.venue.cuisine_type and r1.venue.cuisine_type == r2.venue.cuisine_type:
         sim += 0.3
     # Same user (0.2 weight)
     if r1.user_id == r2.user_id:
@@ -567,7 +570,8 @@ def mmr_rerank(reviews, limit=20, lambda_param=0.7):
         first = remaining.pop(0)
         selected.append(first)
         venue_counts[first.venue_id] += 1
-        cuisine_counts[first.venue.cuisine_type] += 1
+        cuisine_key = first.venue.cuisine_type or "_none_"
+        cuisine_counts[cuisine_key] += 1
         user_counts[first.user_id] += 1
 
     while remaining and len(selected) < limit:
@@ -578,7 +582,8 @@ def mmr_rerank(reviews, limit=20, lambda_param=0.7):
             # Hard rule checks
             if venue_counts[candidate.venue_id] >= 2:
                 continue
-            if cuisine_counts.get(candidate.venue.cuisine_type, 0) >= 4:
+            candidate_cuisine_key = candidate.venue.cuisine_type or "_none_"
+            if cuisine_counts.get(candidate_cuisine_key, 0) >= 4:
                 continue
             if user_counts[candidate.user_id] >= 3:
                 continue
@@ -610,7 +615,8 @@ def mmr_rerank(reviews, limit=20, lambda_param=0.7):
 
         selected.append(chosen)
         venue_counts[chosen.venue_id] += 1
-        cuisine_counts[chosen.venue.cuisine_type] += 1
+        chosen_cuisine_key = chosen.venue.cuisine_type or "_none_"
+        cuisine_counts[chosen_cuisine_key] += 1
         user_counts[chosen.user_id] += 1
 
     return selected

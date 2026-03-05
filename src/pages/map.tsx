@@ -1,10 +1,26 @@
 import AppShell from '../layouts/AppShell';
-import { Box, Chip, Stack, Typography, IconButton, CircularProgress, useTheme } from '@mui/material';
+import {
+  Box,
+  Chip,
+  Stack,
+  Typography,
+  IconButton,
+  CircularProgress,
+  useTheme,
+  Slider,
+  TextField,
+  Autocomplete,
+  Menu,
+  MenuItem,
+} from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import StarIcon from '@mui/icons-material/Star';
+import SortIcon from '@mui/icons-material/Sort';
+import RadiusIcon from '@mui/icons-material/RadioButtonChecked';
+import SearchIcon from '@mui/icons-material/Search';
 import GoogleMapView from '../components/GoogleMapView';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useVenues, useFriendsVenues } from '../hooks/useApi';
 import Link from 'next/link';
@@ -12,6 +28,18 @@ import ThermostatIcon from '@mui/icons-material/Thermostat';
 import PeopleIcon from '@mui/icons-material/People';
 
 const CUISINE_OPTIONS = ['Japanese', 'Italian', 'American', 'European', 'Experimental'];
+
+const SORT_OPTIONS = [
+  { value: 'rating', label: 'Rating (High to Low)' },
+  { value: 'recency', label: 'Most Recent' },
+  { value: 'reviews', label: 'Most Reviews' },
+];
+
+const TAG_OPTIONS = [
+  'Date Night', 'Family Friendly', 'Outdoor Seating', 'Late Night',
+  'Brunch', 'Happy Hour', 'Vegan Options', 'Healthy', 'Cozy',
+  'Trendy', 'Rooftop', 'Live Music', 'Pet Friendly', 'Romantic',
+];
 
 export default function MapPage() {
   const { isLoading: authLoading } = useRequireAuth();
@@ -28,6 +56,28 @@ export default function MapPage() {
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [radiusKm, setRadiusKm] = useState<number | null>(null);
+  const [showRadiusSlider, setShowRadiusSlider] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [showTagSearch, setShowTagSearch] = useState(false);
+  const [sortBy, setSortBy] = useState<string>('rating');
+  const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Get user location for distance sorting/filtering
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          // Use default center if geolocation denied
+          setUserLocation({ lat: 28.6304, lng: 77.2177 });
+        },
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (viewMode === 'map') {
@@ -66,12 +116,54 @@ export default function MapPage() {
 
   const allVenues = venues ?? [];
 
-  // Filter venues for list view
-  const filteredVenues = allVenues.filter((v) => {
-    if (cuisineFilter && v.cuisineType !== cuisineFilter) return false;
-    if (minRating != null && v.rating < minRating) return false;
-    return true;
-  });
+  // Calculate distance from user location
+  const getDistance = (lat: number, lng: number) => {
+    if (!userLocation) return 0;
+    const R = 6371; // Earth's radius in km
+    const dLat = ((lat - userLocation.lat) * Math.PI) / 180;
+    const dLng = ((lng - userLocation.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((userLocation.lat * Math.PI) / 180) *
+        Math.cos((lat * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Filter and sort venues
+  const filteredVenues = useMemo(() => {
+    let result = allVenues.filter((v) => {
+      if (cuisineFilter && v.cuisineType !== cuisineFilter) return false;
+      if (minRating != null && v.rating < minRating) return false;
+      // Radius filter
+      if (radiusKm != null && userLocation && v.latitude != null && v.longitude != null) {
+        const dist = getDistance(v.latitude, v.longitude);
+        if (dist > radiusKm) return false;
+      }
+      // Tag filter
+      if (tagFilter && v.tags && !v.tags.some((t) => t.toLowerCase().includes(tagFilter.toLowerCase()))) {
+        return false;
+      }
+      return true;
+    });
+
+    // Sort
+    if (sortBy === 'rating') {
+      result.sort((a, b) => b.rating - a.rating);
+    } else if (sortBy === 'recency') {
+      result.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+    } else if (sortBy === 'reviews') {
+      result.sort((a, b) => (b.reviewsCount || 0) - (a.reviewsCount || 0));
+    }
+
+    return result;
+  }, [allVenues, cuisineFilter, minRating, radiusKm, tagFilter, sortBy, userLocation]);
 
   return (
     <AppShell>
@@ -187,10 +279,81 @@ export default function MapPage() {
                   },
                 }}
               />
+
+              {/* Radius filter chip */}
+              <Chip
+                label={radiusKm ? `${radiusKm}km` : 'Radius'}
+                size="small"
+                icon={<RadiusIcon sx={{ fontSize: 14 }} />}
+                onClick={() => setShowRadiusSlider(!showRadiusSlider)}
+                sx={{
+                  borderRadius: '16px',
+                  fontWeight: 600,
+                  fontSize: 12,
+                  flexShrink: 0,
+                  bgcolor: radiusKm
+                    ? theme.palette.primary.main
+                    : isDark
+                      ? 'rgba(255,255,255,0.1)'
+                      : 'rgba(0,0,0,0.06)',
+                  color: radiusKm ? '#fff' : theme.palette.text.primary,
+                  '& .MuiChip-icon': {
+                    color: radiusKm ? '#fff' : theme.palette.text.secondary,
+                  },
+                  '&:hover': {
+                    bgcolor: radiusKm
+                      ? theme.palette.primary.dark
+                      : isDark
+                        ? 'rgba(255,255,255,0.18)'
+                        : 'rgba(0,0,0,0.1)',
+                  },
+                }}
+              />
+
+              {/* Tag filter chip */}
+              {tagFilter && (
+                <Chip
+                  label={tagFilter}
+                  size="small"
+                  onDelete={() => setTagFilter(null)}
+                  sx={{
+                    borderRadius: '16px',
+                    fontWeight: 600,
+                    fontSize: 12,
+                    flexShrink: 0,
+                    bgcolor: theme.palette.primary.main,
+                    color: '#fff',
+                  }}
+                />
+              )}
             </Box>
 
-            {/* Map/List toggle + overlays */}
+            {/* Search, Sort, Map/List toggles */}
             <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
+              <IconButton
+                size="small"
+                onClick={() => setShowTagSearch(!showTagSearch)}
+                sx={{
+                  color: showTagSearch || tagFilter
+                    ? theme.palette.primary.main
+                    : theme.palette.text.secondary,
+                }}
+                aria-label="Search by tag"
+              >
+                <SearchIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={(e) => setSortMenuAnchor(e.currentTarget)}
+                sx={{
+                  color: sortBy !== 'rating'
+                    ? theme.palette.primary.main
+                    : theme.palette.text.secondary,
+                }}
+                aria-label="Sort venues"
+              >
+                <SortIcon sx={{ fontSize: 20 }} />
+              </IconButton>
               <IconButton
                 size="small"
                 onClick={() => setHeatmapMode((p) => !p)}
@@ -243,6 +406,104 @@ export default function MapPage() {
               </IconButton>
             </Box>
           </Box>
+
+          {/* Radius slider overlay */}
+          {showRadiusSlider && (
+            <Box
+              sx={{
+                mt: 1,
+                bgcolor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)',
+                backdropFilter: 'blur(12px)',
+                borderRadius: '16px',
+                px: 3,
+                py: 1.5,
+                maxWidth: 300,
+                mx: 'auto',
+              }}
+            >
+              <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 1 }}>
+                Search Radius: {radiusKm ? `${radiusKm} km` : 'Any'}
+              </Typography>
+              <Slider
+                value={radiusKm ?? 0}
+                onChange={(_, v) => setRadiusKm(v === 0 ? null : (v as number))}
+                min={0}
+                max={20}
+                step={1}
+                marks={[
+                  { value: 0, label: 'Any' },
+                  { value: 5, label: '5km' },
+                  { value: 10, label: '10km' },
+                  { value: 20, label: '20km' },
+                ]}
+                sx={{ color: theme.palette.primary.main }}
+              />
+            </Box>
+          )}
+
+          {/* Tag search overlay */}
+          {showTagSearch && (
+            <Box
+              sx={{
+                mt: 1,
+                bgcolor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)',
+                backdropFilter: 'blur(12px)',
+                borderRadius: '16px',
+                px: 2,
+                py: 1.5,
+                maxWidth: 300,
+                mx: 'auto',
+              }}
+            >
+              <Autocomplete
+                options={TAG_OPTIONS}
+                value={tagFilter}
+                onChange={(_, v) => {
+                  setTagFilter(v);
+                  setShowTagSearch(false);
+                }}
+                size="small"
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search by tag..."
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        fontSize: 14,
+                      },
+                    }}
+                  />
+                )}
+              />
+            </Box>
+          )}
+
+          {/* Sort menu */}
+          <Menu
+            anchorEl={sortMenuAnchor}
+            open={Boolean(sortMenuAnchor)}
+            onClose={() => setSortMenuAnchor(null)}
+            PaperProps={{
+              sx: {
+                borderRadius: '12px',
+                mt: 1,
+              },
+            }}
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <MenuItem
+                key={opt.value}
+                selected={sortBy === opt.value}
+                onClick={() => {
+                  setSortBy(opt.value);
+                  setSortMenuAnchor(null);
+                }}
+              >
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Menu>
         </Box>
 
         {/* Map or List view */}
@@ -264,6 +525,9 @@ export default function MapPage() {
               minRating={minRating}
               heatmapMode={heatmapMode}
               friendsVenues={showFriends ? friendsVenues : undefined}
+              radiusKm={radiusKm}
+              userLocation={userLocation}
+              enableClustering={filteredVenues.length > 10}
             />
           </Box>
         ) : (
