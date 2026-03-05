@@ -1,6 +1,6 @@
 import { Box, Container, Typography, Grid, Skeleton, Alert } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import AppShell from '../components/AppShell';
+import AppShell from '../layouts/AppShell';
 import XPProgressBar from '../components/XPProgressBar';
 import StreakDisplay from '../components/StreakDisplay';
 import ActivityGrid from '../components/ActivityGrid';

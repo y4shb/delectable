@@ -16,10 +16,11 @@ const containerStyle = {
   overflow: 'hidden',
 };
 
-const defaultCenter = {
-  lat: 28.6304,
-  lng: 77.2177,
-}; // Connaught Place, New Delhi
+// Default center (Connaught Place, New Delhi) - can be overridden via environment variable
+const DEFAULT_CENTER = {
+  lat: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_MAP_LAT || '28.6304'),
+  lng: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_MAP_LNG || '77.2177'),
+};
 
 const darkMapStyle = [
   { "elementType": "geometry", "stylers": [{ "color": "#1d2c4d" }] },
@@ -256,7 +257,7 @@ export default function GoogleMapView({
 
       <GoogleMap
         mapContainerStyle={containerStyle}
-        center={defaultCenter}
+        center={userLocation ?? DEFAULT_CENTER}
         zoom={13}
         options={options}
         onLoad={onLoad}

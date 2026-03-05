@@ -103,9 +103,12 @@ export default function ReviewCard({
   const handleLikeToggle = useCallback(
     (e?: React.MouseEvent) => {
       e?.stopPropagation();
+      // Prevent concurrent mutations
+      if (likeMutation.isPending || unlikeMutation.isPending) return;
+
       if (liked) {
         setLiked(false);
-        setLikeCount((c) => c - 1);
+        setLikeCount((c) => Math.max(0, c - 1));
         unlikeMutation.mutate();
       } else {
         setLiked(true);
@@ -125,20 +128,19 @@ export default function ReviewCard({
     if (now - lastTapRef.current < 500) {
       e.preventDefault();
       e.stopPropagation();
-      // Use functional update to read current liked state, avoiding stale closure
-      setLiked((currentLiked) => {
-        if (!currentLiked) {
-          setLikeCount((c) => c + 1);
-          likeMutation.mutate();
-        }
-        setShowHeartBurst(true);
-        if (heartBurstTimerRef.current) clearTimeout(heartBurstTimerRef.current);
-        heartBurstTimerRef.current = setTimeout(() => setShowHeartBurst(false), 800);
-        return currentLiked ? currentLiked : true;
-      });
+      // Only trigger like if not already liked and not currently mutating
+      if (!liked && !likeMutation.isPending) {
+        setLiked(true);
+        setLikeCount((c) => c + 1);
+        likeMutation.mutate();
+      }
+      // Always show heart burst animation on double-tap
+      setShowHeartBurst(true);
+      if (heartBurstTimerRef.current) clearTimeout(heartBurstTimerRef.current);
+      heartBurstTimerRef.current = setTimeout(() => setShowHeartBurst(false), 800);
     }
     lastTapRef.current = now;
-  }, [likeMutation]);
+  }, [liked, likeMutation]);
 
   const handleBookmarkToggle = useCallback(
     (e?: React.MouseEvent) => {

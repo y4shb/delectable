@@ -12,6 +12,8 @@ import {
   Autocomplete,
   Menu,
   MenuItem,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import ViewListIcon from '@mui/icons-material/ViewList';
@@ -20,7 +22,7 @@ import SortIcon from '@mui/icons-material/Sort';
 import RadiusIcon from '@mui/icons-material/RadioButtonChecked';
 import SearchIcon from '@mui/icons-material/Search';
 import GoogleMapView from '../components/GoogleMapView';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useVenues, useFriendsVenues } from '../hooks/useApi';
 import Link from 'next/link';
@@ -63,6 +65,10 @@ export default function MapPage() {
   const [sortBy, setSortBy] = useState<string>('rating');
   const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
+
+  // Default location (Connaught Place, New Delhi)
+  const DEFAULT_LOCATION = { lat: 28.6304, lng: 77.2177 };
 
   // Get user location for distance sorting/filtering
   useEffect(() => {
@@ -73,9 +79,12 @@ export default function MapPage() {
         },
         () => {
           // Use default center if geolocation denied
-          setUserLocation({ lat: 28.6304, lng: 77.2177 });
+          setUserLocation(DEFAULT_LOCATION);
+          setLocationDenied(true);
         },
       );
+    } else {
+      setUserLocation(DEFAULT_LOCATION);
     }
   }, []);
 
@@ -116,8 +125,8 @@ export default function MapPage() {
 
   const allVenues = venues ?? [];
 
-  // Calculate distance from user location
-  const getDistance = (lat: number, lng: number) => {
+  // Calculate distance from user location - wrapped in useCallback for stable reference
+  const getDistance = useCallback((lat: number, lng: number) => {
     if (!userLocation) return 0;
     const R = 6371; // Earth's radius in km
     const dLat = ((lat - userLocation.lat) * Math.PI) / 180;
@@ -130,7 +139,7 @@ export default function MapPage() {
         Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
-  };
+  }, [userLocation]);
 
   // Filter and sort venues
   const filteredVenues = useMemo(() => {
@@ -163,7 +172,7 @@ export default function MapPage() {
     }
 
     return result;
-  }, [allVenues, cuisineFilter, minRating, radiusKm, tagFilter, sortBy, userLocation]);
+  }, [allVenues, cuisineFilter, minRating, radiusKm, tagFilter, sortBy, getDistance]);
 
   return (
     <AppShell>
@@ -641,6 +650,22 @@ export default function MapPage() {
           </Box>
         )}
       </Box>
+
+      {/* Geolocation denied notice */}
+      <Snackbar
+        open={locationDenied}
+        autoHideDuration={6000}
+        onClose={() => setLocationDenied(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setLocationDenied(false)}
+          severity="info"
+          sx={{ width: '100%' }}
+        >
+          Location access denied. Showing default location (New Delhi).
+        </Alert>
+      </Snackbar>
     </AppShell>
   );
 }

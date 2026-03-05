@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import AppShell from '../../layouts/AppShell';
 import {
   Box,
@@ -12,10 +12,12 @@ import {
   useTheme,
   FormHelperText,
   CircularProgress,
+  IconButton,
 } from '@mui/material';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import CloseIcon from '@mui/icons-material/Close';
 import { useVenues } from '../../hooks/useApi';
-import { createReview } from '../../api/api';
+import { createReview, uploadPhoto } from '../../api/api';
 import { Venue } from '../../types';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useForm, Controller } from 'react-hook-form';
@@ -62,8 +64,42 @@ export default function NewReviewPage() {
 
   const { data: venues, isLoading: venuesLoading } = useVenues();
   const [photo, setPhoto] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSubmitError('Please select an image file');
+        return;
+      }
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setSubmitError('Image must be less than 10MB');
+        return;
+      }
+      setPhotoFile(file);
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setPhoto(previewUrl);
+      setSubmitError('');
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (photo) {
+      URL.revokeObjectURL(photo);
+    }
+    setPhoto(null);
+    setPhotoFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const {
     control,
@@ -99,12 +135,25 @@ export default function NewReviewPage() {
     setSubmitting(true);
     try {
       const selectedVenue = data.venue as Venue;
+
+      // Upload photo if selected
+      let photoUrl: string | undefined;
+      if (photoFile) {
+        try {
+          photoUrl = await uploadPhoto(photoFile);
+        } catch {
+          setSubmitError('Failed to upload photo. Please try again.');
+          setSubmitting(false);
+          return;
+        }
+      }
+
       await createReview({
         venue: selectedVenue.id,
         rating: data.rating,
         text: data.reviewText,
         tags: data.selectedTags,
-        photoUrl: photo ?? undefined,
+        photoUrl,
         dishName: data.dishName || undefined,
       });
       router.push('/feed');
@@ -267,34 +316,83 @@ export default function NewReviewPage() {
           </Box>
 
           {/* Photo area */}
-          <Box
-            sx={{
-              height: 200,
-              width: '100%',
-              borderRadius: '20px',
-              border: '2px dashed',
-              borderColor: 'text.secondary',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s ease',
-              '&:hover': {
-                backgroundColor:
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.04)'
-                    : 'rgba(0, 0, 0, 0.04)',
-              },
-            }}
-          >
-            <PhotoCameraIcon
-              sx={{ color: 'text.secondary', fontSize: 40, mb: 1 }}
-            />
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Add Photo
-            </Typography>
-          </Box>
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handlePhotoSelect}
+            style={{ display: 'none' }}
+            aria-label="Upload photo"
+          />
+          {photo ? (
+            <Box
+              sx={{
+                position: 'relative',
+                height: 200,
+                width: '100%',
+                borderRadius: '20px',
+                overflow: 'hidden',
+              }}
+            >
+              <Box
+                component="img"
+                src={photo}
+                alt="Review photo preview"
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+              <IconButton
+                onClick={handleRemovePhoto}
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  bgcolor: 'rgba(0,0,0,0.6)',
+                  color: '#fff',
+                  '&:hover': {
+                    bgcolor: 'rgba(0,0,0,0.8)',
+                  },
+                }}
+                size="small"
+                aria-label="Remove photo"
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ) : (
+            <Box
+              onClick={() => fileInputRef.current?.click()}
+              sx={{
+                height: 200,
+                width: '100%',
+                borderRadius: '20px',
+                border: '2px dashed',
+                borderColor: 'text.secondary',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease',
+                '&:hover': {
+                  backgroundColor:
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.04)'
+                      : 'rgba(0, 0, 0, 0.04)',
+                },
+              }}
+            >
+              <PhotoCameraIcon
+                sx={{ color: 'text.secondary', fontSize: 40, mb: 1 }}
+              />
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Add Photo
+              </Typography>
+            </Box>
+          )}
 
           {/* Review text */}
           <Controller

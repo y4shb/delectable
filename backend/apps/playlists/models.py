@@ -1,10 +1,17 @@
+import secrets
 import uuid
 
 from django.conf import settings
 from django.db import models
 from django.db.models.indexes import Index
+from django.utils.text import slugify
 
 from apps.core.models import TimeStampedModel
+
+
+def generate_share_code():
+    """Generate a unique 6-character share code."""
+    return secrets.token_urlsafe(4)[:6].lower()
 
 
 class Playlist(TimeStampedModel):
@@ -15,9 +22,21 @@ class Playlist(TimeStampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="playlists"
     )
     title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, unique=True, blank=True)
     description = models.TextField(max_length=1000, blank=True, default="")
     items_count = models.PositiveIntegerField(default=0)
     is_public = models.BooleanField(default=True)
+    share_code = models.CharField(max_length=10, unique=True, default=generate_share_code)
+    fork_count = models.PositiveIntegerField(default=0)
+    forked_from = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="forks"
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title)[:200]
+            self.slug = f"{base_slug}-{generate_share_code()}"
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = "playlists"

@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useEffect,
 } from 'react';
+import { useRouter } from 'next/router';
 import type { User } from '../types';
 import { useQueryClient } from '@tanstack/react-query';
 import api, { setAccessToken } from '../api/client';
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // On mount, try to restore session via the refresh-token cookie
   useEffect(() => {
@@ -93,7 +95,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(null);
     setUser(null);
     queryClient.clear();
-  }, [queryClient]);
+    // Redirect to login page after logout
+    router.replace('/login');
+  }, [queryClient, router]);
 
   const updateUser = useCallback((updates: Partial<User>) => {
     setUser((prev) => (prev ? { ...prev, ...updates } : null));

@@ -20,7 +20,7 @@ import {
   TrendingUp as TrendingIcon,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
-import AppShell from '../components/AppShell';
+import AppShell from '../layouts/AppShell';
 import { fetchWrappedStats } from '../api/api';
 
 const CARD_BACKGROUNDS = [

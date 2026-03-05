@@ -21,7 +21,7 @@ import {
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AppShell from '../../components/AppShell';
+import AppShell from '../../layouts/AppShell';
 import { fetchNotificationPreferences, updateNotificationPreferences } from '../../api/api';
 import type { NotificationPreference } from '../../types';
 

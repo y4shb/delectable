@@ -232,6 +232,9 @@ def get_user_xp_summary(user) -> dict:
 
 def get_activity_grid(user, weeks: int = 52) -> list:
     """Get activity data for contribution grid (GitHub-style)."""
+    # Validate weeks parameter to prevent DoS via excessive memory usage
+    weeks = max(1, min(weeks, 104))  # Limit to 2 years max
+
     end_date = timezone.now().date()
     start_date = end_date - timedelta(weeks=weeks)
 

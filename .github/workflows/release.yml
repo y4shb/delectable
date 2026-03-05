@@ -1,0 +1,118 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  FRONTEND_IMAGE: delectable-frontend
+  BACKEND_IMAGE: delectable-backend
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Get release tag
+        id: release
+        run: echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ steps.release.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_IMAGE }}:production
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.PRODUCTION_API_URL }}
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ steps.release.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_IMAGE }}:production
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name delectable-production --region ${{ env.AWS_REGION }}
+
+      - name: Pre-deployment backup
+        run: |
+          # Create database backup before deployment
+          kubectl exec -n delectable deploy/backend -- python manage.py dbbackup --compress
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags
+          kubectl set image deployment/frontend frontend=${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ steps.release.outputs.tag }} -n delectable
+          kubectl set image deployment/backend backend=${{ env.ECR_REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ steps.release.outputs.tag }} -n delectable
+
+          # Wait for rollout
+          kubectl rollout status deployment/frontend -n delectable --timeout=300s
+          kubectl rollout status deployment/backend -n delectable --timeout=300s
+
+      - name: Run migrations
+        run: |
+          kubectl exec -n delectable deploy/backend -- python manage.py migrate --noinput
+
+      - name: Collect static files
+        run: |
+          kubectl exec -n delectable deploy/backend -- python manage.py collectstatic --noinput
+
+      - name: Clear cache
+        run: |
+          kubectl exec -n delectable deploy/backend -- python manage.py clearcache
+
+      - name: Smoke test
+        run: |
+          # Wait for services to stabilize
+          sleep 30
+          # Health check
+          curl --fail https://api.delectable.app/api/health/ || exit 1
+          curl --fail https://delectable.app || exit 1
+
+      - name: Create GitHub deployment
+        uses: chrnorm/deployment-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          environment: production
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Notify success
+        if: success()
+        run: |
+          echo "Production deployment successful!"
+          echo "Release: ${{ steps.release.outputs.tag }}"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed! Rolling back..."
+          kubectl rollout undo deployment/frontend -n delectable
+          kubectl rollout undo deployment/backend -n delectable

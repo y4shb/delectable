@@ -10,7 +10,7 @@ import {
   Chip,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import AppShell from '../components/AppShell';
+import AppShell from '../layouts/AppShell';
 import { BadgeCard } from '../components/BadgeShelf';
 import { fetchBadgeDefinitions, fetchUserBadges } from '../api/api';
 
