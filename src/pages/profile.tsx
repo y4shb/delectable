@@ -65,7 +65,7 @@ export default function ProfilePage() {
               color="text.secondary"
               sx={{ textDecoration: 'none', cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
             >
-              <strong>{user.followersCount.toLocaleString()}</strong> followers
+              <strong>{(user.followersCount ?? 0).toLocaleString()}</strong> followers
             </Typography>
           </Link>
           <Link href={`/user/${user.id}/following`} legacyBehavior passHref>
@@ -197,7 +197,7 @@ export default function ProfilePage() {
                 </Typography>
               </Box>
             ) : (
-              savedItems.map((bookmark) => {
+              savedItems.filter((b) => b.reviewDetail).map((bookmark) => {
                 const feedReview = reviewToFeedReview(bookmark.reviewDetail);
                 return <ReviewCard key={bookmark.id} {...feedReview} />;
               })

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, useTheme } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { followUser, unfollowUser } from '../api/api';
@@ -18,6 +18,8 @@ export default function FollowButton({
   const queryClient = useQueryClient();
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => { setIsFollowing(initialIsFollowing); }, [initialIsFollowing]);
 
   const followMutation = useMutation({
     mutationFn: () => followUser(userId),

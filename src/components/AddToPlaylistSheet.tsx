@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -36,6 +36,14 @@ export default function AddToPlaylistSheet({
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [addedTo, setAddedTo] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (open) {
+      setAddedTo(new Set());
+      setShowCreate(false);
+      setNewTitle('');
+    }
+  }, [open, venueId]);
 
   const addMutation = useMutation({
     mutationFn: (playlistId: string) => addPlaylistItem(playlistId, venueId),

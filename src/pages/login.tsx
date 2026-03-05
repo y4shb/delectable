@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Typography, TextField, Button, CircularProgress, useTheme } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
@@ -13,8 +13,12 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (isAuthenticated) router.replace('/feed');
+  }, [isAuthenticated, router]);
+
   // Show nothing while restoring session
-  if (isLoading) {
+  if (isLoading || isAuthenticated) {
     return (
       <Box
         sx={{
@@ -28,12 +32,6 @@ export default function LoginPage() {
         <CircularProgress />
       </Box>
     );
-  }
-
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    router.replace('/feed');
-    return null;
   }
 
   const handleSignIn = async () => {

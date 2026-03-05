@@ -19,7 +19,15 @@ const clientSideEmotionCache = createEmotionCache();
 export default function MyApp({ Component, pageProps, emotionCache = clientSideEmotionCache }: MyAppProps) {
   const [mode, setMode] = useState<'light' | 'dark'>('light');
   const muiTheme = useMemo(() => getTheme(mode), [mode]);
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30_000,
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  }));
 
   // Removed system theme detection - app now defaults to light mode
   // useEffect(() => {

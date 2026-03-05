@@ -38,13 +38,17 @@ export interface Venue {
   city?: string;
   googlePlaceId?: string;
   createdAt?: string;
+  // M7 fields
+  occasions?: VenueOccasion[];
+  dietaryBadges?: DietaryBadge[];
+  dishes?: Dish[];
 }
 
 export interface Review {
   id: string;
   user: UserPublic;
   venue: string; // venue UUID (write-side)
-  venueDetail: Venue;
+  venueDetail?: Venue | null;
   rating: number;
   text: string;
   photoUrl: string;
@@ -56,6 +60,9 @@ export interface Review {
   isBookmarked: boolean;
   recentComments: Comment[];
   createdAt: string;
+  // M7 fields
+  dish?: string; // dish UUID
+  dishDetail?: Dish;
 }
 
 export interface Comment {
@@ -77,6 +84,32 @@ export interface Bookmark {
 export interface TasteMatch {
   score: number;
   sharedVenues: string[];
+}
+
+export interface TrendingVenue {
+  id: string;
+  name: string;
+  cuisineType: string;
+  locationText: string;
+  rating: number;
+  photoUrl: string;
+  reviewsCount: number;
+  trendingScore: number;
+  reviewVelocity: number;
+}
+
+export interface TasteProfile {
+  preferredCuisines: string[];
+  dietaryRestrictions: string[];
+  pricePreference: number;
+  spiceTolerance: number;
+  completedWizard: boolean;
+  maturityLevel: number;
+}
+
+export interface FeedTier {
+  tier: number;
+  tierName: string;
 }
 
 export interface PlaylistItem {
@@ -159,4 +192,49 @@ export interface CursorPaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   meta?: { unreadCount?: number };
+}
+
+// ---------------------------------------------------------------------------
+// M7: Enhanced Search & Discovery types
+// ---------------------------------------------------------------------------
+
+export interface Dish {
+  id: string;
+  name: string;
+  category: string;
+  avgRating: number;
+  reviewCount: number;
+  venue: string; // venue UUID
+  venueDetail?: Venue;
+}
+
+export interface OccasionTag {
+  slug: string;
+  label: string;
+  emoji: string;
+  category: string;
+}
+
+export interface VenueOccasion {
+  occasion: OccasionTag;
+  voteCount: number;
+  userVoted: boolean;
+}
+
+export interface DietaryBadge {
+  category: string;
+  confidence: number;
+  isAvailable: boolean;
+}
+
+export interface FriendsVenue extends Venue {
+  friendAvatars: { id: string; name: string; avatarUrl: string }[];
+}
+
+export interface SearchFilters {
+  occasion?: string;
+  dietary?: string[];
+  lat?: number;
+  lng?: number;
+  radius?: number;
 }

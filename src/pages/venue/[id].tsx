@@ -16,8 +16,10 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import StarIcon from '@mui/icons-material/Star';
 import AppShell from '../../layouts/AppShell';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
-import { useVenueDetail, useVenueReviews, useVenues } from '../../hooks/useApi';
+import { useVenueDetail, useVenueReviews, useSimilarVenues } from '../../hooks/useApi';
 import AddToPlaylistSheet from '../../components/AddToPlaylistSheet';
+import OccasionSection from '../../components/OccasionSection';
+import DietaryBadges from '../../components/DietaryBadges';
 
 export default function VenueDetailPage() {
   useRequireAuth();
@@ -28,7 +30,7 @@ export default function VenueDetailPage() {
 
   const { data: venue, isLoading: venueLoading } = useVenueDetail(id as string);
   const { data: reviews, isLoading: reviewsLoading } = useVenueReviews(id as string);
-  const { data: allVenues } = useVenues();
+  const { data: similarVenues } = useSimilarVenues(id as string);
 
   // Handle SSR / static first render where router.query is not yet populated
   if (!router.isReady || venueLoading || reviewsLoading) {
@@ -71,9 +73,7 @@ export default function VenueDetailPage() {
     );
   }
 
-  const relatedVenues = (allVenues ?? [])
-    .filter((v) => v.id !== venue.id)
-    .slice(0, 4);
+  const relatedVenues = (similarVenues ?? []).slice(0, 4);
 
   return (
     <AppShell>
@@ -164,7 +164,7 @@ export default function VenueDetailPage() {
                 color: theme.palette.primary.main,
               }}
             >
-              {venue.rating.toFixed(1)}
+              {Number(venue.rating).toFixed(1)}
             </Typography>
           </Box>
 
@@ -188,6 +188,9 @@ export default function VenueDetailPage() {
               ))}
             </Stack>
           )}
+
+          {/* Dietary badges */}
+          {venue.dietaryBadges && <DietaryBadges badges={venue.dietaryBadges} />}
         </Box>
 
         {/* Action buttons */}
@@ -232,6 +235,11 @@ export default function VenueDetailPage() {
           </Button>
         </Stack>
 
+        {/* Occasion tags */}
+        {venue.occasions && (
+          <OccasionSection venueId={venue.id} occasions={venue.occasions} />
+        )}
+
         {/* Reviews section */}
         <Box sx={{ mt: 4, px: 1 }}>
           <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 2 }}>
@@ -246,7 +254,7 @@ export default function VenueDetailPage() {
             <Stack spacing={2}>
               {(reviews ?? []).map((review) => (
                 <Box
-                  key={`${review.user.name}-${review.rating}`}
+                  key={review.id}
                   sx={{
                     display: 'flex',
                     gap: 1.5,
@@ -276,7 +284,7 @@ export default function VenueDetailPage() {
                           fontSize: 14,
                         }}
                       >
-                        {review.rating.toFixed(1)}
+                        {Number(review.rating).toFixed(1)}
                       </Typography>
                     </Box>
                     <Typography
@@ -296,7 +304,7 @@ export default function VenueDetailPage() {
         {relatedVenues.length > 0 && (
           <Box sx={{ mt: 4, px: 1 }}>
             <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 2 }}>
-              Nearby
+              Similar Venues
             </Typography>
 
             <Box
@@ -377,7 +385,7 @@ export default function VenueDetailPage() {
                             color: theme.palette.primary.main,
                           }}
                         >
-                          {rv.rating.toFixed(1)}
+                          {Number(rv.rating).toFixed(1)}
                         </Typography>
                       </Box>
                     </Box>

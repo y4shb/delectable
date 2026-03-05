@@ -41,6 +41,7 @@ const TAGS = [
 const reviewSchema = yup.object({
   venue: yup.object().nullable().required('Please select a venue'),
   rating: yup.number().min(0).max(10).required('Rating is required'),
+  dishName: yup.string().optional().max(200),
   reviewText: yup.string().required('Please write a review').min(10, 'Review must be at least 10 characters'),
   selectedTags: yup.array().of(yup.string().defined()).min(1, 'Select at least one tag'),
 });
@@ -49,6 +50,7 @@ interface ReviewFormData {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   venue: any;
   rating: number;
+  dishName: string;
   reviewText: string;
   selectedTags: string[];
 }
@@ -75,6 +77,7 @@ export default function NewReviewPage() {
     defaultValues: {
       venue: null,
       rating: 7.0,
+      dishName: '',
       reviewText: '',
       selectedTags: [],
     },
@@ -102,6 +105,7 @@ export default function NewReviewPage() {
         text: data.reviewText,
         tags: data.selectedTags,
         photoUrl: photo ?? undefined,
+        dishName: data.dishName || undefined,
       });
       router.push('/feed');
     } catch {
@@ -172,6 +176,28 @@ export default function NewReviewPage() {
                     }}
                   />
                 )}
+              />
+            )}
+          />
+
+          {/* Dish name (optional) */}
+          <Controller
+            name="dishName"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                variant="outlined"
+                label="Dish Name (optional)"
+                placeholder="e.g. Toro Nigiri"
+                fullWidth
+                error={!!errors.dishName}
+                helperText={errors.dishName?.message}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '20px',
+                  },
+                }}
               />
             )}
           />

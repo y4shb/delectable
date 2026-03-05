@@ -7,6 +7,7 @@ import React, {
   useEffect,
 } from 'react';
 import type { User } from '../types';
+import { useQueryClient } from '@tanstack/react-query';
 import api, { setAccessToken } from '../api/client';
 
 interface AuthContextValue {
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // On mount, try to restore session via the refresh-token cookie
   useEffect(() => {
@@ -90,7 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setAccessToken(null);
     setUser(null);
-  }, []);
+    queryClient.clear();
+  }, [queryClient]);
 
   const updateUser = useCallback((updates: Partial<User>) => {
     setUser((prev) => (prev ? { ...prev, ...updates } : null));

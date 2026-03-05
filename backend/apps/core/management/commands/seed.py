@@ -12,7 +12,9 @@ from apps.notifications.models import Notification
 from apps.playlists.models import Playlist, PlaylistItem
 from apps.reviews.models import Comment, Review, ReviewLike
 from apps.users.models import Follow, User
-from apps.venues.models import Venue
+from apps.venues.models import (
+    DietaryReport, Dish, OccasionTag, Venue, VenueOccasion, VenueSimilarity,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -474,6 +476,71 @@ COMMENTS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Occasion Tags: (slug, label, emoji, category)
+# ---------------------------------------------------------------------------
+OCCASION_TAGS = [
+    ("date-night", "Date Night", "\u2764\uFE0F", "social"),
+    ("group-dinner", "Group Dinner", "\U0001F46B", "social"),
+    ("solo-dining", "Solo Dining", "\U0001F9D1", "social"),
+    ("family-friendly", "Family Friendly", "\U0001F468\u200D\U0001F469\u200D\U0001F467", "social"),
+    ("business-meal", "Business Meal", "\U0001F4BC", "social"),
+    ("brunch", "Brunch", "\U0001F950", "time"),
+    ("late-night", "Late Night", "\U0001F319", "time"),
+    ("happy-hour", "Happy Hour", "\U0001F378", "time"),
+    ("lunch-break", "Lunch Break", "\u2615", "time"),
+    ("celebration", "Celebration", "\U0001F389", "vibe"),
+    ("casual-hangout", "Casual Hangout", "\U0001F919", "vibe"),
+    ("special-occasion", "Special Occasion", "\u2728", "vibe"),
+    ("outdoor-dining", "Outdoor Dining", "\U0001F33F", "vibe"),
+    ("comfort-food", "Comfort Food", "\U0001F917", "vibe"),
+    ("adventurous", "Adventurous", "\U0001F9ED", "vibe"),
+    ("instagram-worthy", "Instagram Worthy", "\U0001F4F8", "vibe"),
+]
+
+# ---------------------------------------------------------------------------
+# Venue Occasions: (venue_idx, occasion_slug, vote_count)
+# ---------------------------------------------------------------------------
+VENUE_OCCASIONS = [
+    (0, "date-night", 12), (0, "special-occasion", 8), (0, "celebration", 5),
+    (1, "casual-hangout", 15), (1, "lunch-break", 10), (1, "group-dinner", 6),
+    (2, "special-occasion", 18), (2, "celebration", 14), (2, "business-meal", 9),
+    (3, "casual-hangout", 12), (3, "lunch-break", 8), (3, "comfort-food", 7),
+    (4, "casual-hangout", 10), (4, "lunch-break", 7),
+    (5, "group-dinner", 11), (5, "adventurous", 9), (5, "date-night", 5),
+    (6, "brunch", 16), (6, "celebration", 8), (6, "group-dinner", 7),
+    (7, "brunch", 12), (7, "casual-hangout", 6), (7, "instagram-worthy", 8),
+    (8, "brunch", 14), (8, "family-friendly", 10), (8, "comfort-food", 8),
+    (9, "date-night", 15), (9, "special-occasion", 10), (9, "celebration", 7),
+    (10, "date-night", 13), (10, "special-occasion", 11), (10, "adventurous", 6),
+    (11, "late-night", 14), (11, "casual-hangout", 9),
+    (12, "family-friendly", 8), (12, "comfort-food", 7), (12, "casual-hangout", 6),
+    (13, "date-night", 9), (13, "happy-hour", 7),
+    (14, "late-night", 11), (14, "comfort-food", 10), (14, "casual-hangout", 8),
+    (15, "date-night", 13), (15, "special-occasion", 8), (15, "happy-hour", 6),
+]
+
+# ---------------------------------------------------------------------------
+# Dietary Reports: (venue_idx, user_idx, category, is_available)
+# ---------------------------------------------------------------------------
+DIETARY_REPORTS = [
+    (4, 7, "vegetarian", True),  # Superiority Burger — vegetarian
+    (4, 0, "vegetarian", True),
+    (4, 7, "vegan", True),
+    (5, 3, "halal", True),  # Dhamaka
+    (5, 8, "halal", True),
+    (5, 7, "vegetarian", True),
+    (9, 7, "vegetarian", True),  # Via Carota
+    (9, 2, "gluten-free", True),
+    (1, 3, "gluten-free", True),  # Los Tacos
+    (8, 4, "vegetarian", True),  # Russ & Daughters
+    (12, 3, "halal", True),  # Adda
+    (12, 8, "vegetarian", True),
+    (7, 7, "vegetarian", True),  # Thai Diner
+    (7, 7, "vegan", True),
+]
+
+
 class Command(BaseCommand):
     help = "Seed the database with realistic test data"
 
@@ -486,6 +553,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options["clear"]:
             self.stdout.write("Clearing existing data...")
+            VenueSimilarity.objects.all().delete()
+            DietaryReport.objects.all().delete()
+            VenueOccasion.objects.all().delete()
+            OccasionTag.objects.all().delete()
+            Dish.objects.all().delete()
             Notification.objects.all().delete()
             Comment.objects.all().delete()
             ReviewLike.objects.all().delete()
@@ -672,6 +744,47 @@ class Command(BaseCommand):
                 if created:
                     notif_count += 1
         self.stdout.write(f"  Notifications: {notif_count}")
+
+        # --- Occasion Tags ---
+        occasion_tags = {}
+        for slug, label, emoji, category in OCCASION_TAGS:
+            tag, _ = OccasionTag.objects.get_or_create(
+                slug=slug,
+                defaults={"label": label, "emoji": emoji, "category": category},
+            )
+            occasion_tags[slug] = tag
+        self.stdout.write(f"  Occasion Tags: {len(occasion_tags)}")
+
+        # --- Venue Occasions ---
+        vo_count = 0
+        for venue_idx, occasion_slug, vote_count in VENUE_OCCASIONS:
+            VenueOccasion.objects.get_or_create(
+                venue=venues[venue_idx],
+                occasion=occasion_tags[occasion_slug],
+                defaults={"vote_count": vote_count},
+            )
+            vo_count += 1
+        self.stdout.write(f"  Venue Occasions: {vo_count}")
+
+        # --- Dietary Reports ---
+        dr_count = 0
+        for venue_idx, user_idx, category, is_available in DIETARY_REPORTS:
+            DietaryReport.objects.get_or_create(
+                venue=venues[venue_idx],
+                user=users[user_idx],
+                category=category,
+                scope="venue",
+                defaults={"is_available": is_available},
+            )
+            dr_count += 1
+        self.stdout.write(f"  Dietary Reports: {dr_count}")
+
+        # --- Venue Similarity ---
+        from apps.core.management.commands.refresh_venue_similarity import Command as SimCommand
+        sim_cmd = SimCommand()
+        sim_cmd.stdout = self.stdout
+        sim_cmd.style = self.style
+        sim_cmd.handle(top_n=10)
 
         self.stdout.write(self.style.SUCCESS("\nSeed data created successfully!"))
         self.stdout.write(

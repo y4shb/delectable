@@ -54,7 +54,21 @@ export default function ReviewCard({
   const [bookmarked, setBookmarked] = useState(initialIsBookmarked);
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const lastTapRef = useRef(0);
+  const heartBurstTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const queryClient = useQueryClient();
+
+  // Sync local state from props when server data changes after refetch
+  useEffect(() => { setLiked(initialIsLiked); }, [initialIsLiked]);
+  useEffect(() => { setLikeCount(initialLikeCount); }, [initialLikeCount]);
+  useEffect(() => { setBookmarked(initialIsBookmarked); }, [initialIsBookmarked]);
+
+  useEffect(() => {
+    return () => {
+      if (heartBurstTimerRef.current) {
+        clearTimeout(heartBurstTimerRef.current);
+      }
+    };
+  }, []);
 
   const likeMutation = useMutation({
     mutationFn: () => likeReview(id),
@@ -99,30 +113,33 @@ export default function ReviewCard({
         likeMutation.mutate();
         // Heart burst animation
         setShowHeartBurst(true);
-        setTimeout(() => setShowHeartBurst(false), 800);
+        if (heartBurstTimerRef.current) clearTimeout(heartBurstTimerRef.current);
+        heartBurstTimerRef.current = setTimeout(() => setShowHeartBurst(false), 800);
       }
     },
     [liked, likeMutation, unlikeMutation],
   );
 
-  const handleDoubleTap = useCallback(() => {
+  const handleDoubleTap = useCallback((e: React.MouseEvent) => {
     const now = Date.now();
     if (now - lastTapRef.current < 500) {
+      e.preventDefault();
+      e.stopPropagation();
       if (!liked) {
         handleLikeToggle();
       } else {
-        // Still show burst on double tap even if already liked
         setShowHeartBurst(true);
-        setTimeout(() => setShowHeartBurst(false), 800);
+        if (heartBurstTimerRef.current) clearTimeout(heartBurstTimerRef.current);
+        heartBurstTimerRef.current = setTimeout(() => setShowHeartBurst(false), 800);
       }
     }
     lastTapRef.current = now;
   }, [liked, handleLikeToggle]);
 
   const handleBookmarkToggle = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      e?.preventDefault();
       if (bookmarked) {
         setBookmarked(false);
         unbookmarkMutation.mutate();
@@ -161,9 +178,9 @@ export default function ReviewCard({
   const cardContent = (
     <Box
       ref={cardRef}
-      id={`review-card-${venue.toLowerCase().replace(/\s+/g, '-')}`}
+      id={`review-card-${id}`}
       role="article"
-      aria-labelledby={`review-title-${venue.toLowerCase().replace(/\s+/g, '-')}`}
+      aria-labelledby={`review-title-${id}`}
       onClick={handleDoubleTap}
       sx={(theme) => ({
         bgcolor: theme.palette.background.paper,
@@ -259,7 +276,7 @@ export default function ReviewCard({
             zIndex: 2,
           }}
         >
-          {rating.toFixed(1)}
+          {Number(rating).toFixed(1)}
         </Typography>
 
         {/* Content overlay */}
@@ -287,7 +304,7 @@ export default function ReviewCard({
             />
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography
-                id={`review-title-${venue.toLowerCase().replace(/\s+/g, '-')}`}
+                id={`review-title-${id}`}
                 sx={{
                   color: '#fff',
                   fontWeight: 700,
@@ -320,6 +337,8 @@ export default function ReviewCard({
                 onClick={handleLikeToggle}
                 role="button"
                 aria-label={liked ? 'Unlike' : 'Like'}
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLikeToggle(); } }}
                 sx={{
                   cursor: 'pointer',
                   display: 'flex',
@@ -350,6 +369,8 @@ export default function ReviewCard({
                 onClick={handleBookmarkToggle}
                 role="button"
                 aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark'}
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBookmarkToggle(); } }}
                 sx={{
                   cursor: 'pointer',
                   display: 'flex',

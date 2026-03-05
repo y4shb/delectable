@@ -11,16 +11,25 @@ import type {
   Comment,
   Bookmark,
   TasteMatch,
+  TrendingVenue,
+  TasteProfile,
+  FeedTier,
   CursorPaginatedResponse,
+  Dish,
+  OccasionTag,
+  FriendsVenue,
+  SearchFilters,
 } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function formatRelativeTime(isoDate: string): string {
+export function formatRelativeTime(isoDate: string): string {
   const now = Date.now();
   const date = new Date(isoDate).getTime();
+  if (isNaN(date)) return '';
   const diffMs = now - date;
+  if (diffMs < 0) return 'just now';
   const diffMin = Math.floor(diffMs / 60_000);
   if (diffMin < 1) return 'just now';
   if (diffMin < 60) return `${diffMin}m ago`;
@@ -49,7 +58,7 @@ export function reviewToFeedReview(review: Review): FeedReview {
       avatarUrl: review.user.avatarUrl,
       level: review.user.level,
     },
-    rating: review.rating,
+    rating: Number(review.rating),
     text: review.text,
     photoUrl: review.photoUrl ?? '',
     date: formatRelativeTime(review.createdAt),
@@ -84,11 +93,6 @@ export async function registerUser(
     password,
     passwordConfirm,
   });
-  return data;
-}
-
-export async function refreshToken(): Promise<{ access: string }> {
-  const { data } = await api.post('/auth/refresh/');
   return data;
 }
 
@@ -241,11 +245,18 @@ export async function addPlaylistItem(
 // ---------------------------------------------------------------------------
 export async function searchAll(
   q: string,
-  type: 'all' | 'venue' | 'user' | 'review' = 'all',
+  type: 'all' | 'venue' | 'user' | 'review' | 'dish' = 'all',
   limit = 20,
-): Promise<{ venues?: Venue[]; users?: User[]; reviews?: Review[] }> {
-  const { data } = await api.get('/search/', { params: { q, type, limit } });
-  return data.data;
+  filters?: SearchFilters,
+): Promise<{ venues?: Venue[]; users?: User[]; reviews?: Review[]; dishes?: Dish[] }> {
+  const params: Record<string, string | number> = { q, type, limit };
+  if (filters?.occasion) params.occasion = filters.occasion;
+  if (filters?.dietary?.length) params.dietary = filters.dietary.join(',');
+  if (filters?.lat != null) params.lat = filters.lat;
+  if (filters?.lng != null) params.lng = filters.lng;
+  if (filters?.radius != null) params.radius = filters.radius;
+  const { data } = await api.get('/search/', { params });
+  return data.data ?? data;
 }
 
 export async function searchAutocomplete(
@@ -255,7 +266,7 @@ export async function searchAutocomplete(
   const { data } = await api.get('/search/autocomplete/', {
     params: { q, type },
   });
-  return data.data;
+  return data.data ?? data;
 }
 
 // ---------------------------------------------------------------------------
@@ -316,4 +327,87 @@ export async function fetchSuggestedUsers(): Promise<User[]> {
 export async function fetchTasteMatch(userId: string): Promise<TasteMatch> {
   const { data } = await api.get(`/auth/users/${userId}/taste-match/`);
   return data;
+}
+
+// ---------------------------------------------------------------------------
+// Feed Intelligence (M6)
+// ---------------------------------------------------------------------------
+export async function fetchTrendingVenues(): Promise<TrendingVenue[]> {
+  const { data } = await api.get('/feed/trending/');
+  return data.results ?? data;
+}
+
+export async function fetchTasteProfile(): Promise<TasteProfile> {
+  const { data } = await api.get('/feed/taste-profile/');
+  return data;
+}
+
+export async function updateTasteProfile(
+  updates: Partial<TasteProfile>,
+): Promise<TasteProfile> {
+  const { data } = await api.put('/feed/taste-profile/', updates);
+  return data;
+}
+
+export async function fetchFeedTier(): Promise<FeedTier> {
+  const { data } = await api.get('/feed/tier/');
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// M7: Enhanced Search & Discovery
+// ---------------------------------------------------------------------------
+
+// Dishes
+export async function fetchDishes(params?: {
+  venue?: string;
+  q?: string;
+}): Promise<Dish[]> {
+  const { data } = await api.get('/dishes/', { params });
+  return data.results ?? data;
+}
+
+export async function fetchDishDetail(id: string): Promise<Dish> {
+  const { data } = await api.get(`/dishes/${id}/`);
+  return data;
+}
+
+// Occasions
+export async function fetchOccasions(): Promise<OccasionTag[]> {
+  const { data } = await api.get('/occasions/');
+  return data.results ?? data;
+}
+
+export async function voteOccasion(
+  venueId: string,
+  slug: string,
+): Promise<void> {
+  await api.post(`/venues/${venueId}/occasions/${slug}/vote/`);
+}
+
+export async function unvoteOccasion(
+  venueId: string,
+  slug: string,
+): Promise<void> {
+  await api.delete(`/venues/${venueId}/occasions/${slug}/vote/`);
+}
+
+// Dietary
+export async function reportDietary(
+  venueId: string,
+  report: { category: string; isAvailable: boolean; scope?: string; dish?: string },
+): Promise<void> {
+  await api.post(`/venues/${venueId}/dietary/`, report);
+}
+
+// Similar Venues
+export async function fetchSimilarVenues(venueId: string): Promise<Venue[]> {
+  const { data } = await api.get(`/venues/${venueId}/similar/`);
+  return data.results ?? data;
+}
+
+// Friends Venues
+export async function fetchFriendsVenues(): Promise<FriendsVenue[]> {
+  const { data } = await api.get('/venues/friends/');
+  return data.results ?? data;
 }

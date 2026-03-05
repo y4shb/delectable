@@ -3,22 +3,8 @@ import { Box, Typography, CircularProgress, Button, useTheme } from '@mui/materi
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useNotifications } from '../hooks/useApi';
-import { markNotificationsRead } from '../api/api';
+import { markNotificationsRead, formatRelativeTime } from '../api/api';
 import { useQueryClient } from '@tanstack/react-query';
-
-function formatRelativeTime(isoDate: string): string {
-  const now = Date.now();
-  const date = new Date(isoDate).getTime();
-  const diffMs = now - date;
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return `${Math.floor(diffDay / 7)}w ago`;
-}
 
 export default function NotificationsPage() {
   const { isLoading: authLoading } = useRequireAuth();

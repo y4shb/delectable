@@ -6,8 +6,10 @@ import StarIcon from '@mui/icons-material/Star';
 import GoogleMapView from '../components/GoogleMapView';
 import { useEffect, useState } from 'react';
 import { useRequireAuth } from '../hooks/useRequireAuth';
-import { useVenues } from '../hooks/useApi';
+import { useVenues, useFriendsVenues } from '../hooks/useApi';
 import Link from 'next/link';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
+import PeopleIcon from '@mui/icons-material/People';
 
 const CUISINE_OPTIONS = ['Japanese', 'Italian', 'American', 'European', 'Experimental'];
 
@@ -18,10 +20,14 @@ export default function MapPage() {
 
   const { data: venues, isLoading: venuesLoading } = useVenues();
 
+  const { data: friendsVenues } = useFriendsVenues();
+
   const [cuisineFilter, setCuisineFilter] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<number | undefined>(undefined);
   const [ratingActive, setRatingActive] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [heatmapMode, setHeatmapMode] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
 
   useEffect(() => {
     if (viewMode === 'map') {
@@ -183,8 +189,32 @@ export default function MapPage() {
               />
             </Box>
 
-            {/* Map/List toggle */}
+            {/* Map/List toggle + overlays */}
             <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
+              <IconButton
+                size="small"
+                onClick={() => setHeatmapMode((p) => !p)}
+                sx={{
+                  color: heatmapMode
+                    ? theme.palette.primary.main
+                    : theme.palette.text.secondary,
+                }}
+                aria-label="Toggle heatmap"
+              >
+                <ThermostatIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setShowFriends((p) => !p)}
+                sx={{
+                  color: showFriends
+                    ? theme.palette.primary.main
+                    : theme.palette.text.secondary,
+                }}
+                aria-label="Toggle friends venues"
+              >
+                <PeopleIcon sx={{ fontSize: 20 }} />
+              </IconButton>
               <IconButton
                 size="small"
                 onClick={() => setViewMode('map')}
@@ -232,6 +262,8 @@ export default function MapPage() {
               venues={allVenues}
               cuisineFilter={cuisineFilter}
               minRating={minRating}
+              heatmapMode={heatmapMode}
+              friendsVenues={showFriends ? friendsVenues : undefined}
             />
           </Box>
         ) : (
@@ -334,7 +366,7 @@ export default function MapPage() {
                             fontSize: 15,
                           }}
                         >
-                          {venue.rating.toFixed(1)}
+                          {Number(venue.rating).toFixed(1)}
                         </Typography>
                       </Box>
                     </Box>

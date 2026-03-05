@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 from django.db.models.indexes import Index
 
 from apps.core.models import TimeStampedModel
@@ -17,6 +18,9 @@ class Review(TimeStampedModel):
     )
     venue = models.ForeignKey(
         "venues.Venue", on_delete=models.CASCADE, related_name="reviews"
+    )
+    dish = models.ForeignKey(
+        "venues.Dish", on_delete=models.SET_NULL, null=True, blank=True, related_name="reviews"
     )
     rating = models.DecimalField(
         max_digits=4,
@@ -37,8 +41,14 @@ class Review(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "venue"],
-                name="uq_review_user_venue",
-            )
+                condition=Q(dish__isnull=True),
+                name="uq_review_user_venue_no_dish",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "venue", "dish"],
+                condition=Q(dish__isnull=False),
+                name="uq_review_user_venue_dish",
+            ),
         ]
         indexes = [
             Index(name="idx_review_user_created", fields=["user", "-created_at"]),

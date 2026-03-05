@@ -17,12 +17,21 @@ import {
   fetchFollowing,
   fetchSuggestedUsers,
   fetchTasteMatch,
+  fetchTrendingVenues,
+  fetchTasteProfile,
+  fetchFeedTier,
   searchAll,
+  fetchDishes,
+  fetchDishDetail,
+  fetchOccasions,
+  fetchSimilarVenues,
+  fetchFriendsVenues,
 } from '../api/api';
+import type { SearchFilters } from '../types';
 
 export function useUser(id?: string) {
   return useQuery({
-    queryKey: ['user', id],
+    queryKey: id ? ['user', id] : ['me'],
     queryFn: () => (id ? fetchUserApi(id) : fetchMe()),
   });
 }
@@ -141,13 +150,83 @@ export function useTasteMatch(userId?: string) {
   });
 }
 
+export function useTrendingVenues() {
+  return useQuery({
+    queryKey: ['trendingVenues'],
+    queryFn: () => fetchTrendingVenues(),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useTasteProfile() {
+  return useQuery({
+    queryKey: ['tasteProfile'],
+    queryFn: () => fetchTasteProfile(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useFeedTier() {
+  return useQuery({
+    queryKey: ['feedTier'],
+    queryFn: () => fetchFeedTier(),
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
 export function useSearch(
   q: string,
-  type: 'all' | 'venue' | 'user' | 'review' = 'all',
+  type: 'all' | 'venue' | 'user' | 'review' | 'dish' = 'all',
+  filters?: SearchFilters,
 ) {
   return useQuery({
-    queryKey: ['search', q, type],
-    queryFn: () => searchAll(q, type),
-    enabled: q.length >= 1,
+    queryKey: ['search', q, type, filters],
+    queryFn: () => searchAll(q, type, 20, filters),
+    enabled: q.length >= 2,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// M7: Enhanced Search & Discovery
+// ---------------------------------------------------------------------------
+
+export function useDishes(params?: { venue?: string; q?: string }) {
+  return useQuery({
+    queryKey: ['dishes', params],
+    queryFn: () => fetchDishes(params),
+    enabled: !!params?.venue || !!params?.q,
+  });
+}
+
+export function useDishDetail(id?: string) {
+  return useQuery({
+    queryKey: ['dishDetail', id],
+    queryFn: () => fetchDishDetail(id!),
+    enabled: !!id,
+  });
+}
+
+export function useOccasions() {
+  return useQuery({
+    queryKey: ['occasions'],
+    queryFn: () => fetchOccasions(),
+    staleTime: 60 * 60 * 1000, // 1 hour
+  });
+}
+
+export function useSimilarVenues(venueId?: string) {
+  return useQuery({
+    queryKey: ['similarVenues', venueId],
+    queryFn: () => fetchSimilarVenues(venueId!),
+    enabled: !!venueId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+export function useFriendsVenues() {
+  return useQuery({
+    queryKey: ['friendsVenues'],
+    queryFn: () => fetchFriendsVenues(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

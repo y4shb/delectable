@@ -12,6 +12,8 @@ import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { createPlaylist } from '../../api/api';
+import { useRouter } from 'next/router';
 
 const playlistSchema = yup.object({
   title: yup.string().required('Playlist title is required').min(2, 'Title must be at least 2 characters'),
@@ -21,11 +23,13 @@ const playlistSchema = yup.object({
 interface PlaylistFormData {
   title: string;
   description?: string;
+  isPublic?: boolean;
 }
 
 export default function NewPlaylistPage() {
   useRequireAuth();
   const theme = useTheme();
+  const router = useRouter();
 
   const {
     register,
@@ -40,8 +44,17 @@ export default function NewPlaylistPage() {
     },
   });
 
-  const onSubmit = (data: PlaylistFormData) => {
-    console.log('Playlist created:', data);
+  const onSubmit = async (data: PlaylistFormData) => {
+    try {
+      const playlist = await createPlaylist({
+        title: data.title,
+        description: data.description,
+        isPublic: data.isPublic ?? true,
+      });
+      router.push(`/playlist/${playlist.id}`);
+    } catch {
+      // Handle error silently for now
+    }
   };
 
   return (

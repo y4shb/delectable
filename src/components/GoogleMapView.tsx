@@ -1,10 +1,12 @@
 import React, { useCallback, useRef, useMemo, useState } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow, HeatmapLayer } from '@react-google-maps/api';
 import { useTheme, Box, Typography, IconButton, Fab } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import Link from 'next/link';
-import { Venue } from '../types';
+import { Venue, FriendsVenue } from '../types';
+
+const MAPS_LIBRARIES: ('visualization')[] = ['visualization'];
 
 const containerStyle = {
   width: '100%',
@@ -116,15 +118,18 @@ export interface GoogleMapViewProps {
   venues: Venue[];
   cuisineFilter?: string | null;
   minRating?: number;
+  heatmapMode?: boolean;
+  friendsVenues?: FriendsVenue[];
 }
 
-export default function GoogleMapView({ venues, cuisineFilter, minRating }: GoogleMapViewProps) {
+export default function GoogleMapView({ venues, cuisineFilter, minRating, heatmapMode, friendsVenues }: GoogleMapViewProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: MAPS_LIBRARIES,
   });
 
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -196,6 +201,43 @@ export default function GoogleMapView({ venues, cuisineFilter, minRating }: Goog
             onClick={() => setSelectedVenue(venue)}
           />
         ))}
+
+        {/* Heatmap layer */}
+        {heatmapMode && isLoaded && (
+          <HeatmapLayer
+            data={filteredVenues
+              .filter((v) => v.latitude != null && v.longitude != null)
+              .map((v) => ({
+                location: new window.google.maps.LatLng(v.latitude, v.longitude),
+                weight: v.reviewsCount || 1,
+              }))}
+            options={{
+              radius: 40,
+              opacity: 0.7,
+            }}
+          />
+        )}
+
+        {/* Friends venue markers */}
+        {friendsVenues?.map((fv) =>
+          fv.latitude != null && fv.longitude != null ? (
+            <Marker
+              key={`friend-${fv.id}`}
+              position={{ lat: fv.latitude, lng: fv.longitude }}
+              icon={{
+                url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                    <circle cx="14" cy="14" r="12" fill="#009688" stroke="#fff" stroke-width="2"/>
+                    <text x="14" y="18" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold" font-family="Arial">${(fv.friendAvatars?.[0]?.name ?? 'F').charAt(0)}</text>
+                  </svg>`
+                )}`,
+                scaledSize: new window.google.maps.Size(28, 28),
+              }}
+              onClick={() => setSelectedVenue(fv)}
+              zIndex={500}
+            />
+          ) : null,
+        )}
 
         {/* User location blue dot */}
         {userLocation && (

@@ -17,7 +17,7 @@ export function getAccessToken(): string | null {
 // snake_case ↔ camelCase key transformers
 // ---------------------------------------------------------------------------
 function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+  return str.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase());
 }
 
 function camelToSnake(str: string): string {

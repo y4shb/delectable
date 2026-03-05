@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -55,13 +55,13 @@ export default function ReviewDetailPage() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
 
   // Sync initial state when review loads
-  const [initialized, setInitialized] = useState(false);
-  if (review && !initialized) {
-    setLiked(review.isLiked);
-    setLikeCount(review.likeCount);
-    setBookmarked(review.isBookmarked);
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (review) {
+      setLiked(review.isLiked);
+      setLikeCount(review.likeCount);
+      setBookmarked(review.isBookmarked);
+    }
+  }, [review?.id, review?.isLiked, review?.likeCount, review?.isBookmarked]);
 
   const likeMutation = useMutation({
     mutationFn: () => likeReview(id as string),
@@ -92,7 +92,7 @@ export default function ReviewDetailPage() {
   });
 
   const commentMutation = useMutation({
-    mutationFn: () => createComment(id as string, commentText, replyTo ?? undefined),
+    mutationFn: ({ text, parentId }: { text: string; parentId?: string }) => createComment(id as string, text, parentId),
     onSuccess: () => {
       setCommentText('');
       setReplyTo(null);
@@ -216,7 +216,7 @@ export default function ReviewDetailPage() {
             </Typography>
           </Box>
           <Typography sx={{ fontWeight: 700, fontSize: 28, color: theme.palette.primary.main }}>
-            {review.rating.toFixed(1)}
+            {Number(review.rating).toFixed(1)}
           </Typography>
         </Box>
 
@@ -259,7 +259,7 @@ export default function ReviewDetailPage() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
                 <StarIcon sx={{ fontSize: 14, color: theme.palette.primary.main }} />
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: theme.palette.primary.main }}>
-                  {review.venueDetail.rating.toFixed(1)}
+                  {Number(review.venueDetail.rating).toFixed(1)}
                 </Typography>
               </Box>
             </Box>
@@ -297,6 +297,10 @@ export default function ReviewDetailPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, mt: 2 }}>
           <Box
             onClick={handleLikeToggle}
+            role="button"
+            tabIndex={0}
+            aria-label={liked ? 'Unlike review' : 'Like review'}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLikeToggle(); } }}
             sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
           >
             {liked ? (
@@ -313,6 +317,10 @@ export default function ReviewDetailPage() {
           <Box sx={{ flex: 1 }} />
           <Box
             onClick={handleBookmarkToggle}
+            role="button"
+            tabIndex={0}
+            aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark review'}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBookmarkToggle(); } }}
             sx={{ cursor: 'pointer' }}
           >
             {bookmarked ? (
@@ -342,7 +350,7 @@ export default function ReviewDetailPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey && commentText.trim()) {
                   e.preventDefault();
-                  commentMutation.mutate();
+                  commentMutation.mutate({ text: commentText, parentId: replyTo ?? undefined });
                 }
               }}
               sx={{
@@ -352,7 +360,7 @@ export default function ReviewDetailPage() {
               }}
             />
             <IconButton
-              onClick={() => commentText.trim() && commentMutation.mutate()}
+              onClick={() => commentText.trim() && commentMutation.mutate({ text: commentText, parentId: replyTo ?? undefined })}
               disabled={!commentText.trim() || commentMutation.isPending}
               sx={{ color: theme.palette.primary.main }}
             >
@@ -484,7 +492,7 @@ export default function ReviewDetailPage() {
                         {r.venue}
                       </Typography>
                       <Typography sx={{ fontSize: 12, fontWeight: 700, color: theme.palette.primary.main }}>
-                        {r.rating.toFixed(1)}
+                        {Number(r.rating).toFixed(1)}
                       </Typography>
                     </Box>
                   </Box>
@@ -538,7 +546,7 @@ export default function ReviewDetailPage() {
                         {r.user.name}
                       </Typography>
                       <Typography sx={{ fontSize: 12, fontWeight: 700, color: theme.palette.primary.main }}>
-                        {r.rating.toFixed(1)}
+                        {Number(r.rating).toFixed(1)}
                       </Typography>
                     </Box>
                   </Box>

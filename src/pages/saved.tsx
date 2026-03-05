@@ -49,7 +49,7 @@ export default function SavedPage() {
             </Typography>
           </Box>
         ) : (
-          items.map((bookmark) => {
+          items.filter((b) => b.reviewDetail).map((bookmark) => {
             const feedReview = reviewToFeedReview(bookmark.reviewDetail);
             return <ReviewCard key={bookmark.id} {...feedReview} />;
           })

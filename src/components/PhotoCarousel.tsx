@@ -12,7 +12,7 @@ export default function PhotoCarousel({ images }: PhotoCarouselProps) {
     setIndex(0);
   }, [images]);
 
-  if (!images.length) return null;
+  if (!images?.length) return null;
   return (
     <Box 
       id="photo-carousel"

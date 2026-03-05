@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.users.serializers import UserPublicSerializer
-from apps.venues.serializers import VenueListSerializer
+from apps.venues.serializers import DishListSerializer, VenueListSerializer
 
 from .models import Bookmark, Comment, Review
 
@@ -52,6 +52,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     user = UserPublicSerializer(read_only=True)
     venue_detail = VenueListSerializer(source="venue", read_only=True)
+    dish_detail = DishListSerializer(source="dish", read_only=True)
     is_liked = serializers.SerializerMethodField()
     is_bookmarked = serializers.SerializerMethodField()
     recent_comments = serializers.SerializerMethodField()
@@ -60,7 +61,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = [
             "id", "user", "venue", "venue_detail", "rating", "text",
-            "photo_url", "dish_name", "tags", "like_count",
+            "photo_url", "dish_name", "dish", "dish_detail", "tags", "like_count",
             "comment_count", "is_liked", "is_bookmarked",
             "recent_comments", "created_at",
         ]
@@ -97,7 +98,7 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ["venue", "rating", "text", "photo_url", "dish_name", "tags"]
+        fields = ["venue", "rating", "text", "photo_url", "dish_name", "dish", "tags"]
 
     def validate_text(self, value):
         if value and len(value) < 10:
