@@ -17,7 +17,7 @@ interface ReviewCardProps {
   location: string;
   dish?: string;
   tags?: string[];
-  user: { name: string; avatarUrl: string; level?: number };
+  user: { id?: string; name: string; avatarUrl: string; level?: number };
   rating: number;
   text: string;
   photoUrl: string;
@@ -304,10 +304,25 @@ export default function ReviewCard({
         >
           {/* Profile, Venue name & actions row */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.5, px: 0.5 }}>
-            <Avatar
-              src={user.avatarUrl}
-              sx={{ width: 36, height: 36, border: '1px solid #fff' }}
-            />
+            {user.id ? (
+              <Link href={`/user/${user.id}`} passHref legacyBehavior>
+                <Box
+                  component="a"
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  sx={{ cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <Avatar
+                    src={user.avatarUrl}
+                    sx={{ width: 36, height: 36, border: '1px solid #fff' }}
+                  />
+                </Box>
+              </Link>
+            ) : (
+              <Avatar
+                src={user.avatarUrl}
+                sx={{ width: 36, height: 36, border: '1px solid #fff' }}
+              />
+            )}
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography
                 id={`review-title-${id}`}

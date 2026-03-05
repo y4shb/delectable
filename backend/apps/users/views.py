@@ -448,3 +448,42 @@ class TasteMatchView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class UserPlaylistsView(generics.ListAPIView):
+    """GET /api/auth/users/{id}/playlists/ — Get user's visible playlists."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        from apps.playlists.models import Playlist, PlaylistVisibility
+
+        user_id = self.kwargs.get("id")
+        qs = Playlist.objects.filter(user_id=user_id).select_related("user", "forked_from__user")
+
+        # If viewing own playlists, show all
+        if str(user_id) == str(self.request.user.id):
+            return qs
+
+        # Check if viewer follows the owner
+        is_following = Follow.objects.filter(
+            follower=self.request.user, following_id=user_id
+        ).exists()
+
+        if is_following:
+            # Followers see public + followers-only
+            return qs.filter(
+                visibility__in=[PlaylistVisibility.PUBLIC, PlaylistVisibility.FOLLOWERS]
+            )
+        else:
+            # Non-followers only see public
+            return qs.filter(visibility=PlaylistVisibility.PUBLIC)
+
+    def get_serializer_class(self):
+        from apps.playlists.serializers import PlaylistListSerializer
+        return PlaylistListSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context

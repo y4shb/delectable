@@ -2,13 +2,17 @@ import AppShell from '../layouts/AppShell';
 import { Box, Typography, Avatar, Tabs, Tab, CircularProgress, Button, Stack, useTheme } from '@mui/material';
 import { useState } from 'react';
 import ReviewCard from '../components/ReviewCard';
-import { useUser, useUserReviews, usePlaylists, useBookmarks } from '../hooks/useApi';
+import { useUser, useUserReviews, usePlaylists, useBookmarks, useSavedPlaylists } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import Link from 'next/link';
 import EditIcon from '@mui/icons-material/Edit';
 import StarIcon from '@mui/icons-material/Star';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import ForkRightIcon from '@mui/icons-material/ForkRight';
+import LockIcon from '@mui/icons-material/Lock';
+import PeopleIcon from '@mui/icons-material/People';
+import PublicIcon from '@mui/icons-material/Public';
 import { reviewToFeedReview } from '../api/api';
 
 export default function ProfilePage() {
@@ -19,6 +23,7 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useUser(authUser?.id);
   const { data: userReviews } = useUserReviews(authUser?.id);
   const { data: playlists } = usePlaylists();
+  const { data: savedPlaylists } = useSavedPlaylists();
   const { data: bookmarks } = useBookmarks();
 
   if (authLoading || isLoading || !user) {
@@ -137,54 +142,139 @@ export default function ProfilePage() {
         )}
 
         {tab === 1 && (
-          <Stack spacing={1.5} sx={{ px: 1, mt: 1 }}>
-            {(playlists ?? []).length === 0 ? (
-              <Box sx={{ textAlign: 'center', mt: 4 }}>
-                <Typography color="text.secondary" sx={{ fontSize: 14 }}>
-                  No playlists yet
-                </Typography>
-              </Box>
-            ) : (
-              (playlists ?? []).map((playlist) => (
-                <Link
-                  key={playlist.id}
-                  href={`/playlist/${playlist.id}`}
-                  legacyBehavior
-                  passHref
-                >
-                  <Box
-                    component="a"
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      p: 1.5,
-                      borderRadius: '16px',
-                      bgcolor: theme.palette.mode === 'dark'
-                        ? 'rgba(255,255,255,0.06)'
-                        : theme.palette.background.paper,
-                      boxShadow: theme.palette.mode === 'dark'
-                        ? 'none'
-                        : '0 2px 8px rgba(0,0,0,0.06)',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      cursor: 'pointer',
-                    }}
+          <Box sx={{ px: 1, mt: 1 }}>
+            {/* My Playlists section */}
+            <Typography sx={{ fontWeight: 700, fontSize: 16, mb: 1.5 }}>
+              My Playlists
+            </Typography>
+            <Stack spacing={1.5}>
+              {(playlists ?? []).length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 3 }}>
+                  <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                    No playlists yet
+                  </Typography>
+                </Box>
+              ) : (
+                (playlists ?? []).map((playlist) => (
+                  <Link
+                    key={playlist.id}
+                    href={`/playlist/${playlist.id}`}
+                    legacyBehavior
+                    passHref
                   >
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
-                        {playlist.title}
-                      </Typography>
-                      <Typography color="text.secondary" sx={{ fontSize: 13 }}>
-                        {playlist.itemsCount} {playlist.itemsCount === 1 ? 'spot' : 'spots'}
-                      </Typography>
+                    <Box
+                      component="a"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1.5,
+                        borderRadius: '16px',
+                        bgcolor: theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.06)'
+                          : theme.palette.background.paper,
+                        boxShadow: theme.palette.mode === 'dark'
+                          ? 'none'
+                          : '0 2px 8px rgba(0,0,0,0.06)',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                            {playlist.title}
+                          </Typography>
+                          {playlist.visibility === 'private' && (
+                            <LockIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                          )}
+                          {playlist.visibility === 'followers' && (
+                            <PeopleIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                          )}
+                          {playlist.visibility === 'public' && (
+                            <PublicIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1.5 }}>
+                          <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                            {playlist.itemsCount} {playlist.itemsCount === 1 ? 'spot' : 'spots'}
+                          </Typography>
+                          {playlist.forkedFrom && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                              <ForkRightIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
+                              <Typography color="text.secondary" sx={{ fontSize: 12 }}>
+                                forked
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                      <StarIcon sx={{ fontSize: 16, color: theme.palette.primary.main }} />
                     </Box>
-                    <StarIcon sx={{ fontSize: 16, color: theme.palette.primary.main }} />
-                  </Box>
-                </Link>
-              ))
-            )}
-          </Stack>
+                  </Link>
+                ))
+              )}
+            </Stack>
+
+            {/* Saved Playlists section */}
+            <Typography sx={{ fontWeight: 700, fontSize: 16, mb: 1.5, mt: 3 }}>
+              Saved Playlists
+            </Typography>
+            <Stack spacing={1.5}>
+              {(savedPlaylists ?? []).length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 3 }}>
+                  <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                    No saved playlists yet
+                  </Typography>
+                </Box>
+              ) : (
+                (savedPlaylists ?? []).map((saved) => (
+                  <Link
+                    key={saved.id}
+                    href={`/playlist/${saved.playlist.id}`}
+                    legacyBehavior
+                    passHref
+                  >
+                    <Box
+                      component="a"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1.5,
+                        borderRadius: '16px',
+                        bgcolor: theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.06)'
+                          : theme.palette.background.paper,
+                        boxShadow: theme.palette.mode === 'dark'
+                          ? 'none'
+                          : '0 2px 8px rgba(0,0,0,0.06)',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 15 }}>
+                          {saved.playlist.title}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                            by {saved.playlist.owner.name}
+                          </Typography>
+                          <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                            {saved.playlist.itemsCount} {saved.playlist.itemsCount === 1 ? 'spot' : 'spots'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <BookmarkIcon sx={{ fontSize: 16, color: theme.palette.primary.main }} />
+                    </Box>
+                  </Link>
+                ))
+              )}
+            </Stack>
+          </Box>
         )}
 
         {tab === 2 && (

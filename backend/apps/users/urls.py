@@ -15,5 +15,6 @@ urlpatterns = [
     path("users/<uuid:id>/followers/", views.FollowerListView.as_view(), name="followers"),
     path("users/<uuid:id>/following/", views.FollowingListView.as_view(), name="following"),
     path("users/<uuid:id>/reviews/", UserReviewsView.as_view(), name="user-reviews"),
+    path("users/<uuid:id>/playlists/", views.UserPlaylistsView.as_view(), name="user-playlists"),
     path("users/<uuid:id>/taste-match/", views.TasteMatchView.as_view(), name="taste-match"),
 ]

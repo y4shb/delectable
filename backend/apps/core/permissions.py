@@ -29,3 +29,37 @@ class ReadPublicWriteAuthenticated(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user and request.user.is_authenticated
+
+
+class CanViewPlaylist(BasePermission):
+    """
+    Permission to view a playlist based on its visibility setting.
+    - Public: Anyone can view
+    - Private: Only owner can view
+    - Followers: Owner and followers of owner can view
+    """
+
+    def has_object_permission(self, request, view, obj):
+        from apps.users.models import Follow
+
+        # Owner can always view
+        if obj.user == request.user:
+            return True
+
+        # Public playlists are visible to all
+        if obj.visibility == 'public':
+            return True
+
+        # Private playlists only visible to owner (already checked above)
+        if obj.visibility == 'private':
+            return False
+
+        # Followers-only: check if requester follows the owner
+        if obj.visibility == 'followers':
+            if not request.user or not request.user.is_authenticated:
+                return False
+            return Follow.objects.filter(
+                follower=request.user, following=obj.user
+            ).exists()
+
+        return False

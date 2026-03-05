@@ -26,6 +26,8 @@ import {
   fetchOccasions,
   fetchSimilarVenues,
   fetchFriendsVenues,
+  fetchSavedPlaylists,
+  fetchUserPlaylists,
 } from '../api/api';
 import type { SearchFilters } from '../types';
 
@@ -230,5 +232,24 @@ export function useFriendsVenues() {
     queryKey: ['friendsVenues'],
     queryFn: () => fetchFriendsVenues(),
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Playlist Save/Fork
+// ---------------------------------------------------------------------------
+
+export function useSavedPlaylists() {
+  return useQuery({
+    queryKey: ['savedPlaylists'],
+    queryFn: () => fetchSavedPlaylists(),
+  });
+}
+
+export function useUserPlaylists(userId?: string) {
+  return useQuery({
+    queryKey: ['userPlaylists', userId],
+    queryFn: () => fetchUserPlaylists(userId!),
+    enabled: !!userId,
   });
 }

@@ -1,20 +1,133 @@
+import { useState } from 'react';
 import AppShell from '../../layouts/AppShell';
-import { Box, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
+import {
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  IconButton,
+  Snackbar,
+  Stack,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import ForkRightIcon from '@mui/icons-material/ForkRight';
+import LockIcon from '@mui/icons-material/Lock';
+import PeopleIcon from '@mui/icons-material/People';
+import PublicIcon from '@mui/icons-material/Public';
 import { useRouter } from 'next/router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePlaylistDetail } from '../../hooks/useApi';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { useAuth } from '../../context/AuthContext';
+import { savePlaylist, unsavePlaylist, forkPlaylist } from '../../api/api';
 import Link from 'next/link';
+
+function VisibilityBadge({ visibility }: { visibility: string }) {
+  const theme = useTheme();
+
+  let icon = <PublicIcon sx={{ fontSize: 14 }} />;
+  let label = 'Public';
+
+  if (visibility === 'private') {
+    icon = <LockIcon sx={{ fontSize: 14 }} />;
+    label = 'Private';
+  } else if (visibility === 'followers') {
+    icon = <PeopleIcon sx={{ fontSize: 14 }} />;
+    label = 'Followers';
+  }
+
+  return (
+    <Chip
+      icon={icon}
+      label={label}
+      size="small"
+      sx={{
+        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+        fontWeight: 500,
+        fontSize: 12,
+        height: 24,
+      }}
+    />
+  );
+}
 
 export default function PlaylistDetailPage() {
   useRequireAuth();
   const router = useRouter();
   const theme = useTheme();
   const { id } = router.query;
+  const { user: authUser } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data: playlist, isLoading: playlistLoading } = usePlaylistDetail(
-    id as string,
-  );
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  const { data: playlist, isLoading: playlistLoading } = usePlaylistDetail(id as string);
+
+  const isOwner = authUser?.id === playlist?.owner?.id;
+
+  const saveMutation = useMutation({
+    mutationFn: () => savePlaylist(id as string),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlistDetail', id] });
+      queryClient.invalidateQueries({ queryKey: ['savedPlaylists'] });
+      setSnackbarMessage('Playlist saved to your library');
+      setSnackbarOpen(true);
+    },
+    onError: () => {
+      setSnackbarMessage('Failed to save playlist');
+      setSnackbarOpen(true);
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: () => unsavePlaylist(id as string),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlistDetail', id] });
+      queryClient.invalidateQueries({ queryKey: ['savedPlaylists'] });
+      setSnackbarMessage('Playlist removed from your library');
+      setSnackbarOpen(true);
+    },
+    onError: () => {
+      setSnackbarMessage('Failed to remove playlist');
+      setSnackbarOpen(true);
+    },
+  });
+
+  const forkMutation = useMutation({
+    mutationFn: () => forkPlaylist(id as string),
+    onSuccess: (forkedPlaylist) => {
+      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      setSnackbarMessage('Playlist forked to your collection');
+      setSnackbarOpen(true);
+      // Navigate to the forked playlist
+      router.push(`/playlist/${forkedPlaylist.id}`);
+    },
+    onError: () => {
+      setSnackbarMessage('Failed to fork playlist');
+      setSnackbarOpen(true);
+    },
+  });
+
+  const handleSaveToggle = () => {
+    if (saveMutation.isPending || unsaveMutation.isPending) return;
+
+    if (playlist?.isSaved) {
+      unsaveMutation.mutate();
+    } else {
+      saveMutation.mutate();
+    }
+  };
+
+  const handleFork = () => {
+    if (forkMutation.isPending) return;
+    forkMutation.mutate();
+  };
 
   // Handle SSR / static first render where router.query is not yet populated
   if (!router.isReady || playlistLoading) {
@@ -80,30 +193,127 @@ export default function PlaylistDetailPage() {
 
       {/* Header area */}
       <Box sx={{ mb: 3, px: 1 }}>
-        <Typography
-          variant="h5"
-          sx={{
-            fontWeight: 700,
-            fontFamily: '"Classy Pen", Helvetica, sans-serif',
-          }}
-        >
-          {playlist.title}
-        </Typography>
-        {playlist.description && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mt: 0.5 }}
-          >
-            {playlist.description}
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+                fontFamily: '"Classy Pen", Helvetica, sans-serif',
+              }}
+            >
+              {playlist.title}
+            </Typography>
+            {playlist.description && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 0.5 }}
+              >
+                {playlist.description}
+              </Typography>
+            )}
+          </Box>
+          <VisibilityBadge visibility={playlist.visibility} />
+        </Box>
+
+        {/* Owner info */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}>
+          <Link href={`/user/${playlist.owner.id}`} passHref legacyBehavior>
+            <Box component="a" sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 1, textDecoration: 'none', color: 'inherit' }}>
+              <Avatar src={playlist.owner.avatarUrl} sx={{ width: 24, height: 24 }} />
+              <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
+                {playlist.owner.name}
+              </Typography>
+            </Box>
+          </Link>
+        </Box>
+
+        {/* Forked from indicator */}
+        {playlist.forkedFrom && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
+            <ForkRightIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+              Forked from{' '}
+              <Link href={`/playlist/${playlist.forkedFrom.id}`} passHref legacyBehavior>
+                <Typography
+                  component="a"
+                  sx={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: theme.palette.primary.main,
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
+                >
+                  {playlist.forkedFrom.title}
+                </Typography>
+              </Link>
+              {' by '}
+              <Link href={`/user/${playlist.forkedFrom.owner.id}`} passHref legacyBehavior>
+                <Typography
+                  component="a"
+                  sx={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'inherit',
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
+                >
+                  {playlist.forkedFrom.owner.name}
+                </Typography>
+              </Link>
+            </Typography>
+          </Box>
         )}
-        <Typography
-          variant="body2"
-          sx={{ mt: 0.5, color: theme.palette.primary.main, fontWeight: 600 }}
-        >
-          {playlist.items.length} {playlist.items.length === 1 ? 'spot' : 'spots'}
-        </Typography>
+
+        {/* Stats row */}
+        <Box sx={{ display: 'flex', gap: 2, mt: 1.5 }}>
+          <Typography sx={{ fontSize: 14, color: theme.palette.primary.main, fontWeight: 600 }}>
+            {playlist.items.length} {playlist.items.length === 1 ? 'spot' : 'spots'}
+          </Typography>
+          <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+            {playlist.saveCount} saves
+          </Typography>
+          <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+            {playlist.forkCount} forks
+          </Typography>
+        </Box>
+
+        {/* Action buttons (for non-owners) */}
+        {!isOwner && (
+          <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
+            <Button
+              variant={playlist.isSaved ? 'contained' : 'outlined'}
+              startIcon={playlist.isSaved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+              onClick={handleSaveToggle}
+              disabled={saveMutation.isPending || unsaveMutation.isPending}
+              sx={{
+                flex: 1,
+                borderRadius: '24px',
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              {playlist.isSaved ? 'Saved' : 'Save'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ForkRightIcon />}
+              onClick={handleFork}
+              disabled={forkMutation.isPending}
+              sx={{
+                flex: 1,
+                borderRadius: '24px',
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Fork
+            </Button>
+          </Stack>
+        )}
       </Box>
 
       {/* Playlist items */}
@@ -212,6 +422,13 @@ export default function PlaylistDetailPage() {
           </Link>
         ))}
       </Box>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+      />
     </AppShell>
   );
 }

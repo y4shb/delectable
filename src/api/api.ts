@@ -5,6 +5,8 @@ import type {
   Review,
   Playlist,
   PlaylistSummary,
+  PlaylistVisibility,
+  SavedPlaylist,
   Notification,
   NotificationPreference,
   FeedReview,
@@ -78,6 +80,7 @@ export function reviewToFeedReview(review: Review): FeedReview {
     dish: review.dishName || undefined,
     tags: review.tags ?? [],
     user: {
+      id: review.user.id,
       name: review.user.name,
       avatarUrl: review.user.avatarUrl,
       level: review.user.level,
@@ -262,7 +265,7 @@ export async function fetchPlaylistDetail(id: string): Promise<Playlist> {
 export async function createPlaylist(playlist: {
   title: string;
   description?: string;
-  isPublic?: boolean;
+  visibility?: PlaylistVisibility;
 }): Promise<Playlist> {
   const { data } = await api.post('/playlists/', playlist);
   return data;
@@ -564,4 +567,50 @@ export async function fetchWrappedStats(year?: number): Promise<WrappedStats> {
 export async function fetchUserStats(): Promise<UserStats> {
   const { data } = await api.get('/gamification/stats/');
   return data;
+}
+
+// ---------------------------------------------------------------------------
+// Playlist Save/Fork (M7 User Profiles & Sharing)
+// ---------------------------------------------------------------------------
+
+export async function savePlaylist(id: string): Promise<void> {
+  await api.post(`/playlists/${id}/save/`);
+}
+
+export async function unsavePlaylist(id: string): Promise<void> {
+  await api.delete(`/playlists/${id}/save/`);
+}
+
+export async function forkPlaylist(id: string): Promise<Playlist> {
+  const { data } = await api.post(`/playlists/${id}/fork/`);
+  return data;
+}
+
+export async function fetchSavedPlaylists(): Promise<SavedPlaylist[]> {
+  const { data } = await api.get('/playlists/saved/');
+  return data.data ?? data.results ?? data;
+}
+
+export async function fetchUserPlaylists(userId: string): Promise<PlaylistSummary[]> {
+  const { data } = await api.get(`/auth/users/${userId}/playlists/`);
+  return data.data ?? data.results ?? data;
+}
+
+export async function updatePlaylist(
+  id: string,
+  updates: { title?: string; description?: string; visibility?: PlaylistVisibility },
+): Promise<Playlist> {
+  const { data } = await api.patch(`/playlists/${id}/`, updates);
+  return data;
+}
+
+export async function deletePlaylist(id: string): Promise<void> {
+  await api.delete(`/playlists/${id}/`);
+}
+
+export async function removePlaylistItem(
+  playlistId: string,
+  itemId: string,
+): Promise<void> {
+  await api.delete(`/playlists/${playlistId}/items/${itemId}/`);
 }

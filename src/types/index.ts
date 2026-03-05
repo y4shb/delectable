@@ -112,6 +112,8 @@ export interface FeedTier {
   tierName: string;
 }
 
+export type PlaylistVisibility = 'public' | 'private' | 'followers';
+
 export interface PlaylistItem {
   id: string;
   venue: string; // venue UUID
@@ -121,14 +123,25 @@ export interface PlaylistItem {
   createdAt: string;
 }
 
+export interface ForkedFrom {
+  id: string;
+  title: string;
+  owner: UserPublic;
+}
+
 export interface Playlist {
   id: string;
   owner: UserPublic;
   title: string;
   description?: string;
-  isPublic: boolean;
+  visibility: PlaylistVisibility;
   itemsCount: number;
+  saveCount: number;
+  forkCount: number;
   items: PlaylistItem[];
+  forkedFrom?: ForkedFrom | null;
+  isSaved?: boolean;
+  isOwner?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -138,10 +151,21 @@ export interface PlaylistSummary {
   owner: UserPublic;
   title: string;
   description?: string;
-  isPublic: boolean;
+  visibility: PlaylistVisibility;
   itemsCount: number;
+  saveCount: number;
+  forkCount: number;
+  forkedFrom?: ForkedFrom | null;
+  isSaved?: boolean;
+  isOwner?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SavedPlaylist {
+  id: string;
+  playlist: PlaylistSummary;
+  createdAt: string;
 }
 
 export interface Notification {
@@ -191,7 +215,7 @@ export interface FeedReview {
   location: string; // venue location text
   dish?: string;
   tags: string[];
-  user: { name: string; avatarUrl: string; level?: number };
+  user: { id?: string; name: string; avatarUrl: string; level?: number };
   rating: number;
   text: string;
   photoUrl: string;

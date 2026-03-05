@@ -113,21 +113,9 @@ export default function MapPage() {
     }
   };
 
-  if (authLoading || venuesLoading) {
-    return (
-      <AppShell>
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress />
-        </Box>
-      </AppShell>
-    );
-  }
-
-  const allVenues = venues ?? [];
-
-  // Calculate distance from user location - wrapped in useCallback for stable reference
+  // Calculate distance from user location - must be before any conditional returns
   const getDistance = useCallback((lat: number, lng: number) => {
-    if (!userLocation) return 0;
+    if (!userLocation || userLocation.lat == null || userLocation.lng == null) return 0;
     const R = 6371; // Earth's radius in km
     const dLat = ((lat - userLocation.lat) * Math.PI) / 180;
     const dLng = ((lng - userLocation.lng) * Math.PI) / 180;
@@ -141,7 +129,9 @@ export default function MapPage() {
     return R * c;
   }, [userLocation]);
 
-  // Filter and sort venues
+  const allVenues = venues ?? [];
+
+  // Filter and sort venues - must be before any conditional returns
   const filteredVenues = useMemo(() => {
     let result = allVenues.filter((v) => {
       if (cuisineFilter && v.cuisineType !== cuisineFilter) return false;
@@ -172,7 +162,17 @@ export default function MapPage() {
     }
 
     return result;
-  }, [allVenues, cuisineFilter, minRating, radiusKm, tagFilter, sortBy, getDistance]);
+  }, [allVenues, cuisineFilter, minRating, radiusKm, tagFilter, sortBy, getDistance, userLocation]);
+
+  if (authLoading || venuesLoading) {
+    return (
+      <AppShell>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

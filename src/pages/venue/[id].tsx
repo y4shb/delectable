@@ -261,10 +261,21 @@ export default function VenueDetailPage() {
                     alignItems: 'flex-start',
                   }}
                 >
-                  <Avatar
-                    src={review.user.avatarUrl}
-                    sx={{ width: 32, height: 32, flexShrink: 0 }}
-                  />
+                  {review.user.id ? (
+                    <Link href={`/user/${review.user.id}`} passHref legacyBehavior>
+                      <Box component="a" sx={{ cursor: 'pointer', flexShrink: 0 }}>
+                        <Avatar
+                          src={review.user.avatarUrl}
+                          sx={{ width: 32, height: 32 }}
+                        />
+                      </Box>
+                    </Link>
+                  ) : (
+                    <Avatar
+                      src={review.user.avatarUrl}
+                      sx={{ width: 32, height: 32, flexShrink: 0 }}
+                    />
+                  )}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Box
                       sx={{
@@ -274,9 +285,27 @@ export default function VenueDetailPage() {
                         mb: 0.25,
                       }}
                     >
-                      <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
-                        {review.user.name}
-                      </Typography>
+                      {review.user.id ? (
+                        <Link href={`/user/${review.user.id}`} passHref legacyBehavior>
+                          <Typography
+                            component="a"
+                            sx={{
+                              fontWeight: 700,
+                              fontSize: 14,
+                              textDecoration: 'none',
+                              color: 'inherit',
+                              cursor: 'pointer',
+                              '&:hover': { textDecoration: 'underline' },
+                            }}
+                          >
+                            {review.user.name}
+                          </Typography>
+                        </Link>
+                      ) : (
+                        <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
+                          {review.user.name}
+                        </Typography>
+                      )}
                       <Typography
                         sx={{
                           color: theme.palette.primary.main,

@@ -136,6 +136,7 @@ REST_FRAMEWORK = {
         "register": "3/minute",
         "taste_match": "30/minute",
         "uploads": "20/hour",
+        "playlist_actions": "60/hour",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }
