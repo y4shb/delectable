@@ -4,10 +4,19 @@ Requires all env vars to be set.
 """
 
 import os
+import sys
 
 from .base import *  # noqa: F401, F403
 
 DEBUG = False
+
+# SECURITY: Enforce secret key in production
+if not os.environ.get("DJANGO_SECRET_KEY"):
+    sys.exit("CRITICAL: DJANGO_SECRET_KEY environment variable must be set in production!")
+
+# SECURITY: Enforce allowed hosts
+if not os.environ.get("ALLOWED_HOSTS"):
+    sys.exit("CRITICAL: ALLOWED_HOSTS environment variable must be set in production!")
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
 
 # Database — PostgreSQL with PostGIS (required in production)

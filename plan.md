@@ -966,6 +966,8 @@ class Notification(Model):
 | `GET` | `/users/{id}/reviews/` | No | Cursor | User's reviews |
 | `GET` | `/users/{id}/followers/` | Yes | Cursor | Follower list |
 | `GET` | `/users/{id}/following/` | Yes | Cursor | Following list |
+| `GET` | `/users/{id}/playlists/` | Yes | Offset | User's visible playlists (visibility-filtered based on relationship) |
+| `GET` | `/users/{id}/taste-match/` | Yes | — | Taste match score with another user |
 | `POST` | `/users/{id}/follow/` | Yes | — | Follow user → 201 |
 | `DELETE` | `/users/{id}/follow/` | Yes | — | Unfollow user → 204 |
 
@@ -1047,14 +1049,18 @@ class Notification(Model):
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/playlists/` | Yes | List playlists (optional `user_id` filter) |
-| `POST` | `/playlists/` | Yes | Create playlist (title, description, is_public) |
-| `GET` | `/playlists/{id}/` | Yes | Playlist detail with embedded venue items |
-| `PATCH` | `/playlists/{id}/` | Yes (owner) | Update playlist metadata |
+| `GET` | `/playlists/` | Yes | List playlists (optional `user_id` filter, visibility-aware) |
+| `POST` | `/playlists/` | Yes | Create playlist (title, description, visibility: public/private/followers) |
+| `GET` | `/playlists/{id}/` | Yes | Playlist detail with items, owner, visibility, is_saved, is_owner, save_count, fork_count |
+| `PATCH` | `/playlists/{id}/` | Yes (owner) | Update playlist metadata including visibility |
 | `DELETE` | `/playlists/{id}/` | Yes (owner) | Delete playlist → 204 |
 | `POST` | `/playlists/{id}/items/` | Yes (owner) | Add venue to playlist (venue_id, caption) |
 | `DELETE` | `/playlists/{pid}/items/{iid}/` | Yes (owner) | Remove item → 204 |
 | `PATCH` | `/playlists/{pid}/items/reorder/` | Yes (owner) | Reorder items (item_ids array) |
+| `GET` | `/playlists/saved/` | Yes | List playlists saved (bookmarked) by current user |
+| `POST` | `/playlists/{id}/save/` | Yes | Save (bookmark) a playlist to library → synced with original |
+| `DELETE` | `/playlists/{id}/save/` | Yes | Unsave a playlist → 204 |
+| `POST` | `/playlists/{id}/fork/` | Yes | Fork (copy) a playlist → static copy owned by user |
 
 **Notification endpoints**:
 
@@ -1766,6 +1772,49 @@ The backend should be built in this sequence (each step is independently testabl
 - **Feed scoring**: Inject ML-ranked items into feed alongside chronological friend content
 - **Review quality badge**: Surface "Trusted Review" badge for high-authenticity reviews
 - **Trending detection**: Identify trending venues/dishes in user's area
+
+---
+
+### Post-MVP: User Profiles & Playlist Sharing
+
+**Goal**: Enable social discovery through clickable user profiles and playlist sharing features.
+
+#### Features Implemented
+
+**User Profiles**:
+- Clickable user avatars/names from venue detail page and feed
+- Full user profile page (`/user/[id]`) with:
+  - Profile header (avatar, name, bio, level, taste match score)
+  - Follow/Unfollow button
+  - Follower/Following stats with links
+  - Tabs: Reviews | Playlists
+  - Reviews displayed with venue, rating, dish preview
+  - Playlists with visibility indicators
+
+**Playlist Visibility Control**:
+- `PlaylistVisibility` enum: `public`, `private`, `followers`
+- `CanViewPlaylist` permission class for visibility-based access
+- Visibility selector in playlist creation (toggle buttons)
+- Visibility badges on playlist cards and detail pages
+
+**Playlist Save (Synced)**:
+- Save/bookmark other users' playlists to your library
+- Saved playlists stay synced with original
+- Read-only access (original owner can edit)
+- Appears in "Saved Playlists" section on profile
+
+**Playlist Fork (Copy)**:
+- Fork creates a static copy at point of fork
+- Forked playlist is owned by the forking user
+- Fully editable by the new owner
+- Does NOT sync with original
+- Shows fork attribution ("Forked from X by Y")
+- Appears in "My Playlists" section
+
+**Database Changes**:
+- `SavedPlaylist` model for bookmarked playlists
+- `Playlist` model updated: `visibility`, `save_count`, `fork_count`, `forked_from`, `slug`, `share_code`
+- Migration: `0003_add_visibility_and_saved.py`
 
 ---
 

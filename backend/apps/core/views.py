@@ -1,12 +1,38 @@
-"""Core views including file uploads."""
+"""Core views including file uploads and health checks."""
 
 import os
 import uuid
 from django.conf import settings
+from django.db import connection
 from rest_framework import permissions, status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+
+class HealthCheckView(APIView):
+    """GET /api/health/ — Health check for load balancers and monitoring."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []  # Skip auth for health checks
+
+    def get(self, request):
+        """
+        Returns minimal health status.
+        Does NOT expose version info, debug status, or internal details.
+        """
+        health = {"status": "healthy"}
+
+        # Optional: Check database connectivity
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+        except Exception:
+            health["status"] = "unhealthy"
+            health["database"] = "unavailable"
+            return Response(health, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        return Response(health)
 
 
 class FileUploadView(APIView):

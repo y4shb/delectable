@@ -118,6 +118,7 @@ class LikeView(APIView):
     """POST/DELETE /api/reviews/{id}/like/ — Like/unlike a review."""
 
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "likes"
 
     def post(self, request, id):
         with transaction.atomic():
@@ -293,6 +294,7 @@ class QuickReviewView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "reviews"
 
     def post(self, request):
         serializer = QuickReviewSerializer(data=request.data)

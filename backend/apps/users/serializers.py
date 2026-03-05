@@ -79,6 +79,26 @@ class RegisterSerializer(serializers.Serializer):
             raise serializers.ValidationError("A user with this email already exists.")
         return value
 
+    def validate_password(self, value):
+        """Validate password complexity requirements."""
+        import re
+
+        errors = []
+
+        if len(value) < 8:
+            errors.append("Password must be at least 8 characters long.")
+        if not re.search(r"[A-Z]", value):
+            errors.append("Password must contain at least one uppercase letter.")
+        if not re.search(r"[a-z]", value):
+            errors.append("Password must contain at least one lowercase letter.")
+        if not re.search(r"\d", value):
+            errors.append("Password must contain at least one digit.")
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return value
+
     def validate(self, data):
         if data["password"] != data["password_confirm"]:
             raise serializers.ValidationError(

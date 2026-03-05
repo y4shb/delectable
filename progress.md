@@ -728,3 +728,9 @@
 | 2026-03-05 | M13 frontend | TrustedReviewBadge component (authenticity display with factor breakdown), RecommendationCard component (AI explanation + match score), /recommendations page (personalized/similar/explore tabs with filters), /trending page (venues/reviews/dishes tabs with velocity indicators) |
 | 2026-03-05 | M13 COMPLETE | Full ML/AI features: heuristic-based authenticity scoring, hybrid collaborative + content-based recommendations, velocity-based trending detection, data ingestion pipeline, ML-scored feed ranking |
 | 2026-03-05 | ALL MILESTONES COMPLETE | Delectable MVP fully implemented: 13 milestones (M1-M13), frontend (Next.js 15 + TypeScript + MUI), backend (Django 5 + DRF), deployment (Docker + K8s + GitHub Actions), ML/AI features |
+| 2026-03-05 | Bug fixes (23 total) | Race conditions, N+1 queries, thundering herd, security fixes (permissions, rate limiting), hooks ordering, null guards, geolocation feedback, logout redirect, silent error handling |
+| 2026-03-05 | User Profiles & Sharing | NEW: Clickable user profiles from venue/feed pages, full user profile page (/user/[id]) with reviews+playlists tabs, taste match display, follow/unfollow |
+| 2026-03-05 | Playlist Visibility | NEW: PlaylistVisibility enum (public/private/followers), CanViewPlaylist permission, visibility-based filtering, visibility selector in playlist creation |
+| 2026-03-05 | Playlist Save/Fork | NEW: Save (synced bookmark) and Fork (static copy) features, SavedPlaylist model, SavePlaylistView + ForkPlaylistView, save/fork buttons on playlist detail page |
+| 2026-03-05 | Profile Playlists | NEW: "My Playlists" and "Saved Playlists" sections in profile, playlist owner info, fork attribution, visibility badges |
+| 2026-03-05 | Migration | NEW: 0003_add_visibility_and_saved.py migration for playlist visibility fields and SavedPlaylist model |

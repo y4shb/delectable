@@ -45,6 +45,8 @@ from .services import generate_share_card
 class MyInviteCodeView(APIView):
     """GET /api/sharing/invite-code/ — Get or create user's invite code."""
 
+    throttle_scope = "referrals"
+
     def get(self, request):
         invite_code, _ = InviteCode.objects.get_or_create(user=request.user)
         serializer = InviteCodeSerializer(invite_code)

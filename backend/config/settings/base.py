@@ -14,10 +14,18 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-uvcnzac*9msvdhp80+^*9wpzh&ft@*idddn+s^chn$z5ck2k=t",
-)
+# SECURITY: Secret key must be set via environment variable
+# Never use a default in production - the app will fail to start without it
+_secret_key = os.environ.get("DJANGO_SECRET_KEY")
+if not _secret_key:
+    import warnings
+    warnings.warn(
+        "DJANGO_SECRET_KEY not set! Using insecure default for development only.",
+        RuntimeWarning,
+    )
+    # Only allow insecure default in DEBUG mode (checked at runtime)
+    _secret_key = "django-insecure-dev-only-never-use-in-production"
+SECRET_KEY = _secret_key
 
 # Application definition
 
@@ -137,6 +145,12 @@ REST_FRAMEWORK = {
         "taste_match": "30/minute",
         "uploads": "20/hour",
         "playlist_actions": "60/hour",
+        # Gamification rate limits to prevent XP farming
+        "likes": "100/hour",
+        "comments": "30/hour",
+        "reviews": "10/hour",
+        "referrals": "5/hour",
+        "challenges": "20/hour",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }

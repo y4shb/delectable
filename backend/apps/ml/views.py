@@ -131,7 +131,8 @@ class TrendingView(generics.ListAPIView):
     """GET /api/ml/trending/ — Trending venues and dishes."""
 
     serializer_class = TrendingItemSerializer
-    permission_classes = [permissions.AllowAny]
+    # SECURITY: Require authentication to protect competitive intelligence data
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         item_type = self.request.query_params.get("type", "venue")
