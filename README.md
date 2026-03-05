@@ -1,10 +1,14 @@
 <div align="center">
 
-# 🍽️ Delectable
+<img src="https://img.shields.io/badge/de.-F24D4F?style=for-the-badge&logoColor=white&labelColor=F24D4F" alt="de." height="40" />
+
+# Delectable
 
 ### *The Social Food Discovery Platform*
 
 **Discover. Curate. Share. Repeat.**
+
+<br />
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -16,15 +20,13 @@
 
 [**Live Demo**](#) · [**Report Bug**](https://github.com/yourusername/delectable/issues) · [**Request Feature**](https://github.com/yourusername/delectable/issues)
 
-<br />
-
-<img src="https://raw.githubusercontent.com/yourusername/delectable/main/docs/hero-mockup.png" alt="Delectable App Preview" width="600" />
-
 </div>
+
+<br />
 
 ---
 
-## ✨ What is Delectable?
+## About
 
 **Delectable** (or **de.** for short) is an AI-powered mobile-first web application for food enthusiasts. Think of it as:
 
@@ -34,13 +36,13 @@ Create themed playlists of your favorite dishes, discover trending spots through
 
 <br />
 
-## 🚀 Key Features
+## Features
 
 <table>
 <tr>
 <td width="50%">
 
-### 📱 Social Feed
+### Social Feed
 - Full-bleed photo reviews with ratings
 - Like, comment, and bookmark reviews
 - Double-tap to like with heart animation
@@ -49,7 +51,7 @@ Create themed playlists of your favorite dishes, discover trending spots through
 </td>
 <td width="50%">
 
-### 🗺️ Smart Map Discovery
+### Smart Map Discovery
 - Real-time venue filtering by cuisine, dietary needs
 - Heatmap visualization of popular areas
 - "Friends have been here" markers
@@ -60,7 +62,7 @@ Create themed playlists of your favorite dishes, discover trending spots through
 <tr>
 <td width="50%">
 
-### 🎵 Playlist Curation
+### Playlist Curation
 - Create themed venue collections ("Best Tacos", "Date Night")
 - **Save** others' playlists (stays synced)
 - **Fork** playlists (your own editable copy)
@@ -69,7 +71,7 @@ Create themed playlists of your favorite dishes, discover trending spots through
 </td>
 <td width="50%">
 
-### 🤖 AI-Powered Intelligence
+### AI-Powered Intelligence
 - Personalized venue recommendations
 - Review authenticity scoring
 - Trending detection (venues, dishes)
@@ -80,7 +82,7 @@ Create themed playlists of your favorite dishes, discover trending spots through
 <tr>
 <td width="50%">
 
-### 🎮 Gamification
+### Gamification
 - XP system with levels
 - 32 achievement badges across 8 categories
 - Dining streaks with freeze protection
@@ -90,7 +92,7 @@ Create themed playlists of your favorite dishes, discover trending spots through
 </td>
 <td width="50%">
 
-### 🔔 Smart Notifications
+### Smart Notifications
 - Real-time SSE notifications
 - Intelligent bundling & frequency caps
 - Quiet hours support
@@ -102,7 +104,7 @@ Create themed playlists of your favorite dishes, discover trending spots through
 
 <br />
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 <table>
 <tr>
@@ -151,7 +153,7 @@ Create themed playlists of your favorite dishes, discover trending spots through
 
 <br />
 
-## 📦 Installation
+## Installation
 
 ### Prerequisites
 
@@ -177,7 +179,7 @@ cp .env.example .env.local
 ```
 
 <details>
-<summary><b>📝 Required Environment Variables</b></summary>
+<summary><strong>Required Environment Variables</strong></summary>
 
 ```env
 # Google Maps (Required for map features)
@@ -237,7 +239,7 @@ The API will be available at `http://localhost:8000/api`
 
 <br />
 
-## 🐳 Docker Setup (Recommended)
+## Docker Setup
 
 ```bash
 # Start all services
@@ -258,7 +260,7 @@ This starts:
 
 <br />
 
-## 🔑 Getting a Google Maps API Key
+## Getting a Google Maps API Key
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing
@@ -275,39 +277,39 @@ This starts:
 
 <br />
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 delectable/
-├── 📂 src/                    # Frontend source
-│   ├── 📂 api/                # API client & helpers
-│   ├── 📂 components/         # Reusable UI components
-│   ├── 📂 context/            # React context providers
-│   ├── 📂 hooks/              # Custom React hooks
-│   ├── 📂 layouts/            # Page layouts
-│   ├── 📂 pages/              # Next.js pages
-│   ├── 📂 theme/              # MUI theme config
-│   └── 📂 types/              # TypeScript definitions
-├── 📂 backend/                # Django backend
-│   ├── 📂 apps/               # Django apps
-│   │   ├── 📂 users/          # Auth & user profiles
-│   │   ├── 📂 venues/         # Venue management
-│   │   ├── 📂 reviews/        # Reviews & comments
-│   │   ├── 📂 playlists/      # Playlist curation
-│   │   ├── 📂 feed/           # Feed algorithms
-│   │   ├── 📂 notifications/  # Real-time notifications
-│   │   ├── 📂 gamification/   # XP, badges, streaks
-│   │   ├── 📂 sharing/        # Social sharing & referrals
-│   │   └── 📂 ml/             # ML models & recommendations
-│   └── 📂 config/             # Django settings
-├── 📂 docker/                 # Docker configurations
-├── 📂 k8s/                    # Kubernetes manifests
-└── 📂 .github/                # CI/CD workflows
+├── src/                       # Frontend source
+│   ├── api/                   # API client & helpers
+│   ├── components/            # Reusable UI components
+│   ├── context/               # React context providers
+│   ├── hooks/                 # Custom React hooks
+│   ├── layouts/               # Page layouts
+│   ├── pages/                 # Next.js pages
+│   ├── theme/                 # MUI theme config
+│   └── types/                 # TypeScript definitions
+├── backend/                   # Django backend
+│   ├── apps/                  # Django apps
+│   │   ├── users/             # Auth & user profiles
+│   │   ├── venues/            # Venue management
+│   │   ├── reviews/           # Reviews & comments
+│   │   ├── playlists/         # Playlist curation
+│   │   ├── feed/              # Feed algorithms
+│   │   ├── notifications/     # Real-time notifications
+│   │   ├── gamification/      # XP, badges, streaks
+│   │   ├── sharing/           # Social sharing & referrals
+│   │   └── ml/                # ML models & recommendations
+│   └── config/                # Django settings
+├── docker/                    # Docker configurations
+├── k8s/                       # Kubernetes manifests
+└── .github/                   # CI/CD workflows
 ```
 
 <br />
 
-## 🧪 Running Tests
+## Running Tests
 
 ```bash
 # Frontend tests
@@ -323,10 +325,10 @@ npm run lint
 
 <br />
 
-## 🚢 Deployment
+## Deployment
 
 <details>
-<summary><b>Kubernetes Deployment</b></summary>
+<summary><strong>Kubernetes Deployment</strong></summary>
 
 ```bash
 # Apply configurations
@@ -342,7 +344,7 @@ kubectl get pods -n delectable
 </details>
 
 <details>
-<summary><b>Manual Docker Deployment</b></summary>
+<summary><strong>Manual Docker Deployment</strong></summary>
 
 ```bash
 # Build images
@@ -358,7 +360,7 @@ docker push your-registry/delectable-backend
 
 <br />
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are what make the open source community amazing. Any contributions you make are **greatly appreciated**.
 
@@ -370,26 +372,26 @@ Contributions are what make the open source community amazing. Any contributions
 
 <br />
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
 <br />
 
-## 💖 Acknowledgments
+## Acknowledgments
 
-- [Next.js](https://nextjs.org/) - The React Framework
-- [Material UI](https://mui.com/) - React UI Components
-- [Django REST Framework](https://www.django-rest-framework.org/) - Web APIs for Django
-- [React Query](https://tanstack.com/query) - Data Fetching & Caching
-- [Shields.io](https://shields.io/) - Badges
+- [Next.js](https://nextjs.org/) — The React Framework
+- [Material UI](https://mui.com/) — React UI Components
+- [Django REST Framework](https://www.django-rest-framework.org/) — Web APIs for Django
+- [React Query](https://tanstack.com/query) — Data Fetching & Caching
+- [Shields.io](https://shields.io/) — Badges
 
 ---
 
 <div align="center">
 
-Made with ❤️ for food lovers everywhere
+Made with care for food lovers everywhere
 
-**[⬆ Back to Top](#-delectable)**
+**[Back to Top](#delectable)**
 
 </div>

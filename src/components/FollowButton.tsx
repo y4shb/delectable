@@ -7,12 +7,14 @@ interface FollowButtonProps {
   userId: string;
   isFollowing: boolean;
   size?: 'small' | 'medium';
+  fullWidth?: boolean;
 }
 
 export default function FollowButton({
   userId,
   isFollowing: initialIsFollowing,
   size = 'small',
+  fullWidth = false,
 }: FollowButtonProps) {
   const theme = useTheme();
   const queryClient = useQueryClient();
@@ -68,12 +70,13 @@ export default function FollowButton({
         disabled={isLoading}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        fullWidth={fullWidth}
         sx={{
           borderRadius: '48px',
           textTransform: 'none',
           fontWeight: 600,
           fontSize: size === 'small' ? 13 : 14,
-          minWidth: 100,
+          minWidth: fullWidth ? undefined : 100,
           ...(isHovered
             ? {
                 borderColor: theme.palette.error.main,
@@ -104,12 +107,13 @@ export default function FollowButton({
       size={size}
       onClick={handleClick}
       disabled={isLoading}
+      fullWidth={fullWidth}
       sx={{
         borderRadius: '48px',
         textTransform: 'none',
         fontWeight: 600,
         fontSize: size === 'small' ? 13 : 14,
-        minWidth: 100,
+        minWidth: fullWidth ? undefined : 100,
         borderColor: theme.palette.primary.main,
         color: theme.palette.primary.main,
         '&:hover': {

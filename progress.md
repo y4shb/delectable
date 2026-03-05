@@ -734,3 +734,13 @@
 | 2026-03-05 | Playlist Save/Fork | NEW: Save (synced bookmark) and Fork (static copy) features, SavedPlaylist model, SavePlaylistView + ForkPlaylistView, save/fork buttons on playlist detail page |
 | 2026-03-05 | Profile Playlists | NEW: "My Playlists" and "Saved Playlists" sections in profile, playlist owner info, fork attribution, visibility badges |
 | 2026-03-05 | Migration | NEW: 0003_add_visibility_and_saved.py migration for playlist visibility fields and SavedPlaylist model |
+| 2026-03-05 | SECURITY AUDIT | Comprehensive security audit: found 4 CRITICAL, 8 HIGH, 12 MEDIUM, 6 LOW issues |
+| 2026-03-05 | Security Fix: Secrets | Removed hardcoded SECRET_KEY default in base.py, added runtime warning + production enforcement in prod.py |
+| 2026-03-05 | Security Fix: K8s Secrets | Updated k8s/secrets.yaml with security warnings and proper secret injection documentation |
+| 2026-03-05 | Security Fix: Rate Limiting | Added throttle scopes for gamification actions (likes, comments, reviews, referrals, challenges) to prevent XP farming |
+| 2026-03-05 | Security Fix: Password Complexity | Added password validation (uppercase, lowercase, digit requirements) in RegisterSerializer |
+| 2026-03-05 | Security Fix: ML Endpoints | Changed TrendingView from AllowAny to IsAuthenticated to protect competitive intelligence |
+| 2026-03-05 | Security Fix: CSP Headers | Added Content-Security-Policy and Permissions-Policy to nginx.conf |
+| 2026-03-05 | Security Fix: Health Check | Created HealthCheckView that doesn't expose sensitive info, added /api/health/ endpoint |
+| 2026-03-05 | Security Fix: Env Template | Updated .env.example with DEBUG=False default and security warnings |
+| 2026-03-05 | SECURITY AUDIT COMPLETE | All CRITICAL and HIGH severity issues addressed; TypeScript passes with 0 errors |
