@@ -1,4 +1,5 @@
 from django.db import models as db_models
+from django.db.models.functions import Greatest
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,10 +30,18 @@ class PlaylistViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Playlist.objects.select_related("user").all()
         user_id = self.request.query_params.get("user_id")
-        if user_id:
-            qs = qs.filter(user_id=user_id)
-        elif self.action == "list":
-            qs = qs.filter(user=self.request.user)
+        if self.action == "list":
+            if user_id:
+                qs = qs.filter(user_id=user_id)
+                if str(user_id) != str(self.request.user.id):
+                    qs = qs.filter(is_public=True)
+            else:
+                qs = qs.filter(user=self.request.user)
+        elif self.action == "retrieve":
+            # Allow owner to see their own private playlists
+            qs = qs.filter(
+                db_models.Q(is_public=True) | db_models.Q(user=self.request.user)
+            )
         return qs
 
     def get_serializer_class(self):
@@ -88,7 +97,7 @@ class PlaylistItemDeleteView(APIView):
         )
         item.delete()
         Playlist.objects.filter(id=pid).update(
-            items_count=db_models.F("items_count") - 1
+            items_count=Greatest(db_models.F("items_count") - 1, 0)
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 

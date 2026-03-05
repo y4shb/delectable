@@ -29,6 +29,7 @@ class Review(TimeStampedModel):
     tags = models.JSONField(default=list, blank=True)
     like_count = models.PositiveIntegerField(default=0)
     comment_count = models.PositiveIntegerField(default=0)
+    quality_score = models.FloatField(default=0.0)
 
     class Meta:
         db_table = "reviews"
@@ -94,13 +95,7 @@ class Comment(TimeStampedModel):
         indexes = [
             Index(name="idx_comment_review_created", fields=["review", "created_at"]),
         ]
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(parent__isnull=True)
-                | models.Q(parent__isnull=False),
-                name="chk_comment_parent_valid",
-            ),
-        ]
+        constraints = []
 
     def clean(self):
         from django.core.exceptions import ValidationError

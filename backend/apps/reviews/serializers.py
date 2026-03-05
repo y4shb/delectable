@@ -37,8 +37,13 @@ class CommentCreateSerializer(serializers.ModelSerializer):
         fields = ["text", "parent"]
 
     def validate_parent(self, value):
-        if value and value.parent_id is not None:
-            raise serializers.ValidationError("Cannot reply to a reply (max depth 1).")
+        if value is None:
+            return value
+        if value.parent is not None:
+            raise serializers.ValidationError("Cannot reply to a reply.")
+        review_id = self.context.get("review_id")
+        if review_id and str(value.review_id) != str(review_id):
+            raise serializers.ValidationError("Parent comment must belong to the same review.")
         return value
 
 
@@ -67,16 +72,18 @@ class ReviewSerializer(serializers.ModelSerializer):
     def get_is_liked(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return obj.likes.filter(user=request.user).exists()
+            return getattr(obj, '_is_liked', obj.likes.filter(user=request.user).exists())
         return False
 
     def get_is_bookmarked(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return obj.bookmarks.filter(user=request.user).exists()
+            return getattr(obj, '_is_bookmarked', obj.bookmarks.filter(user=request.user).exists())
         return False
 
     def get_recent_comments(self, obj):
+        if hasattr(obj, '_recent_comments'):
+            return CommentReplySerializer(obj._recent_comments, many=True).data
         comments = (
             obj.comments.filter(parent__isnull=True)
             .select_related("user")

@@ -1,4 +1,5 @@
-from django.db import models as db_models
+from django.db import models as db_models, transaction
+from django.db.models.functions import Greatest
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -35,30 +36,42 @@ class ReviewViewSet(viewsets.ModelViewSet):
         return ReviewSerializer
 
     def perform_create(self, serializer):
-        review = serializer.save(user=self.request.user)
-        # Update venue review count and rating
-        venue = review.venue
-        from django.db.models import Avg
-        agg = Review.objects.filter(venue=venue).aggregate(
-            avg_rating=Avg("rating"),
-            count=db_models.Count("id"),
-        )
-        venue.rating = agg["avg_rating"] or 0
-        venue.reviews_count = agg["count"]
-        venue.save(update_fields=["rating", "reviews_count"])
+        with transaction.atomic():
+            review = serializer.save(user=self.request.user)
+            # Compute and save quality score
+            from apps.feed.engine import compute_quality_score
+            review.quality_score = compute_quality_score(review)
+            review.save(update_fields=["quality_score"])
+            # Update venue review count and rating
+            venue = review.venue
+            from django.db.models import Avg
+            agg = Review.objects.filter(venue=venue).aggregate(
+                avg_rating=Avg("rating"),
+                count=db_models.Count("id"),
+            )
+            venue.rating = agg["avg_rating"] or 0
+            venue.reviews_count = agg["count"]
+            venue.save(update_fields=["rating", "reviews_count"])
+
+    def perform_update(self, serializer):
+        review = serializer.save()
+        from apps.feed.engine import compute_quality_score
+        review.quality_score = compute_quality_score(review)
+        review.save(update_fields=["quality_score"])
 
     def perform_destroy(self, instance):
-        venue = instance.venue
-        instance.delete()
-        # Recalculate venue stats
-        from django.db.models import Avg
-        agg = Review.objects.filter(venue=venue).aggregate(
-            avg_rating=Avg("rating"),
-            count=db_models.Count("id"),
-        )
-        venue.rating = agg["avg_rating"] or 0
-        venue.reviews_count = agg["count"]
-        venue.save(update_fields=["rating", "reviews_count"])
+        with transaction.atomic():
+            venue = instance.venue
+            instance.delete()
+            # Recalculate venue stats
+            from django.db.models import Avg
+            agg = Review.objects.filter(venue=venue).aggregate(
+                avg_rating=Avg("rating"),
+                count=db_models.Count("id"),
+            )
+            venue.rating = agg["avg_rating"] or 0
+            venue.reviews_count = agg["count"]
+            venue.save(update_fields=["rating", "reviews_count"])
 
 
 class VenueReviewsView(generics.ListAPIView):
@@ -96,65 +109,73 @@ class UserReviewsView(generics.ListAPIView):
 class LikeView(APIView):
     """POST/DELETE /api/reviews/{id}/like/ — Like/unlike a review."""
 
+    permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request, id):
-        review = generics.get_object_or_404(Review, id=id)
-        _, created = ReviewLike.objects.get_or_create(
-            user=request.user, review=review
-        )
-        if not created:
-            return Response(
-                {"error": {"code": "CONFLICT", "message": "Already liked.", "status": 409}},
-                status=status.HTTP_409_CONFLICT,
+        with transaction.atomic():
+            review = generics.get_object_or_404(Review, id=id)
+            _, created = ReviewLike.objects.get_or_create(
+                user=request.user, review=review
             )
-        Review.objects.filter(id=id).update(like_count=db_models.F("like_count") + 1)
-        # Create notification for review owner
-        if review.user_id != request.user.id:
-            from apps.notifications.models import Notification
-            Notification.objects.create(
-                recipient=review.user,
-                notification_type="like",
-                text=f"{request.user.name} liked your review",
-                related_object_id=review.id,
-            )
+            if not created:
+                return Response(
+                    {"error": {"code": "CONFLICT", "message": "Already liked.", "status": 409}},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            Review.objects.filter(id=id).update(like_count=db_models.F("like_count") + 1)
+            # Create notification for review owner
+            if review.user_id != request.user.id:
+                from apps.notifications.models import Notification
+                Notification.objects.create(
+                    recipient=review.user,
+                    notification_type="like",
+                    text=f"{request.user.name} liked your review",
+                    related_object_id=review.id,
+                )
         return Response(
             {"data": {"review_id": str(id), "user_id": str(request.user.id)}},
             status=status.HTTP_201_CREATED,
         )
 
     def delete(self, request, id):
-        deleted, _ = ReviewLike.objects.filter(
-            user=request.user, review_id=id
-        ).delete()
-        if not deleted:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        Review.objects.filter(id=id).update(like_count=db_models.F("like_count") - 1)
+        with transaction.atomic():
+            deleted, _ = ReviewLike.objects.filter(
+                user=request.user, review_id=id
+            ).delete()
+            if not deleted:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+            Review.objects.filter(id=id).update(like_count=Greatest(db_models.F("like_count") - 1, 0))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class BookmarkView(APIView):
     """POST/DELETE /api/reviews/{id}/bookmark/ — Bookmark/unbookmark a review."""
 
+    permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request, id):
-        review = generics.get_object_or_404(Review, id=id)
-        _, created = Bookmark.objects.get_or_create(
-            user=request.user, review=review
-        )
-        if not created:
-            return Response(
-                {"error": {"code": "CONFLICT", "message": "Already bookmarked.", "status": 409}},
-                status=status.HTTP_409_CONFLICT,
+        with transaction.atomic():
+            review = generics.get_object_or_404(Review, id=id)
+            _, created = Bookmark.objects.get_or_create(
+                user=request.user, review=review
             )
+            if not created:
+                return Response(
+                    {"error": {"code": "CONFLICT", "message": "Already bookmarked.", "status": 409}},
+                    status=status.HTTP_409_CONFLICT,
+                )
         return Response(
             {"data": {"review_id": str(id), "user_id": str(request.user.id)}},
             status=status.HTTP_201_CREATED,
         )
 
     def delete(self, request, id):
-        deleted, _ = Bookmark.objects.filter(
-            user=request.user, review_id=id
-        ).delete()
-        if not deleted:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        with transaction.atomic():
+            deleted, _ = Bookmark.objects.filter(
+                user=request.user, review_id=id
+            ).delete()
+            if not deleted:
+                return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -182,6 +203,11 @@ class CommentListCreateView(generics.ListCreateAPIView):
             return CommentCreateSerializer
         return CommentSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["review_id"] = self.kwargs["id"]
+        return context
+
     def get_queryset(self):
         return (
             Comment.objects.filter(
@@ -193,20 +219,21 @@ class CommentListCreateView(generics.ListCreateAPIView):
         )
 
     def perform_create(self, serializer):
-        review = generics.get_object_or_404(Review, id=self.kwargs["id"])
-        comment = serializer.save(user=self.request.user, review=review)
-        Review.objects.filter(id=review.id).update(
-            comment_count=db_models.F("comment_count") + 1
-        )
-        # Create notification for review owner
-        if review.user_id != self.request.user.id:
-            from apps.notifications.models import Notification
-            Notification.objects.create(
-                recipient=review.user,
-                notification_type="comment",
-                text=f"{self.request.user.name} commented on your review",
-                related_object_id=review.id,
+        with transaction.atomic():
+            review = generics.get_object_or_404(Review, id=self.kwargs["id"])
+            comment = serializer.save(user=self.request.user, review=review)
+            Review.objects.filter(id=review.id).update(
+                comment_count=db_models.F("comment_count") + 1
             )
+            # Create notification for review owner
+            if review.user_id != self.request.user.id:
+                from apps.notifications.models import Notification
+                Notification.objects.create(
+                    recipient=review.user,
+                    notification_type="comment",
+                    text=f"{self.request.user.name} commented on your review",
+                    related_object_id=review.id,
+                )
 
 
 class CommentDeleteView(generics.DestroyAPIView):
@@ -223,10 +250,11 @@ class CommentDeleteView(generics.DestroyAPIView):
         )
 
     def perform_destroy(self, instance):
-        review_id = instance.review_id
-        # Count replies too
-        reply_count = instance.replies.count()
-        instance.delete()
-        Review.objects.filter(id=review_id).update(
-            comment_count=db_models.F("comment_count") - 1 - reply_count
-        )
+        with transaction.atomic():
+            review_id = instance.review_id
+            # Count replies too
+            reply_count = instance.replies.count()
+            instance.delete()
+            Review.objects.filter(id=review_id).update(
+                comment_count=Greatest(db_models.F("comment_count") - 1 - reply_count, 0)
+            )

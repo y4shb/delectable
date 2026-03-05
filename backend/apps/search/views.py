@@ -25,7 +25,10 @@ class SearchView(APIView):
     def get(self, request):
         q = request.query_params.get("q", "").strip()
         search_type = request.query_params.get("type", "all")
-        limit = min(int(request.query_params.get("limit", 20)), 50)
+        try:
+            limit = min(int(request.query_params.get("limit", 20)), 50)
+        except (ValueError, TypeError):
+            limit = 20
 
         if not q:
             return Response({"data": {"venues": [], "users": [], "reviews": []}})
@@ -42,7 +45,7 @@ class SearchView(APIView):
 
         if search_type in ("all", "user"):
             users = User.objects.filter(
-                Q(name__icontains=q) | Q(email__icontains=q)
+                Q(name__icontains=q)
             )[:limit]
             result["users"] = UserPublicSerializer(users, many=True).data
 

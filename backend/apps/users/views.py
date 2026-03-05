@@ -2,8 +2,9 @@ import math
 from collections import defaultdict
 
 from django.conf import settings
-from django.db import models
-from django.db.models import Count, Q
+from django.db import models, transaction
+from django.db.models import Count
+from django.db.models.functions import Greatest
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,6 +15,7 @@ from .models import Follow, TasteMatchCache, User
 from .serializers import (
     LoginSerializer,
     RegisterSerializer,
+    UserPrivateSerializer,
     UserPublicSerializer,
     UserSerializer,
 )
@@ -55,7 +57,7 @@ class RegisterView(APIView):
         response = Response(
             {
                 "access": str(refresh.access_token),
-                "user": UserSerializer(user).data,
+                "user": UserSerializer(user, context={"request": request}).data,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -78,7 +80,7 @@ class LoginView(APIView):
         response = Response(
             {
                 "access": str(refresh.access_token),
-                "user": UserSerializer(user).data,
+                "user": UserSerializer(user, context={"request": request}).data,
             },
             status=status.HTTP_200_OK,
         )
@@ -112,7 +114,16 @@ class RefreshView(APIView):
             return response
 
         # Issue new token pair
-        user = User.objects.get(id=old_refresh["user_id"])
+        try:
+            user = User.objects.get(id=old_refresh["user_id"])
+        except User.DoesNotExist:
+            response = Response(
+                {"error": {"code": "UNAUTHORIZED", "message": "User no longer exists.", "status": 401}},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            _clear_refresh_cookie(response)
+            return response
+
         new_refresh = RefreshToken.for_user(user)
 
         response = Response(
@@ -145,7 +156,8 @@ class LogoutView(APIView):
 class MeView(generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/auth/me/ — Current user profile."""
 
-    serializer_class = UserSerializer
+    serializer_class = UserPrivateSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
@@ -171,31 +183,32 @@ class FollowView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        _, created = Follow.objects.get_or_create(
-            follower=request.user, following=target
-        )
-        if not created:
-            return Response(
-                {"error": {"code": "CONFLICT", "message": "Already following this user.", "status": 409}},
-                status=status.HTTP_409_CONFLICT,
+        with transaction.atomic():
+            _, created = Follow.objects.get_or_create(
+                follower=request.user, following=target
+            )
+            if not created:
+                return Response(
+                    {"error": {"code": "CONFLICT", "message": "Already following this user.", "status": 409}},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            # Update counts
+            User.objects.filter(id=request.user.id).update(
+                following_count=models.F("following_count") + 1
+            )
+            User.objects.filter(id=target.id).update(
+                followers_count=models.F("followers_count") + 1
             )
 
-        # Update counts
-        User.objects.filter(id=request.user.id).update(
-            following_count=models.F("following_count") + 1
-        )
-        User.objects.filter(id=target.id).update(
-            followers_count=models.F("followers_count") + 1
-        )
-
-        # Create notification
-        from apps.notifications.models import Notification
-        Notification.objects.create(
-            recipient=target,
-            notification_type="follow",
-            text=f"{request.user.name} started following you",
-            related_object_id=request.user.id,
-        )
+            # Create notification
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                recipient=target,
+                notification_type="follow",
+                text=f"{request.user.name} started following you",
+                related_object_id=request.user.id,
+            )
 
         return Response(
             {
@@ -209,23 +222,25 @@ class FollowView(APIView):
 
     def delete(self, request, id):
         target = generics.get_object_or_404(User, id=id)
-        deleted, _ = Follow.objects.filter(
-            follower=request.user, following=target
-        ).delete()
 
-        if not deleted:
-            return Response(
-                {"error": {"code": "NOT_FOUND", "message": "Not following this user.", "status": 404}},
-                status=status.HTTP_404_NOT_FOUND,
+        with transaction.atomic():
+            deleted, _ = Follow.objects.filter(
+                follower=request.user, following=target
+            ).delete()
+
+            if not deleted:
+                return Response(
+                    {"error": {"code": "NOT_FOUND", "message": "Not following this user.", "status": 404}},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Update counts
+            User.objects.filter(id=request.user.id).update(
+                following_count=Greatest(models.F("following_count") - 1, 0)
             )
-
-        # Update counts
-        User.objects.filter(id=request.user.id).update(
-            following_count=models.F("following_count") - 1
-        )
-        User.objects.filter(id=target.id).update(
-            followers_count=models.F("followers_count") - 1
-        )
+            User.objects.filter(id=target.id).update(
+                followers_count=Greatest(models.F("followers_count") - 1, 0)
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 

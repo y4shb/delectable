@@ -9,7 +9,11 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 # CORS — allow all origins in development
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 # Database — use PostgreSQL with PostGIS if available, fallback to SQLite
 import os
@@ -42,6 +46,9 @@ SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"] = __import__("datetime").timedelta(hours=1) 
 
 # Refresh token cookie — not secure in dev (HTTP, not HTTPS)
 REFRESH_TOKEN_COOKIE_SECURE = False
+
+# Disable throttling in dev
+REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
 
 # Email — console backend
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

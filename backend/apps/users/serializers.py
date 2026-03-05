@@ -14,7 +14,6 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
-            "email",
             "name",
             "avatar_url",
             "bio",
@@ -28,7 +27,6 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "email",
             "level",
             "followers_count",
             "following_count",
@@ -52,6 +50,14 @@ class UserSerializer(serializers.ModelSerializer):
         if request.user.id == obj.id:
             return False
         return Follow.objects.filter(follower=obj, following=request.user).exists()
+
+
+class UserPrivateSerializer(UserSerializer):
+    """Private user serializer that includes email, used only for /auth/me/ endpoint."""
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ["email"]
+        read_only_fields = UserSerializer.Meta.read_only_fields + ["email"]
 
 
 class UserPublicSerializer(serializers.ModelSerializer):
