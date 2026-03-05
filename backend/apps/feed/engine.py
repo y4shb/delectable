@@ -221,6 +221,7 @@ def get_engagement_percentiles():
 # ---------------------------------------------------------------------------
 
 TRENDING_STALE_MINUTES = 30
+_trending_computation_lock = False
 
 
 def compute_trending_scores():
@@ -288,10 +289,22 @@ def compute_trending_scores():
 
 
 def get_trending_venues(limit=10):
-    """Get trending venues, recomputing if stale."""
+    """Get trending venues, recomputing if stale.
+
+    Uses a simple lock to prevent thundering herd problem where multiple
+    concurrent requests all trigger recomputation.
+    """
+    global _trending_computation_lock
+
     latest = VenueTrendingScore.objects.order_by("-computed_at").first()
-    if not latest or (timezone.now() - latest.computed_at) > timedelta(minutes=TRENDING_STALE_MINUTES):
-        compute_trending_scores()
+    is_stale = not latest or (timezone.now() - latest.computed_at) > timedelta(minutes=TRENDING_STALE_MINUTES)
+
+    if is_stale and not _trending_computation_lock:
+        try:
+            _trending_computation_lock = True
+            compute_trending_scores()
+        finally:
+            _trending_computation_lock = False
 
     return (
         VenueTrendingScore.objects.select_related("venue")
@@ -540,7 +553,9 @@ def _review_similarity(r1, r2):
     if r1.venue_id == r2.venue_id:
         sim += 0.5
     # Same cuisine type (0.3 weight)
-    if r1.venue.cuisine_type and r2.venue.cuisine_type and r1.venue.cuisine_type == r2.venue.cuisine_type:
+    cuisine1 = getattr(r1.venue, 'cuisine_type', None) if r1.venue else None
+    cuisine2 = getattr(r2.venue, 'cuisine_type', None) if r2.venue else None
+    if cuisine1 and cuisine2 and cuisine1 == cuisine2:
         sim += 0.3
     # Same user (0.2 weight)
     if r1.user_id == r2.user_id:

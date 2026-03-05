@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.delectable.app",
+      "sha256_cert_fingerprints": [
+        "PLACEHOLDER_SHA256_FINGERPRINT"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.delectable.app",
+      "sha256_cert_fingerprints": [
+        "PLACEHOLDER_SHA256_FINGERPRINT"
+      ]
+    }
+  }
+]

@@ -1,0 +1,103 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  FRONTEND_IMAGE: delectable-frontend
+  BACKEND_IMAGE: delectable-backend
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata
+        id: meta
+        run: echo "version=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
+            ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.STAGING_API_URL }}
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.version }}
+            ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name delectable-staging --region ${{ env.AWS_REGION }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in deployment
+          kubectl set image deployment/frontend frontend=${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }} -n delectable
+          kubectl set image deployment/backend backend=${{ env.ECR_REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }} -n delectable
+
+          # Wait for rollout
+          kubectl rollout status deployment/frontend -n delectable --timeout=300s
+          kubectl rollout status deployment/backend -n delectable --timeout=300s
+
+      - name: Run migrations
+        run: |
+          kubectl exec -n delectable deploy/backend -- python manage.py migrate --noinput
+
+      - name: Notify success
+        if: success()
+        run: echo "Staging deployment successful! Tag: ${{ needs.build-and-push.outputs.image_tag }}"

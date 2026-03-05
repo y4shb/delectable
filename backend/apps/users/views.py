@@ -175,6 +175,8 @@ class UserDetailView(generics.RetrieveAPIView):
 class FollowView(APIView):
     """POST/DELETE /api/auth/users/{id}/follow/ — Follow/unfollow user."""
 
+    permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request, id):
         target = generics.get_object_or_404(User, id=id)
         if target == request.user:
@@ -287,18 +289,16 @@ class SuggestedUsersView(generics.ListAPIView):
         candidates = User.objects.exclude(id=me.id).exclude(id__in=following_ids)
 
         # Score each candidate
-        # 1. Mutual followers (friends of friends)
-        my_followers = set(
-            Follow.objects.filter(following=me).values_list("follower_id", flat=True)
-        )
+        # 1. Mutual followers (friends of friends) - FIXED: Batch query instead of N+1
         mutual_map = defaultdict(int)
-        for fid in following_ids:
-            their_following = Follow.objects.filter(
-                follower_id=fid
-            ).values_list("following_id", flat=True)
-            for uid in their_following:
-                if uid != me.id and uid not in following_ids:
-                    mutual_map[uid] += 1
+        if following_ids:
+            # Get all follows from people I follow in a single query
+            friends_follows = Follow.objects.filter(
+                follower_id__in=following_ids
+            ).values_list("follower_id", "following_id")
+            for follower_id, following_id in friends_follows:
+                if following_id != me.id and following_id not in following_ids:
+                    mutual_map[following_id] += 1
 
         # 2. Venue overlap (shared reviewed venues)
         from apps.reviews.models import Review
@@ -319,8 +319,13 @@ class SuggestedUsersView(generics.ListAPIView):
         # 3. Cuisine match
         my_cuisines = set(me.favorite_cuisines or [])
 
+        # Fetch candidates in batch with only needed fields
+        candidate_list = list(
+            candidates.only("id", "favorite_cuisines", "followers_count")[:200]
+        )
+
         scored = []
-        for c in candidates[:200]:  # limit to prevent slow queries
+        for c in candidate_list:
             mutual = mutual_map.get(c.id, 0)
             venue_overlap = venue_overlap_map.get(c.id, 0)
             their_cuisines = set(c.favorite_cuisines or [])
@@ -407,6 +412,9 @@ def compute_taste_match(user_a, user_b):
 
 class TasteMatchView(APIView):
     """GET /api/auth/users/{id}/taste-match/ — Taste match with another user."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "taste_match"
 
     def get(self, request, id):
         other = generics.get_object_or_404(User, id=id)

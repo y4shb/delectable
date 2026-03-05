@@ -10,6 +10,8 @@ import {
   CircularProgress,
   useTheme,
   Fade,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
@@ -57,6 +59,7 @@ export default function OnboardingPage() {
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   // Fetch suggested users for step 3
   const { data: suggestedUsers } = useQuery({
@@ -112,6 +115,7 @@ export default function OnboardingPage() {
 
   const handleFinish = async () => {
     setSaving(true);
+    setSaveError(false);
     try {
       const profile: Partial<TasteProfile> = {
         preferredCuisines: selectedCuisines,
@@ -119,11 +123,13 @@ export default function OnboardingPage() {
         completedWizard: true,
       };
       await updateTasteProfile(profile);
+      router.push('/feed');
     } catch {
-      // Continue even if save fails
+      // Show error but allow user to continue
+      setSaveError(true);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    router.push('/feed');
   };
 
   const handleSkip = () => {
@@ -442,6 +448,26 @@ export default function OnboardingPage() {
         >
           Skip for now
         </Button>
+
+        {/* Error snackbar */}
+        <Snackbar
+          open={saveError}
+          autoHideDuration={6000}
+          onClose={() => setSaveError(false)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setSaveError(false)}
+            severity="warning"
+            action={
+              <Button color="inherit" size="small" onClick={() => router.push('/feed')}>
+                Continue anyway
+              </Button>
+            }
+          >
+            Couldn&apos;t save preferences. You can update them later in settings.
+          </Alert>
+        </Snackbar>
       </Box>
     </AppShell>
   );

@@ -30,9 +30,11 @@ import {
 import type { SearchFilters } from '../types';
 
 export function useUser(id?: string) {
+  const hasValidId = id !== undefined && id !== '';
   return useQuery({
-    queryKey: id ? ['user', id] : ['me'],
-    queryFn: () => (id ? fetchUserApi(id) : fetchMe()),
+    queryKey: hasValidId ? ['user', id] : ['me'],
+    queryFn: () => (hasValidId ? fetchUserApi(id) : fetchMe()),
+    enabled: id === undefined || id !== '', // Disable for empty string
   });
 }
 

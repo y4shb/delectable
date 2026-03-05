@@ -1,0 +1,29 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID.com.delectable.app",
+        "paths": [
+          "/review/*",
+          "/venue/*",
+          "/playlist/*",
+          "/profile/*",
+          "/invite/*",
+          "/challenge/*",
+          "/r/*"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "TEAM_ID.com.delectable.app"
+    ]
+  },
+  "appclips": {
+    "apps": [
+      "TEAM_ID.com.delectable.app.Clip"
+    ]
+  }
+}

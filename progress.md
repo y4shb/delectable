@@ -18,9 +18,9 @@
 | M8: Onboarding & Growth | COMPLETE | 100% |
 | M9: Notifications & Real-Time | COMPLETE | 100% |
 | M10: Gamification & Retention | COMPLETE | 100% |
-| M11: Sharing & Virality | NOT STARTED | 0% |
-| M12: Deployment & Infrastructure | NOT STARTED | 0% |
-| M13: AI, ML & Advanced Intelligence | NOT STARTED | 0% |
+| M11: Sharing & Virality | COMPLETE | 100% |
+| M12: Deployment & Infrastructure | COMPLETE | 100% |
+| M13: AI, ML & Advanced Intelligence | COMPLETE | 100% |
 
 ---
 
@@ -716,3 +716,15 @@
 | 2026-03-05 | M10 backend | gamification app with 9 models (UserXP, XPTransaction, DiningStreak, ActivityDay, BadgeDefinition, UserBadge, LeaderboardEntry, WrappedStats, UserStatsCache), services (award_xp, record_activity, check_badge_progress, get_activity_grid), 10 API views, XP integration in reviews/comments/likes, seed_badges management command (32 badges across 8 categories × 4 tiers) |
 | 2026-03-05 | M10 frontend | XPProgressBar component, StreakDisplay component, ActivityGrid component (GitHub-style contribution graph), BadgeShelf + BadgeCard components, Leaderboard component (global/friends with period switching), /stats page, /badges page, /wrapped page (7-card swipeable carousel) |
 | 2026-03-05 | M10 COMPLETE | All 21 items checked off. XP/levels, dining streaks, 32 achievement badges, leaderboards, Year in Review ("de. Wrapped") |
+| 2026-03-05 | M11 backend | sharing app with 10 models (InviteCode, Referral, ReferralReward, DeferredDeepLink, PlaylistCollaborator, PlaylistActivity, Challenge, ChallengeParticipant, ChallengeSubmission, ShareCard), Playlist model updated (slug, share_code, fork_count, forked_from), services (generate_share_card, process_referral_signup, activate_referral, check_referral_tiers), 11 API views |
+| 2026-03-05 | M11 frontend | ShareButton component (Web Share API + clipboard + Twitter + Instagram), /challenges page (challenge discovery + join + progress tracking), /invite page (referral stats + tier display + invite link sharing), deep linking static files (apple-app-site-association + assetlinks.json) |
+| 2026-03-05 | M11 COMPLETE | All sharing & virality features implemented: share cards, deep linking, referral program with tiered rewards, collaborative playlists, food challenges |
+| 2026-03-05 | M12 Docker | docker/Dockerfile.frontend (multi-stage Next.js build with standalone output), docker/Dockerfile.backend (multi-stage Django build with uvicorn), docker-compose.yml (7 services: db, redis, backend, celery, celery-beat, frontend, nginx), docker/nginx.conf (reverse proxy with rate limiting + SSE support) |
+| 2026-03-05 | M12 Kubernetes | k8s/namespace.yaml, k8s/configmap.yaml, k8s/secrets.yaml, k8s/backend-deployment.yaml (3 replicas + health checks), k8s/frontend-deployment.yaml (2 replicas), k8s/ingress.yaml (TLS with cert-manager), k8s/hpa.yaml (auto-scaling 2-10 pods), k8s/pvc.yaml (static + media storage) |
+| 2026-03-05 | M12 CI/CD | .github/workflows/pr.yml (lint + type-check + test + build on PRs), .github/workflows/main.yml (deploy to staging on main push), .github/workflows/release.yml (deploy to production on release), .env.example (environment template) |
+| 2026-03-05 | M12 COMPLETE | Full deployment infrastructure: Docker multi-stage builds, docker-compose orchestration, Kubernetes manifests with HPA + Ingress, GitHub Actions CI/CD pipelines |
+| 2026-03-05 | M13 backend | ml app with 5 models (VenueIngestion, ReviewAuthenticity, VenueRecommendation, MLModelMetadata, TrendingItem), services (score_review_authenticity heuristic scoring, compute_venue_ranking_score hybrid ranking, generate_recommendations with explanations, detect_trending_items velocity-based, score_feed_for_user ML-scored feed), ingestion.py (Google Places API integration pipeline) |
+| 2026-03-05 | M13 API | 8 ML views: RecommendationsView, MLScoredFeedView, ReviewAuthenticityView, TrustedBadgeView, TrendingView, RefreshTrendingView, IngestVenuesView, DataQualityView |
+| 2026-03-05 | M13 frontend | TrustedReviewBadge component (authenticity display with factor breakdown), RecommendationCard component (AI explanation + match score), /recommendations page (personalized/similar/explore tabs with filters), /trending page (venues/reviews/dishes tabs with velocity indicators) |
+| 2026-03-05 | M13 COMPLETE | Full ML/AI features: heuristic-based authenticity scoring, hybrid collaborative + content-based recommendations, velocity-based trending detection, data ingestion pipeline, ML-scored feed ranking |
+| 2026-03-05 | ALL MILESTONES COMPLETE | Delectable MVP fully implemented: 13 milestones (M1-M13), frontend (Next.js 15 + TypeScript + MUI), backend (Django 5 + DRF), deployment (Docker + K8s + GitHub Actions), ML/AI features |

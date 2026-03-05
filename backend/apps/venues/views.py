@@ -70,12 +70,17 @@ class VenueViewSet(viewsets.ReadOnlyModelViewSet):
         if lat and lng and radius:
             # Simple approximation without PostGIS
             # 1 degree latitude ≈ 111km
+            # 1 degree longitude ≈ 111km * cos(latitude)
+            import math
             try:
                 lat_val = Decimal(lat)
                 lng_val = Decimal(lng)
                 radius_km = Decimal(radius) / 1000
                 lat_delta = radius_km / Decimal("111.0")
-                lng_delta = radius_km / Decimal("111.0")
+                # Adjust longitude delta for latitude (cos correction)
+                lat_radians = float(lat_val) * math.pi / 180
+                lng_correction = Decimal(str(max(math.cos(lat_radians), 0.1)))
+                lng_delta = radius_km / (Decimal("111.0") * lng_correction)
                 qs = qs.filter(
                     latitude__gte=lat_val - lat_delta,
                     latitude__lte=lat_val + lat_delta,

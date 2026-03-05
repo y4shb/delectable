@@ -7,6 +7,8 @@ import {
   Slider,
   useTheme,
   Fade,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { updateTasteProfile } from '../api/api';
 import type { TasteProfile } from '../types';
@@ -49,6 +51,7 @@ export default function TasteWizard({ onComplete }: TasteWizardProps) {
   const [pricePreference, setPricePreference] = useState(2);
   const [spiceTolerance, setSpiceTolerance] = useState(3);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const toggleCuisine = (cuisine: string) => {
     setSelectedCuisines((prev) =>
@@ -68,6 +71,7 @@ export default function TasteWizard({ onComplete }: TasteWizardProps) {
 
   const handleFinish = async () => {
     setSaving(true);
+    setSaveError(false);
     try {
       const profile: Partial<TasteProfile> = {
         preferredCuisines: selectedCuisines,
@@ -77,11 +81,13 @@ export default function TasteWizard({ onComplete }: TasteWizardProps) {
         completedWizard: true,
       };
       await updateTasteProfile(profile);
+      onComplete();
     } catch {
-      // Silently continue — preferences are not critical
+      // Show error but still allow user to continue
+      setSaveError(true);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onComplete();
   };
 
   const priceLabels: Record<number, string> = {
@@ -388,6 +394,22 @@ export default function TasteWizard({ onComplete }: TasteWizardProps) {
       >
         Skip for now
       </Button>
+
+      {/* Error snackbar */}
+      <Snackbar
+        open={saveError}
+        autoHideDuration={6000}
+        onClose={() => setSaveError(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSaveError(false)}
+          severity="warning"
+          sx={{ width: '100%' }}
+        >
+          Couldn&apos;t save preferences. You can update them later in settings.
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -19,7 +19,13 @@ export default function FollowButton({
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [isHovered, setIsHovered] = useState(false);
 
-  useEffect(() => { setIsFollowing(initialIsFollowing); }, [initialIsFollowing]);
+  // Only sync if the prop actually changed from the current local state
+  useEffect(() => {
+    if (initialIsFollowing !== isFollowing) {
+      setIsFollowing(initialIsFollowing);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialIsFollowing]);
 
   const followMutation = useMutation({
     mutationFn: () => followUser(userId),

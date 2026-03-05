@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     "apps.search",
     "apps.notifications",
     "apps.gamification",
+    "apps.sharing",
+    "apps.ml",
 ]
 
 MIDDLEWARE = [
@@ -99,6 +101,10 @@ USE_TZ = True
 # Static files
 STATIC_URL = "static/"
 
+# Media files (user uploads)
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -128,6 +134,8 @@ REST_FRAMEWORK = {
         "user": "1000/hour",
         "login": "5/minute",
         "register": "3/minute",
+        "taste_match": "30/minute",
+        "uploads": "20/hour",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }
