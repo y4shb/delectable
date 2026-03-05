@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/", include("apps.feed.urls")),
     path("api/", include("apps.search.urls")),
     path("api/", include("apps.notifications.urls")),
+    path("api/gamification/", include("apps.gamification.urls")),
 ]

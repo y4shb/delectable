@@ -147,10 +147,36 @@ export interface PlaylistSummary {
 export interface Notification {
   id: string;
   notificationType: string;
+  priority: string;
   text: string;
   isRead: boolean;
+  bundleCount: number;
   relatedObjectId?: string;
+  extraData?: Record<string, unknown>;
+  actor?: { id: string; name: string; avatarUrl: string };
   createdAt: string;
+}
+
+export interface NotificationPreference {
+  likesEnabled: boolean;
+  commentsEnabled: boolean;
+  followsEnabled: boolean;
+  mentionsEnabled: boolean;
+  trendingEnabled: boolean;
+  streaksEnabled: boolean;
+  badgesEnabled: boolean;
+  nudgesEnabled: boolean;
+  digestEnabled: boolean;
+  nearbyEnabled: boolean;
+  socialFrequency: string;
+  digestFrequency: string;
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  timezone: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -237,4 +263,104 @@ export interface SearchFilters {
   lat?: number;
   lng?: number;
   radius?: number;
+}
+
+// ---------------------------------------------------------------------------
+// M9/M10: Gamification types
+// ---------------------------------------------------------------------------
+
+export interface UserXP {
+  totalXp: number;
+  level: number;
+  xpToNextLevel: number;
+  levelProgress: number;
+  xpInLevel: number;
+}
+
+export interface XPTransaction {
+  id: string;
+  reason: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+}
+
+export interface DiningStreak {
+  currentStreak: number;
+  longestStreak: number;
+  streakFreezes: number;
+  maxFreezes: number;
+  lastActivityDate: string | null;
+  flexibleMode: boolean;
+}
+
+export interface ActivityDay {
+  date: string;
+  level: number; // 0-4 intensity
+}
+
+export interface BadgeDefinition {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  category: string;
+  tier: string;
+  iconUrl: string;
+  requirementType: string;
+  requirementValue: number;
+  xpReward: number;
+}
+
+export interface UserBadge {
+  id: string;
+  badge: BadgeDefinition;
+  progress: number;
+  isUnlocked: boolean;
+  unlockedAt: string | null;
+  isDisplayed: boolean;
+  progressPercent: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId?: string;
+  userName: string;
+  userAvatar: string;
+  userLevel: number;
+  score: number;
+  isSelf?: boolean;
+}
+
+export interface WrappedStats {
+  year: number;
+  totalReviews: number;
+  totalVenues: number;
+  totalPhotos: number;
+  totalXp: number;
+  levelsGained: number;
+  badgesEarned: number;
+  longestStreak: number;
+  topCuisine: string;
+  topVenue: string;
+  topVenueVisits: number;
+  totalLikesReceived: number;
+  totalCommentsReceived: number;
+  newFollowers: number;
+  statsData: Record<string, unknown>;
+  generatedAt: string;
+}
+
+export interface UserStats {
+  totalReviews: number;
+  totalVenues: number;
+  totalPhotos: number;
+  totalLikesGiven: number;
+  totalLikesReceived: number;
+  totalComments: number;
+  avgRating: number;
+  favoriteCuisine: string;
+  reviewThisWeek: number;
+  reviewThisMonth: number;
+  lastRefreshed: string;
 }

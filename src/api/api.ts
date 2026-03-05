@@ -6,6 +6,7 @@ import type {
   Playlist,
   PlaylistSummary,
   Notification,
+  NotificationPreference,
   FeedReview,
   AutocompleteResult,
   Comment,
@@ -19,6 +20,15 @@ import type {
   OccasionTag,
   FriendsVenue,
   SearchFilters,
+  UserXP,
+  XPTransaction,
+  DiningStreak,
+  ActivityDay,
+  BadgeDefinition,
+  UserBadge,
+  LeaderboardEntry,
+  WrappedStats,
+  UserStats,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -422,4 +432,122 @@ export async function fetchSimilarVenues(venueId: string): Promise<Venue[]> {
 export async function fetchFriendsVenues(): Promise<FriendsVenue[]> {
   const { data } = await api.get('/venues/friends/');
   return data.data ?? data.results ?? data;
+}
+
+// Nearby Saved Venues
+export async function fetchNearbySavedVenues(
+  lat: number,
+  lng: number,
+  radius = 500,
+): Promise<Venue[]> {
+  const { data } = await api.get('/venues/nearby-saved/', {
+    params: { lat, lng, radius },
+  });
+  return data.data ?? data.results ?? data;
+}
+
+// ---------------------------------------------------------------------------
+// M9: Enhanced Notifications
+// ---------------------------------------------------------------------------
+
+export async function fetchUnreadCount(): Promise<number> {
+  const { data } = await api.get('/notifications/unread-count/');
+  return data.unread_count ?? data.unreadCount ?? 0;
+}
+
+export async function fetchNotificationPreferences(): Promise<NotificationPreference> {
+  const { data } = await api.get('/notifications/preferences/');
+  return data;
+}
+
+export async function updateNotificationPreferences(
+  prefs: Partial<NotificationPreference>,
+): Promise<NotificationPreference> {
+  const { data } = await api.put('/notifications/preferences/', prefs);
+  return data;
+}
+
+export async function fetchDigestPreview(): Promise<{
+  reviewsThisWeek: number;
+  likesReceived: number;
+  streakDays: number;
+  badgeProgress: Array<{ name: string; progress: number; required: number; percent: number }>;
+  trendingVenues: TrendingVenue[];
+}> {
+  const { data } = await api.get('/notifications/digest-preview/');
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// M10: Gamification & Retention
+// ---------------------------------------------------------------------------
+
+// XP & Level
+export async function fetchUserXP(): Promise<UserXP> {
+  const { data } = await api.get('/gamification/xp/');
+  return data;
+}
+
+export async function fetchXPHistory(): Promise<XPTransaction[]> {
+  const { data } = await api.get('/gamification/xp/history/');
+  return data.data ?? data.results ?? data;
+}
+
+// Streaks
+export async function fetchDiningStreak(): Promise<DiningStreak> {
+  const { data } = await api.get('/gamification/streak/');
+  return data;
+}
+
+export async function fetchActivityGrid(weeks = 52): Promise<ActivityDay[]> {
+  const { data } = await api.get('/gamification/activity-grid/', {
+    params: { weeks },
+  });
+  return data.data ?? data;
+}
+
+// Badges
+export async function fetchBadgeDefinitions(): Promise<BadgeDefinition[]> {
+  const { data } = await api.get('/gamification/badges/');
+  return data.data ?? data.results ?? data;
+}
+
+export async function fetchUserBadges(): Promise<UserBadge[]> {
+  const { data } = await api.get('/gamification/my-badges/');
+  return data.data ?? data.results ?? data;
+}
+
+// Leaderboards
+export async function fetchLeaderboard(
+  type: 'global' | 'city' | 'friends' | 'cuisine' = 'global',
+  period: 'weekly' | 'monthly' | 'all_time' = 'weekly',
+  scope?: string,
+): Promise<{ data: LeaderboardEntry[]; userRank: LeaderboardEntry | null }> {
+  const params: Record<string, string> = { type, period };
+  if (scope) params.scope = scope;
+  const { data } = await api.get('/gamification/leaderboard/', { params });
+  return data;
+}
+
+export async function fetchFriendsLeaderboard(
+  period: 'weekly' | 'monthly' | 'all_time' = 'weekly',
+): Promise<LeaderboardEntry[]> {
+  const { data } = await api.get('/gamification/leaderboard/friends/', {
+    params: { period },
+  });
+  return data.data ?? data;
+}
+
+// Wrapped / Year in Review
+export async function fetchWrappedStats(year?: number): Promise<WrappedStats> {
+  const params: Record<string, number> = {};
+  if (year) params.year = year;
+  const { data } = await api.get('/gamification/wrapped/', { params });
+  return data;
+}
+
+// User Stats
+export async function fetchUserStats(): Promise<UserStats> {
+  const { data } = await api.get('/gamification/stats/');
+  return data;
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
+import { BottomNavigation, BottomNavigationAction, Paper, Badge } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import MapIcon from '@mui/icons-material/Map';
 import PersonIcon from '@mui/icons-material/Person';
@@ -7,6 +7,7 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
+import { useNotificationBadge } from './NotificationBadgeProvider';
 
 const tabConfig = [
   { id: 'tab-feed', label: 'Feed', icon: <HomeIcon />, route: '/feed', 'aria-label': 'Feed' },
@@ -19,6 +20,7 @@ const tabConfig = [
 export default function BottomTabBar() {
   const router = useRouter();
   const [value, setValue] = useState(0);
+  const { unreadCount } = useNotificationBadge();
 
   useEffect(() => {
     const routeMap: Record<string, number> = {
@@ -84,15 +86,37 @@ export default function BottomTabBar() {
           <BottomNavigationAction
             id={tab.id}
             key={tab.id}
-            icon={React.cloneElement(tab.icon, { 
-              sx: { fontSize: 26 },
-              'aria-hidden': 'true' 
-            })}
+            icon={
+              tab.id === 'tab-alerts' ? (
+                <Badge
+                  badgeContent={unreadCount}
+                  color="error"
+                  max={99}
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      fontSize: 10,
+                      height: 16,
+                      minWidth: 16,
+                    },
+                  }}
+                >
+                  {React.cloneElement(tab.icon, {
+                    sx: { fontSize: 26 },
+                    'aria-hidden': 'true'
+                  })}
+                </Badge>
+              ) : (
+                React.cloneElement(tab.icon, {
+                  sx: { fontSize: 26 },
+                  'aria-hidden': 'true'
+                })
+              )
+            }
             aria-label={tab['aria-label']}
-            sx={{ 
-              minWidth: 0, 
-              px: 1.2, 
-              py: 0.3, 
+            sx={{
+              minWidth: 0,
+              px: 1.2,
+              py: 0.3,
               color: 'inherit',
               '&.Mui-selected': {
                 color: (theme) => theme.palette.primary.main,

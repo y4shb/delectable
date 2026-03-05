@@ -54,6 +54,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
             venue.reviews_count = agg["count"]
             venue.save(update_fields=["rating", "reviews_count"])
 
+            # Award XP for review
+            from apps.gamification.services import award_xp, record_activity
+            award_xp(self.request.user, "review", related_object_id=review.id)
+            if review.photo_url:
+                award_xp(self.request.user, "review_photo", related_object_id=review.id)
+            record_activity(self.request.user, "review")
+
     def perform_update(self, serializer):
         review = serializer.save()
         from apps.feed.engine import compute_quality_score
@@ -126,13 +133,21 @@ class LikeView(APIView):
             Review.objects.filter(id=id).update(like_count=db_models.F("like_count") + 1)
             # Create notification for review owner
             if review.user_id != request.user.id:
-                from apps.notifications.models import Notification
-                Notification.objects.create(
+                from apps.notifications.services import create_notification
+                create_notification(
                     recipient=review.user,
                     notification_type="like",
                     text=f"{request.user.name} liked your review",
+                    actor=request.user,
                     related_object_id=review.id,
+                    group_key=f"like:{review.id}",
                 )
+                # Award XP to review owner for receiving a like
+                from apps.gamification.services import award_xp
+                award_xp(review.user, "like_received", related_object_id=review.id)
+            # Award XP to liker
+            from apps.gamification.services import award_xp
+            award_xp(request.user, "like_given", related_object_id=review.id)
         return Response(
             {"data": {"review_id": str(id), "user_id": str(request.user.id)}},
             status=status.HTTP_201_CREATED,
@@ -228,13 +243,19 @@ class CommentListCreateView(generics.ListCreateAPIView):
             )
             # Create notification for review owner
             if review.user_id != self.request.user.id:
-                from apps.notifications.models import Notification
-                Notification.objects.create(
+                from apps.notifications.services import create_notification
+                create_notification(
                     recipient=review.user,
                     notification_type="comment",
                     text=f"{self.request.user.name} commented on your review",
+                    actor=self.request.user,
                     related_object_id=review.id,
+                    group_key=f"comment:{review.id}",
                 )
+            # Award XP for commenting
+            from apps.gamification.services import award_xp, record_activity
+            award_xp(self.request.user, "comment", related_object_id=comment.id)
+            record_activity(self.request.user, "comment")
 
 
 class CommentDeleteView(generics.DestroyAPIView):
@@ -306,6 +327,16 @@ class QuickReviewView(APIView):
                 if profile.maturity_level < 1:
                     profile.maturity_level = 1
                     profile.save(update_fields=["maturity_level"])
+
+            # Award XP for review
+            from apps.gamification.services import award_xp, record_activity
+            if is_first_review:
+                award_xp(request.user, "first_review", related_object_id=review.id)
+            else:
+                award_xp(request.user, "review", related_object_id=review.id)
+            if review.photo_url:
+                award_xp(request.user, "review_photo", related_object_id=review.id)
+            record_activity(request.user, "review")
 
         response_serializer = ReviewSerializer(review, context={"request": request})
         return Response(

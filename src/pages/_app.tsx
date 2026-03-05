@@ -9,6 +9,7 @@ import { CacheProvider, EmotionCache } from '@emotion/react';
 import createEmotionCache from '../createEmotionCache';
 import { AuthProvider } from '../context/AuthContext';
 import { UserPreferencesProvider } from '../context/UserPreferencesContext';
+import { NotificationBadgeProvider } from '../components/NotificationBadgeProvider';
 
 interface MyAppProps extends AppProps {
   emotionCache?: EmotionCache;
@@ -45,12 +46,14 @@ export default function MyApp({ Component, pageProps, emotionCache = clientSideE
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <UserPreferencesProvider>
-            <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
-              <ThemeProvider theme={muiTheme}>
-                <CssBaseline />
-                <Component {...pageProps} />
-              </ThemeProvider>
-            </ColorModeContext.Provider>
+            <NotificationBadgeProvider>
+              <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
+                <ThemeProvider theme={muiTheme}>
+                  <CssBaseline />
+                  <Component {...pageProps} />
+                </ThemeProvider>
+              </ColorModeContext.Provider>
+            </NotificationBadgeProvider>
           </UserPreferencesProvider>
         </AuthProvider>
       </QueryClientProvider>

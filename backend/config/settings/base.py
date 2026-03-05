@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.feed",
     "apps.search",
     "apps.notifications",
+    "apps.gamification",
 ]
 
 MIDDLEWARE = [
