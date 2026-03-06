@@ -3,6 +3,7 @@
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.venues.serializers import VenueListSerializer
@@ -22,8 +23,15 @@ from .services import (
 )
 
 
+class MLBurstThrottle(UserRateThrottle):
+    rate = '10/minute'
+
+
 class RecommendationsView(APIView):
     """GET /api/ml/recommendations/ — Personalized venue recommendations."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [MLBurstThrottle]
 
     def get(self, request):
         limit = int(request.query_params.get("limit", 20))
@@ -61,6 +69,9 @@ class RecommendationsView(APIView):
 
 class MLScoredFeedView(APIView):
     """GET /api/ml/feed/ — ML-scored feed for user."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [MLBurstThrottle]
 
     def get(self, request):
         from apps.reviews.models import Review
@@ -158,6 +169,8 @@ class TrendingView(generics.ListAPIView):
 class RefreshTrendingView(APIView):
     """POST /api/ml/trending/refresh/ — Force refresh trending items."""
 
+    permission_classes = [permissions.IsAdminUser]
+
     def post(self, request):
         region = request.data.get("region", "")
         items = detect_trending_items(region)
@@ -169,6 +182,9 @@ class RefreshTrendingView(APIView):
 
 class IngestVenuesView(APIView):
     """POST /api/ml/ingest/ — Trigger venue ingestion from external sources."""
+
+    permission_classes = [permissions.IsAdminUser]
+    throttle_classes = [MLBurstThrottle]
 
     def post(self, request):
         from .ingestion import run_ingestion_pipeline
@@ -183,9 +199,28 @@ class IngestVenuesView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Validate coordinate ranges
+        lat = float(lat)
+        lng = float(lng)
+        if not (-90 <= lat <= 90):
+            return Response(
+                {"error": "lat must be between -90 and 90"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (-180 <= lng <= 180):
+            return Response(
+                {"error": "lng must be between -180 and 180"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (100 <= radius <= 50000):
+            return Response(
+                {"error": "radius must be between 100 and 50000"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         results = run_ingestion_pipeline(
-            latitude=float(lat),
-            longitude=float(lng),
+            latitude=lat,
+            longitude=lng,
             radius=radius,
         )
 
@@ -194,6 +229,8 @@ class IngestVenuesView(APIView):
 
 class DataQualityView(APIView):
     """GET /api/ml/data-quality/ — Check data ingestion quality."""
+
+    permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
         from .ingestion import validate_ingested_data

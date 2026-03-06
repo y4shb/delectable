@@ -100,6 +100,98 @@ def get_social_score(viewer, author):
     return score
 
 
+def batch_precompute_social_scores(viewer, authors):
+    """Batch-precompute social scores for multiple authors at once.
+
+    Returns a dict of {author_id: score}. Avoids N+1 queries by fetching
+    all affinities, follows, likes, comments, and mutual follows in bulk.
+    """
+    from apps.reviews.models import Comment
+
+    now = timezone.now()
+    author_ids = {a.id for a in authors if a.id != viewer.id}
+    if not author_ids:
+        return {viewer.id: 1.0}
+
+    scores = {viewer.id: 1.0}
+
+    # Batch fetch cached affinities
+    cached_affinities = {
+        a.target_id: a
+        for a in UserAffinity.objects.filter(user=viewer, target_id__in=author_ids)
+    }
+
+    # Determine which need fresh computation
+    stale_ids = set()
+    for aid in author_ids:
+        aff = cached_affinities.get(aid)
+        if aff and (now - aff.updated_at) < timedelta(hours=1):
+            scores[aid] = aff.score
+        else:
+            stale_ids.add(aid)
+
+    if not stale_ids:
+        return scores
+
+    # Batch fetch follows (viewer → stale authors)
+    following_set = set(
+        Follow.objects.filter(
+            follower=viewer, following_id__in=stale_ids
+        ).values_list("following_id", flat=True)
+    )
+
+    # Authors not followed get 0
+    for aid in stale_ids - following_set:
+        scores[aid] = 0.0
+
+    followed_ids = stale_ids & following_set
+    if not followed_ids:
+        return scores
+
+    # Batch fetch interaction counts (likes)
+    like_counts = dict(
+        ReviewLike.objects.filter(
+            user=viewer, review__user_id__in=followed_ids
+        ).values("review__user_id").annotate(cnt=Count("id")).values_list("review__user_id", "cnt")
+    )
+
+    # Batch fetch interaction counts (comments)
+    comment_counts = dict(
+        Comment.objects.filter(
+            user=viewer, review__user_id__in=followed_ids
+        ).values("review__user_id").annotate(cnt=Count("id")).values_list("review__user_id", "cnt")
+    )
+
+    # Batch fetch mutual follows (authors → viewer)
+    mutual_set = set(
+        Follow.objects.filter(
+            follower_id__in=followed_ids, following=viewer
+        ).values_list("follower_id", flat=True)
+    )
+
+    # Compute and cache scores
+    for aid in followed_ids:
+        interaction_count = like_counts.get(aid, 0) + comment_counts.get(aid, 0)
+        interaction_score = min(interaction_count / 10, 1.0)
+        has_mutual = aid in mutual_set
+        mutual_bonus = 0.2 if has_mutual else 0.0
+        score = min(1.0, 0.5 + 0.3 * interaction_score + mutual_bonus)
+        scores[aid] = score
+
+        UserAffinity.objects.update_or_create(
+            user=viewer,
+            target_id=aid,
+            defaults={
+                "is_following": True,
+                "interaction_count": interaction_count,
+                "has_mutual_follow": has_mutual,
+                "score": score,
+            },
+        )
+
+    return scores
+
+
 # ---------------------------------------------------------------------------
 # 6.1 Engagement Signal — normalized engagement metrics
 # ---------------------------------------------------------------------------
@@ -109,7 +201,13 @@ def get_engagement_score(review, percentile_95_likes=10, percentile_95_comments=
     # Log-scale and normalize against 95th percentile
     like_norm = min(math.log1p(review.like_count) / math.log1p(percentile_95_likes), 1.0)
     comment_norm = min(math.log1p(review.comment_count) / math.log1p(percentile_95_comments), 1.0)
-    bookmark_count = review.bookmarks.count() if hasattr(review, 'bookmarks') else 0
+    # Prefer annotated bookmark_count to avoid an extra query per review.
+    if hasattr(review, 'bookmark_count'):
+        bookmark_count = review.bookmark_count
+    elif hasattr(review, 'bookmarks'):
+        bookmark_count = review.bookmarks.count()
+    else:
+        bookmark_count = 0
     bookmark_norm = min(math.log1p(bookmark_count) / math.log1p(5), 1.0)
 
     return 0.4 * like_norm + 0.35 * comment_norm + 0.25 * bookmark_norm
@@ -170,9 +268,16 @@ def _precompute_viewer_preference_data(viewer):
     return viewer_tags, viewer_avg_rating
 
 
-def compute_feed_score(review, viewer, engagement_percentiles=None, viewer_tags=None, viewer_avg_rating=None):
-    """Compute EdgeRank-style feed score for a review from viewer's perspective."""
-    social = get_social_score(viewer, review.user)
+def compute_feed_score(review, viewer, engagement_percentiles=None, viewer_tags=None, viewer_avg_rating=None, social_scores=None):
+    """Compute EdgeRank-style feed score for a review from viewer's perspective.
+
+    Accepts optional social_scores dict ({author_id: score}) from
+    batch_precompute_social_scores() to avoid per-review affinity queries.
+    """
+    if social_scores is not None:
+        social = social_scores.get(review.user_id, 0.0)
+    else:
+        social = get_social_score(viewer, review.user)
     engagement = get_engagement_score(
         review,
         percentile_95_likes=engagement_percentiles.get("likes", 10) if engagement_percentiles else 10,
@@ -222,6 +327,7 @@ def get_engagement_percentiles():
 
 TRENDING_STALE_MINUTES = 30
 _trending_computation_lock = False
+_trending_thread = None
 
 
 def compute_trending_scores():
@@ -258,8 +364,8 @@ def compute_trending_scores():
         # Simple std estimate (use sqrt of mean as proxy for Poisson-like data)
         baseline_std = max(math.sqrt(baseline_avg), 0.5)
 
-        # Z-score
-        z = (recent_count - baseline_avg * 7) / max(baseline_std * 7, 1)
+        # Z-score (use sqrt(7) * std for proper weekly aggregation of Poisson-like data)
+        z = (recent_count - baseline_avg * 7) / max(baseline_std * math.sqrt(7), 1)
 
         # Velocity: last 24h reviews / 7d avg daily
         last_24h_count = Review.objects.filter(
@@ -291,20 +397,39 @@ def compute_trending_scores():
 def get_trending_venues(limit=10):
     """Get trending venues, recomputing if stale.
 
-    Uses a simple lock to prevent thundering herd problem where multiple
-    concurrent requests all trigger recomputation.
+    Uses a background thread to avoid blocking the request and a simple
+    lock to prevent thundering herd problem where multiple concurrent
+    requests all trigger recomputation.
     """
-    global _trending_computation_lock
+    import threading
+
+    global _trending_computation_lock, _trending_thread
 
     latest = VenueTrendingScore.objects.order_by("-computed_at").first()
     is_stale = not latest or (timezone.now() - latest.computed_at) > timedelta(minutes=TRENDING_STALE_MINUTES)
 
     if is_stale and not _trending_computation_lock:
-        try:
-            _trending_computation_lock = True
-            compute_trending_scores()
-        finally:
-            _trending_computation_lock = False
+        # If we have existing data, recompute in background thread
+        if latest:
+            def _recompute():
+                global _trending_computation_lock
+                try:
+                    _trending_computation_lock = True
+                    from django.db import connection
+                    compute_trending_scores()
+                    connection.close()
+                finally:
+                    _trending_computation_lock = False
+
+            _trending_thread = threading.Thread(target=_recompute, daemon=True)
+            _trending_thread.start()
+        else:
+            # First time ever — must compute synchronously
+            try:
+                _trending_computation_lock = True
+                compute_trending_scores()
+            finally:
+                _trending_computation_lock = False
 
     return (
         VenueTrendingScore.objects.select_related("venue")
@@ -333,6 +458,7 @@ def explore_feed(viewer, limit=20):
             rating__gte=7.0,
         )
         .select_related("user", "venue")
+        .annotate(bookmark_count=Count("bookmarks"))
         .order_by("-created_at")[:200]  # Cap candidates
     )
 
@@ -342,6 +468,7 @@ def explore_feed(viewer, limit=20):
             Review.objects.filter(created_at__gte=now - timedelta(days=14))
             .exclude(user=viewer)
             .select_related("user", "venue")
+            .annotate(bookmark_count=Count("bookmarks"))
             .order_by("-like_count", "-created_at")[:50]
         )
 

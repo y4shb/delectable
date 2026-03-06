@@ -1,10 +1,12 @@
 import math
 from collections import defaultdict
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Count
 from django.db.models.functions import Greatest
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -52,6 +54,10 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        # Auto-follow tastemaker accounts for new users
+        from apps.feed.engine import auto_follow_tastemakers
+        auto_follow_tastemakers(user)
 
         refresh = RefreshToken.for_user(user)
         response = Response(
@@ -430,7 +436,8 @@ class TasteMatchView(APIView):
         user_a, user_b = sorted([me, other], key=lambda u: str(u.id))
         cached = TasteMatchCache.objects.filter(user_a=user_a, user_b=user_b).first()
 
-        if cached:
+        cache_ttl = timedelta(hours=24)
+        if cached and (timezone.now() - cached.computed_at) < cache_ttl:
             score = cached.score
             shared_venues = cached.shared_venues
         else:

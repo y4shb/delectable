@@ -3,7 +3,7 @@ from rest_framework import serializers
 from apps.users.serializers import UserPublicSerializer
 from apps.venues.serializers import DishListSerializer, VenueListSerializer
 
-from .models import Bookmark, Comment, Review
+from .models import Bookmark, Comment, Review, ReviewPhoto
 
 
 class CommentReplySerializer(serializers.ModelSerializer):
@@ -47,6 +47,15 @@ class CommentCreateSerializer(serializers.ModelSerializer):
         return value
 
 
+class ReviewPhotoSerializer(serializers.ModelSerializer):
+    """Serializer for review photos."""
+
+    class Meta:
+        model = ReviewPhoto
+        fields = ["id", "photo_url", "sort_order"]
+        read_only_fields = ["id"]
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     """Full review serializer with embedded user and venue."""
 
@@ -56,12 +65,13 @@ class ReviewSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     is_bookmarked = serializers.SerializerMethodField()
     recent_comments = serializers.SerializerMethodField()
+    photo_urls = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
         fields = [
             "id", "user", "venue", "venue_detail", "rating", "text",
-            "photo_url", "dish_name", "dish", "dish_detail", "tags", "like_count",
+            "photo_url", "photo_urls", "dish_name", "dish", "dish_detail", "tags", "like_count",
             "comment_count", "is_liked", "is_bookmarked",
             "recent_comments", "created_at",
         ]
@@ -82,6 +92,15 @@ class ReviewSerializer(serializers.ModelSerializer):
             return getattr(obj, '_is_bookmarked', obj.bookmarks.filter(user=request.user).exists())
         return False
 
+    def get_photo_urls(self, obj):
+        """Return all photo URLs: primary photo_url + additional ReviewPhotos."""
+        urls = []
+        if obj.photo_url:
+            urls.append(obj.photo_url)
+        additional = obj.photos.values_list("photo_url", flat=True).order_by("sort_order")
+        urls.extend(additional)
+        return urls
+
     def get_recent_comments(self, obj):
         if hasattr(obj, '_recent_comments'):
             return CommentReplySerializer(obj._recent_comments, many=True).data
@@ -96,9 +115,37 @@ class ReviewSerializer(serializers.ModelSerializer):
 class ReviewCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating reviews."""
 
+    additional_photos = serializers.ListField(
+        child=serializers.URLField(max_length=500),
+        required=False,
+        write_only=True,
+        max_length=9,
+    )
+
     class Meta:
         model = Review
-        fields = ["venue", "rating", "text", "photo_url", "dish_name", "dish", "tags"]
+        fields = ["venue", "rating", "text", "photo_url", "dish_name", "dish", "tags", "additional_photos"]
+
+    def create(self, validated_data):
+        additional_photos = validated_data.pop("additional_photos", [])
+        review = super().create(validated_data)
+        if additional_photos:
+            ReviewPhoto.objects.bulk_create([
+                ReviewPhoto(review=review, photo_url=url, sort_order=i)
+                for i, url in enumerate(additional_photos)
+            ])
+        return review
+
+    def update(self, instance, validated_data):
+        additional_photos = validated_data.pop("additional_photos", None)
+        review = super().update(instance, validated_data)
+        if additional_photos is not None:
+            review.photos.all().delete()
+            ReviewPhoto.objects.bulk_create([
+                ReviewPhoto(review=review, photo_url=url, sort_order=i)
+                for i, url in enumerate(additional_photos)
+            ])
+        return review
 
     def validate_text(self, value):
         if value and len(value) < 10:

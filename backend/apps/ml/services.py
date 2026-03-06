@@ -178,7 +178,7 @@ def generate_recommendations(user, limit: int = 20) -> list:
     # Get venues the user hasn't reviewed
     reviewed_venue_ids = Review.objects.filter(user=user).values_list("venue_id", flat=True)
 
-    candidates = Venue.objects.exclude(id__in=reviewed_venue_ids).order_by("-rating")[:200]
+    candidates = Venue.objects.exclude(id__in=reviewed_venue_ids).prefetch_related('reviews').order_by("-rating")[:200]
 
     recommendations = []
     for venue in candidates:

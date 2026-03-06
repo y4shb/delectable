@@ -146,11 +146,17 @@ class FriendsLeaderboardView(APIView):
             total_score=Sum("amount")
         ).order_by("-total_score")
 
-        # Build leaderboard
+        # Build leaderboard — bulk-fetch users to avoid N+1 queries
         from apps.users.models import User
+        all_user_ids = [entry["user_id"] for entry in scores]
+        users_by_id = {
+            u.id: u for u in User.objects.filter(id__in=all_user_ids)
+        }
         leaderboard = []
         for rank, entry in enumerate(scores, 1):
-            user = User.objects.get(id=entry["user_id"])
+            user = users_by_id.get(entry["user_id"])
+            if user is None:
+                continue
             leaderboard.append({
                 "rank": rank,
                 "user_id": str(user.id),

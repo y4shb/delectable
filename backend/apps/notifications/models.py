@@ -82,6 +82,12 @@ class Notification(models.Model):
                 name="idx_notification_scheduled",
                 fields=["scheduled_for"],
             ),
+            models.Index(fields=['recipient', '-created_at'], name='idx_notif_recipient'),
+            models.Index(
+                fields=['recipient'],
+                name='idx_notif_unread',
+                condition=models.Q(is_read=False),
+            ),
         ]
 
     def __str__(self):

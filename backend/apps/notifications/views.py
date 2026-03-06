@@ -3,8 +3,18 @@ import time
 
 from django.http import StreamingHttpResponse
 from rest_framework import generics, status
+from rest_framework.renderers import BaseRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+
+class EventStreamRenderer(BaseRenderer):
+    """Renderer that accepts text/event-stream for SSE endpoints."""
+    media_type = "text/event-stream"
+    format = "text"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
 
 from apps.core.pagination import FeedCursorPagination
 
@@ -67,6 +77,7 @@ class UnreadCountView(APIView):
 
 class BadgeStreamView(APIView):
     """GET /api/notifications/stream/ — SSE endpoint for real-time notifications."""
+    renderer_classes = [EventStreamRenderer]
 
     def get(self, request):
         def event_stream():

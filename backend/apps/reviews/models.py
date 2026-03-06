@@ -53,10 +53,34 @@ class Review(TimeStampedModel):
         indexes = [
             Index(name="idx_review_user_created", fields=["user", "-created_at"]),
             Index(name="idx_review_venue_created", fields=["venue", "-created_at"]),
+            models.Index(fields=['user', '-created_at', '-like_count'], name='idx_review_feed'),
+            models.Index(fields=['venue', '-created_at'], name='idx_review_venue_date'),
+            models.Index(fields=['-created_at', '-like_count'], name='idx_review_trending'),
         ]
 
     def __str__(self):
         return f"{self.user} → {self.venue} ({self.rating})"
+
+
+class ReviewPhoto(models.Model):
+    """Additional photo attached to a review (supports multi-photo reviews)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    review = models.ForeignKey(
+        Review, on_delete=models.CASCADE, related_name="photos"
+    )
+    photo_url = models.URLField(max_length=500)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = "review_photos"
+        ordering = ["sort_order"]
+        indexes = [
+            Index(name="idx_reviewphoto_review", fields=["review", "sort_order"]),
+        ]
+
+    def __str__(self):
+        return f"Photo {self.sort_order} for {self.review_id}"
 
 
 class ReviewLike(models.Model):
