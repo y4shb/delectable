@@ -328,8 +328,10 @@ class MonthlyRecapView(APIView):
             longest_streak = max(longest_streak, current_streak)
             prev_date = d
 
-        # Save the recap
-        recap = MonthlyRecap.objects.create(
+        # Only cache the recap if the month has fully ended
+        month_has_ended = (year < today.year) or (year == today.year and month < today.month)
+
+        recap_kwargs = dict(
             user=request.user,
             year=year,
             month=month,
@@ -350,6 +352,12 @@ class MonthlyRecapView(APIView):
                 },
             },
         )
+
+        if month_has_ended:
+            recap = MonthlyRecap.objects.create(**recap_kwargs)
+        else:
+            # For the current month, return without persisting stale data
+            recap = MonthlyRecap(**recap_kwargs)
 
         serializer = MonthlyRecapSerializer(recap)
         return Response(serializer.data)

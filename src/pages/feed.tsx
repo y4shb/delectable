@@ -6,6 +6,9 @@ import ReviewCard from '../components/ReviewCard';
 import ReviewCardSkeleton from '../components/ReviewCardSkeleton';
 import WelcomeSection from '../components/WelcomeSection';
 import TrendingSection from '../components/TrendingSection';
+import SeasonalBanner from '../components/SeasonalBanner';
+import WeatherBanner from '../components/WeatherBanner';
+import KitchenStoriesSection from '../components/KitchenStoriesSection';
 import TasteWizard from '../components/TasteWizard';
 import Link from 'next/link';
 import { useState, useRef, useCallback } from 'react';
@@ -218,6 +221,13 @@ export default function FeedPage() {
 
         {/* Trending section for Explore tab */}
         {activeTab === 'explore' && <TrendingSection />}
+
+        {/* Seasonal and Weather banners */}
+        <SeasonalBanner />
+        <WeatherBanner />
+
+        {/* Kitchen Stories */}
+        <KitchenStoriesSection />
 
         {isLoading || authLoading ? (
           <Box>

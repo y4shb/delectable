@@ -42,6 +42,10 @@ import {
   fetchMonthlyRecap,
   fetchSeasonalHighlights,
   fetchWeatherRecommendations,
+  fetchKitchenStories,
+  fetchKitchenStoryDetail,
+  fetchFoodGuides,
+  fetchFoodGuideDetail,
 } from '../api/api';
 import type { DiscoverRequest, SearchFilters } from '../types';
 
@@ -430,5 +434,45 @@ export function useWeatherRecommendations(condition: string) {
     queryFn: () => fetchWeatherRecommendations(condition),
     staleTime: 15 * 60 * 1000, // 15 minutes
     enabled: !!condition,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Kitchen Stories
+// ---------------------------------------------------------------------------
+
+export function useKitchenStories(params?: { venue?: string; storyType?: string }) {
+  return useQuery({
+    queryKey: ['kitchenStories', params],
+    queryFn: () => fetchKitchenStories(params),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useKitchenStoryDetail(id?: string) {
+  return useQuery({
+    queryKey: ['kitchenStoryDetail', id],
+    queryFn: () => fetchKitchenStoryDetail(id!),
+    enabled: !!id,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Food Tourism Guides
+// ---------------------------------------------------------------------------
+
+export function useFoodGuides(params?: { city?: string }) {
+  return useQuery({
+    queryKey: ['foodGuides', params],
+    queryFn: () => fetchFoodGuides(params),
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useFoodGuideDetail(id?: string) {
+  return useQuery({
+    queryKey: ['foodGuideDetail', id],
+    queryFn: () => fetchFoodGuideDetail(id!),
+    enabled: !!id,
   });
 }

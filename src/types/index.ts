@@ -34,6 +34,7 @@ export interface Venue {
   latitude: number;
   longitude: number;
   reviewsCount: number;
+  priceLevel?: number | null;
   // detail-only fields
   city?: string;
   googlePlaceId?: string;
@@ -286,6 +287,7 @@ export interface FriendsVenue extends Venue {
 export interface SearchFilters {
   occasion?: string;
   dietary?: string[];
+  priceLevel?: number;
   lat?: number;
   lng?: number;
   radius?: number;
@@ -604,6 +606,82 @@ export interface DinnerPlan {
   hasUserVoted: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Restaurant Response System
+// ---------------------------------------------------------------------------
+
+export interface VenueResponseData {
+  id: string;
+  responderName: string;
+  text: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Kitchen Stories
+// ---------------------------------------------------------------------------
+
+export interface KitchenStory {
+  id: string;
+  venue: string;
+  venueDetail?: Venue;
+  title: string;
+  storyType: string;
+  content?: string;
+  coverPhotoUrl: string;
+  chefName: string;
+  chefTitle?: string;
+  chefPhotoUrl?: string;
+  viewCount: number;
+  likeCount: number;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Food Tourism Guides
+// ---------------------------------------------------------------------------
+
+export interface GuideStop {
+  id: string;
+  venue: string;
+  venueDetail: Venue;
+  sortOrder: number;
+  description: string;
+  recommendedDishes: string[];
+  estimatedTimeMinutes: number;
+}
+
+export interface FoodGuide {
+  id: string;
+  title: string;
+  description: string;
+  city: string;
+  neighborhood: string;
+  coverPhotoUrl: string;
+  durationHours: number;
+  isPublished?: boolean;
+  viewCount: number;
+  saveCount: number;
+  stopsCount?: number;
+  stops?: GuideStop[];
+  authorName?: string;
+  authorAvatar?: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Playlist Collaborators
+// ---------------------------------------------------------------------------
+
+export interface PlaylistCollaborator {
+  id: string;
+  user: string;
+  userName: string;
+  userAvatar: string;
+  role: 'editor' | 'viewer';
+  createdAt: string;
 }
 
 export interface DinnerPlanResult {

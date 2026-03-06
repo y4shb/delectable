@@ -184,9 +184,9 @@ class JoinDinnerPlanView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if plan.status == "cancelled":
+        if plan.status in ("cancelled", "decided"):
             return Response(
-                {"error": {"code": "CONFLICT", "message": "This plan has been cancelled."}},
+                {"error": {"code": "CONFLICT", "message": "This plan is no longer accepting members."}},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -349,13 +349,15 @@ class DinnerPlanResultView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Calculate results
-        venue_results = []
-        for pv in plan.venue_options.select_related("venue").order_by(
-            "-total_yes", "total_no", "sort_order"
-        ):
-            from apps.venues.serializers import VenueListSerializer
+        # Calculate results — use the prefetched venue_options to avoid N+1
+        from apps.venues.serializers import VenueListSerializer
 
+        venue_results = []
+        sorted_options = sorted(
+            plan.venue_options.all(),
+            key=lambda pv: (-pv.total_yes, pv.total_no, pv.sort_order),
+        )
+        for pv in sorted_options:
             venue_data = VenueListSerializer(pv.venue).data
             venue_results.append({
                 "venue_option_id": str(pv.id),

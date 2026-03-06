@@ -320,8 +320,8 @@ class DecisionEngineView(APIView):
                 )
                 .values_list("venue_id", flat=True)
             )
-            if dietary_venue_ids:
-                venues_qs = venues_qs.filter(id__in=dietary_venue_ids)
+            # Always apply the filter — an empty set means no venues match
+            venues_qs = venues_qs.filter(id__in=dietary_venue_ids)
 
         # Step 3: Filter by distance radius from user location
         candidates = list(venues_qs[:200])  # Cap candidates
@@ -335,14 +335,15 @@ class DecisionEngineView(APIView):
                     venue._distance_km = dist
                     if dist <= max_km:
                         filtered.append(venue)
-                else:
-                    # Venues without coordinates: include with unknown distance
-                    venue._distance_km = None
-                    filtered.append(venue)
+                # Skip venues without coordinates when distance filtering is
+                # active -- they cannot satisfy the user's distance constraint.
             candidates = filtered
         else:
             for venue in candidates:
-                venue._distance_km = None
+                if user_lat is not None and user_lng is not None and venue.latitude is not None and venue.longitude is not None:
+                    venue._distance_km = _haversine_km(user_lat, user_lng, venue.latitude, venue.longitude)
+                else:
+                    venue._distance_km = None
 
         # Step 4: Score remaining venues
         user = request.user if request.user.is_authenticated else None
@@ -502,9 +503,11 @@ def _build_explanation(venue, occasion_slug, match_reasons, distance_km):
         if distance_km < 0.5:
             parts.append("- just a short walk away")
         elif distance_km < 2:
-            parts.append(f"- about {int(distance_km * 15)} min walk")
+            parts.append(f"- about {max(int(distance_km * 15), 1)} min walk")
         elif distance_km < 10:
-            parts.append(f"- a {int(distance_km * 2)} min drive")
+            parts.append(f"- a {max(int(distance_km * 2), 1)} min drive")
+        else:
+            parts.append(f"- about {round(distance_km, 1)} km away")
 
     explanation = " ".join(parts) + "."
     return explanation
@@ -538,9 +541,11 @@ class WeatherRecommendationsView(APIView):
         matching_cuisines = self.WEATHER_CUISINE_MAP[condition]
 
         # Find venues matching tags or cuisine
+        from apps.core.db import json_array_contains
+
         tag_filter = Q()
         for tag in matching_tags:
-            tag_filter |= Q(tags__icontains=tag)
+            tag_filter |= json_array_contains("tags", [tag])
 
         cuisine_filter = Q(cuisine_type__in=matching_cuisines)
 

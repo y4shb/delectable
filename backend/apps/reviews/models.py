@@ -188,7 +188,12 @@ class WantToTry(models.Model):
 
     class Meta:
         db_table = "want_to_try"
-        unique_together = [("user", "venue")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "venue"],
+                name="uq_want_to_try_user_venue",
+            ),
+        ]
         ordering = ["-created_at"]
 
     def __str__(self):

@@ -155,6 +155,15 @@ def get_comparison_pair(user, new_venue=None):
         )
         return (new_ranking.venue, closest.venue)
 
+    # Build set of already-compared pairs to prefer uncompared ones
+    from .models import PairwiseComparison
+
+    compared_set = set()
+    for c in PairwiseComparison.objects.filter(user=user).values_list(
+        "venue_a_id", "venue_b_id"
+    ):
+        compared_set.add((str(c[0]), str(c[1])))
+
     # Select a pair that is close in rating for an interesting comparison
     # Prefer venues with fewer comparisons to gather more data
     # Use a weighted random selection: weight pairs by closeness + novelty
@@ -163,6 +172,9 @@ def get_comparison_pair(user, new_venue=None):
         for j in range(i + 1, min(i + 4, len(rankings))):
             r_i = rankings[i]
             r_j = rankings[j]
+            # Order IDs to match the PairwiseComparison ordering
+            id_a, id_b = sorted([str(r_i.venue_id), str(r_j.venue_id)])
+            already_compared = (id_a, id_b) in compared_set
             rating_diff = abs(r_i.elo_score - r_j.elo_score)
             # Novelty bonus: venues with fewer comparisons are more interesting
             novelty = (
@@ -171,7 +183,9 @@ def get_comparison_pair(user, new_venue=None):
             )
             # Closeness bonus: closer ratings are more interesting
             closeness = 1.0 / (1 + rating_diff / 100.0)
-            weight = closeness * (1 + novelty)
+            # Penalize already-compared pairs (but don't exclude them entirely)
+            compared_penalty = 0.2 if already_compared else 1.0
+            weight = closeness * (1 + novelty) * compared_penalty
             pairs.append((r_i.venue, r_j.venue, weight))
 
     if not pairs:
@@ -196,12 +210,16 @@ def recalculate_ranks(user):
     Recalculate rank positions for all of a user's personal rankings.
 
     Ranks are assigned 1-based, ordered by descending Elo score.
+    Uses bulk_update for efficiency instead of individual saves.
     """
     rankings = list(
         PersonalRanking.objects.filter(user=user)
         .order_by("-elo_score")
     )
+    updated = []
     for i, ranking in enumerate(rankings, start=1):
         if ranking.rank != i:
             ranking.rank = i
-            ranking.save(update_fields=["rank"])
+            updated.append(ranking)
+    if updated:
+        PersonalRanking.objects.bulk_update(updated, ["rank"])

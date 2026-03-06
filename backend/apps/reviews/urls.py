@@ -1,5 +1,7 @@
 from django.urls import path
 
+from apps.venues.views_responses import VenueResponseView
+
 from . import views
 
 urlpatterns = [
@@ -10,6 +12,7 @@ urlpatterns = [
     }), name="review-detail"),
     path("reviews/<uuid:id>/like/", views.LikeView.as_view(), name="review-like"),
     path("reviews/<uuid:id>/bookmark/", views.BookmarkView.as_view(), name="review-bookmark"),
+    path("reviews/<uuid:id>/response/", VenueResponseView.as_view(), name="review-venue-response"),
     path("reviews/<uuid:id>/comments/", views.CommentListCreateView.as_view(), name="review-comments"),
     path("reviews/<uuid:rid>/comments/<uuid:cid>/", views.CommentDeleteView.as_view(), name="comment-delete"),
     path("venues/<uuid:id>/reviews/", views.VenueReviewsView.as_view(), name="venue-reviews"),

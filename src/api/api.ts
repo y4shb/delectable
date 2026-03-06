@@ -45,6 +45,9 @@ import type {
   MonthlyRecap,
   SeasonalHighlight,
   WeatherRecommendation,
+  KitchenStory,
+  FoodGuide,
+  VenueResponseData,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -305,6 +308,7 @@ export async function searchAll(
   const params: Record<string, string | number> = { q, type, limit };
   if (filters?.occasion) params.occasion = filters.occasion;
   if (filters?.dietary?.length) params.dietary = filters.dietary.join(',');
+  if (filters?.priceLevel != null) params.price_level = filters.priceLevel;
   if (filters?.lat != null) params.lat = filters.lat;
   if (filters?.lng != null) params.lng = filters.lng;
   if (filters?.radius != null) params.radius = filters.radius;
@@ -802,5 +806,55 @@ export async function submitComparison(
     venueB,
     winner,
   });
+  return data.data ?? data;
+}
+
+// ---------------------------------------------------------------------------
+// Kitchen Stories
+// ---------------------------------------------------------------------------
+
+export async function fetchKitchenStories(params?: {
+  venue?: string;
+  storyType?: string;
+}): Promise<KitchenStory[]> {
+  const { data } = await api.get('/venues/kitchen-stories/', { params });
+  return data.data ?? data.results ?? data;
+}
+
+export async function fetchKitchenStoryDetail(id: string): Promise<KitchenStory> {
+  const { data } = await api.get(`/venues/kitchen-stories/${id}/`);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Food Tourism Guides
+// ---------------------------------------------------------------------------
+
+export async function fetchFoodGuides(params?: {
+  city?: string;
+}): Promise<FoodGuide[]> {
+  const { data } = await api.get('/venues/guides/', { params });
+  return data.data ?? data.results ?? data;
+}
+
+export async function fetchFoodGuideDetail(id: string): Promise<FoodGuide> {
+  const { data } = await api.get(`/venues/guides/${id}/`);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Venue Response (Restaurant Response System)
+// ---------------------------------------------------------------------------
+
+export async function fetchVenueResponse(reviewId: string): Promise<VenueResponseData> {
+  const { data } = await api.get(`/reviews/${reviewId}/response/`);
+  return data.data ?? data;
+}
+
+export async function createVenueResponse(
+  reviewId: string,
+  text: string,
+): Promise<VenueResponseData> {
+  const { data } = await api.post(`/reviews/${reviewId}/response/`, { text });
   return data.data ?? data;
 }

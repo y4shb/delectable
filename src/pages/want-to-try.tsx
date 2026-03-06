@@ -112,7 +112,7 @@ export default function WantToTryPage() {
           </Typography>
           <Grid container spacing={2}>
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Grid item xs={12} sm={6} md={4} key={i}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
                 <Skeleton
                   variant="rectangular"
                   height={220}
@@ -181,7 +181,7 @@ export default function WantToTryPage() {
         ) : (
           <Grid container spacing={2}>
             {items.map((item) => (
-              <Grid item xs={12} sm={6} md={4} key={item.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.id}>
                 <Card
                   sx={{
                     borderRadius: '20px',

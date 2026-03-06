@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -41,11 +41,19 @@ export default function VenueSwipeCard({
 
   const venue = venueOption.venueDetail;
 
+  // Reset card state when the venue option changes
+  useEffect(() => {
+    setDragOffset({ x: 0, y: 0 });
+    setIsDragging(false);
+    setExitDirection(null);
+  }, [venueOption.id]);
+
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (exitDirection) return; // Ignore input during exit animation
     setIsDragging(true);
     startPos.current = { x: e.clientX, y: e.clientY };
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, []);
+  }, [exitDirection]);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -110,7 +118,7 @@ export default function VenueSwipeCard({
         </Box>
         <LinearProgress
           variant="determinate"
-          value={((currentIndex + 1) / totalCount) * 100}
+          value={totalCount > 0 ? ((currentIndex + 1) / totalCount) * 100 : 0}
           sx={{
             borderRadius: 4,
             height: 6,

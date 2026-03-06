@@ -298,7 +298,7 @@ export default function DinnerPlanResult({
           </Typography>
           <LinearProgress
             variant="determinate"
-            value={(result.votedCount / result.totalMembers) * 100}
+            value={result.totalMembers > 0 ? (result.votedCount / result.totalMembers) * 100 : 0}
             sx={{
               borderRadius: 4,
               height: 8,

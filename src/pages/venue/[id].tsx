@@ -25,6 +25,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AddToPlaylistSheet from '../../components/AddToPlaylistSheet';
 import OccasionSection from '../../components/OccasionSection';
 import DietaryBadges from '../../components/DietaryBadges';
+import KitchenStoriesSection from '../../components/KitchenStoriesSection';
 import type { Dish, WantToTryItem } from '../../types';
 
 export default function VenueDetailPage() {
@@ -53,12 +54,15 @@ export default function VenueDetailPage() {
   });
 
   const removeWantToTryMutation = useMutation({
-    mutationFn: () => removeWantToTry(wantToTryItem!.id),
+    mutationFn: () => {
+      if (!wantToTryItem) return Promise.resolve();
+      return removeWantToTry(wantToTryItem.id);
+    },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['wantToTry'] });
       const previous = queryClient.getQueryData<WantToTryItem[]>(['wantToTry']);
       queryClient.setQueryData<WantToTryItem[]>(['wantToTry'], (old) =>
-        old ? old.filter((item) => item.id !== wantToTryItem!.id) : [],
+        old ? old.filter((item) => item.id !== wantToTryItem?.id) : [],
       );
       return { previous };
     },
@@ -542,6 +546,9 @@ export default function VenueDetailPage() {
         {venue.occasions && (
           <OccasionSection venueId={venue.id} occasions={venue.occasions} />
         )}
+
+        {/* Kitchen Stories for this venue */}
+        <KitchenStoriesSection venueId={venue.id} />
 
         {/* Reviews section */}
         <Box sx={{ mt: 4, px: 1 }}>

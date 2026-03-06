@@ -256,12 +256,14 @@ class ChallengeListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
+        from django.db.models import Count
+
         now = timezone.now()
         return Challenge.objects.filter(
             status=Challenge.Status.ACTIVE,
             start_date__lte=now,
             end_date__gte=now,
-        )
+        ).annotate(_participant_count=Count("participants"))
 
 
 class ChallengeDetailView(generics.RetrieveAPIView):

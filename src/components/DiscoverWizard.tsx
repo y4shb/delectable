@@ -697,6 +697,7 @@ export default function DiscoverWizard({ onClose }: DiscoverWizardProps) {
                     setSelectedDistance(null);
                     setSelectedDietary([]);
                     setResults([]);
+                    discoverMutation.reset();
                   }}
                   aria-label="Start over with new preferences"
                   sx={{

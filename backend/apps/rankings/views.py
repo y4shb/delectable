@@ -68,38 +68,44 @@ class ComparisonView(APIView):
                 venue=venue_b,
             )
 
-            # Determine the outcome
-            if winner_id is None:
-                outcome = "draw"
-            elif winner_id == venue_a.id:
-                outcome = "a"
-            else:
-                outcome = "b"
+            # Only apply Elo update for new comparisons to avoid
+            # double-counting when re-comparing the same pair
+            if created:
+                # Determine the outcome
+                if winner_id is None:
+                    outcome = "draw"
+                elif winner_id == venue_a.id:
+                    outcome = "a"
+                else:
+                    outcome = "b"
 
-            # Update Elo ratings
-            new_elo_a, new_elo_b = update_ratings(
-                ranking_a.elo_score,
-                ranking_b.elo_score,
-                outcome,
-                count_a=ranking_a.comparison_count,
-                count_b=ranking_b.comparison_count,
-            )
+                # Update Elo ratings
+                new_elo_a, new_elo_b = update_ratings(
+                    ranking_a.elo_score,
+                    ranking_b.elo_score,
+                    outcome,
+                    count_a=ranking_a.comparison_count,
+                    count_b=ranking_b.comparison_count,
+                )
 
-            # Update ranking records
-            ranking_a.elo_score = new_elo_a
-            ranking_a.comparison_count += 1
-            ranking_a.confidence = compute_confidence(ranking_a.comparison_count)
-            ranking_a.save(update_fields=["elo_score", "comparison_count", "confidence", "updated_at"])
+                # Update ranking records
+                ranking_a.elo_score = new_elo_a
+                ranking_a.comparison_count += 1
+                ranking_a.confidence = compute_confidence(ranking_a.comparison_count)
+                ranking_a.save(update_fields=["elo_score", "comparison_count", "confidence", "updated_at"])
 
-            ranking_b.elo_score = new_elo_b
-            ranking_b.comparison_count += 1
-            ranking_b.confidence = compute_confidence(ranking_b.comparison_count)
-            ranking_b.save(update_fields=["elo_score", "comparison_count", "confidence", "updated_at"])
+                ranking_b.elo_score = new_elo_b
+                ranking_b.comparison_count += 1
+                ranking_b.confidence = compute_confidence(ranking_b.comparison_count)
+                ranking_b.save(update_fields=["elo_score", "comparison_count", "confidence", "updated_at"])
 
             # Recalculate all ranks for this user
             recalculate_ranks(request.user)
 
-        # Return the updated comparison with ranking info
+        # Reload comparison with select_related to avoid N+1 queries
+        comparison = PairwiseComparison.objects.select_related(
+            "venue_a", "venue_b", "winner"
+        ).get(pk=comparison.pk)
         comparison_data = PairwiseComparisonSerializer(comparison).data
         updated_rankings = PersonalRankingSerializer(
             PersonalRanking.objects.filter(

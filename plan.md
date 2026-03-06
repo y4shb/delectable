@@ -1775,6 +1775,40 @@ The backend should be built in this sequence (each step is independently testabl
 
 ---
 
+### Milestone 14: New Feature Ideas (enhancements.md Section 3) [COMPLETE]
+
+**Goal**: Implement all high-impact, medium-impact, and differentiating features from the Section 3 research document.
+
+#### 14.1 High-Impact Features (3 of 5 implemented)
+- **Elo-Style Relative Ranking**: `apps/rankings/` — PairwiseComparison + PersonalRanking models, tiered K-factor Elo algorithm (40/24/16), `/compare` page (side-by-side venue cards), `/rankings` page (top 10), ComparisonCard component
+- **"What Should I Eat?" Decision Engine**: DecisionEngineView with multi-signal scoring (occasion, distance, dietary), haversine distance, natural language explanations, `/discover` page with 4-step wizard (DiscoverWizard)
+- **Group Dining Consensus**: `apps/groups/` — DinnerPlan + Member + Venue + Vote models, Tinder-style swipe voting (VenueSwipeCard), share code invite, consensus result page
+- Time Machine / Dish Comparison — DEFERRED
+- Offline Food Journal — DEFERRED
+
+#### 14.2 Medium-Impact Features (6 of 6 implemented)
+- **Want-to-Try List**: WantToTry model, `/want-to-try` page with venue grid, optimistic delete, venue detail toggle
+- **Price Range Filter**: `price_level` field on Venue (1-4), `price_level`/`price_max` query filters in VenueViewSet
+- **Food Challenges**: Challenge discovery page, join/progress tracking, leaderboard dialog
+- **Monthly Mini-Recap**: MonthlyRecap model (on-the-fly generation), `/monthly-recap` page with 5-card swipeable carousel
+- **Restaurant Response System**: VenueOwner + VenueResponse models, VenueResponseView (owner verification), `GET/POST /api/reviews/<id>/response/`
+- **Collaborative Playlists**: PlaylistCollaborator type, backend models exist from M11
+
+#### 14.3 Differentiating Features (4 of 5 implemented)
+- **Seasonal Discovery**: SeasonalHighlight model, SeasonalBanner on feed page
+- **Weather-Aware Recommendations**: Weather recs API endpoint, WeatherBanner on feed page
+- **Food Tourism Guides**: FoodGuide + GuideStop models, `views_guides.py`, list + detail serializers (with stops_count and nested stops), API functions + React Query hooks
+- **Kitchen Stories**: KitchenStory model (5 story types), `views_stories.py`, list + detail serializers, atomic view_count increment with F(), API functions + React Query hooks
+- AR Dish Preview — DEFERRED (requires WebAR infrastructure)
+
+#### 14.4 Code Quality
+- 5 parallel code review agents identified ~50 bugs across all features
+- All critical and high-priority bugs fixed (dietary filter bypass, N+1 queries, clipboard error handling, comparison pair selection, rank recalculation, MUI Grid v2 API)
+- Migration: `venues/0005` for all new models (VenueOwner, VenueResponse, KitchenStory, FoodGuide, GuideStop, price_level field)
+- TypeScript `tsc --noEmit` — 0 errors
+
+---
+
 ### Post-MVP: User Profiles & Playlist Sharing
 
 **Goal**: Enable social discovery through clickable user profiles and playlist sharing features.
@@ -1958,3 +1992,776 @@ Response: {
 - **Integration tests**: API endpoint flows, database operations
 - **E2E tests**: Critical user flows (Playwright or Cypress)
 - **Visual regression**: Storybook + Chromatic (optional)
+
+---
+
+## 11. Enhancement Plan: Search & Discovery Improvements (Section 4)
+
+### 11.0 Overview
+
+This section provides a comprehensive implementation plan for upgrading Delectable's search and discovery capabilities from the current basic `icontains` keyword search to a full-featured, intelligent search-and-discover platform. The plan covers all features from `enhancements.md` Section 4 and is organized into three pillars:
+
+- **4.1 Semantic Search** -- Hybrid vector + full-text search using pgvector and PostgreSQL GIN indexes, delivering natural language understanding ("cozy date night spot with great wine") alongside traditional keyword matching.
+- **4.2 Search UX Improvements** -- Voice search, recent/popular searches, fuzzy autocomplete, advanced filter chips (cuisine, price, open now), sort options, map toggle in search results, and cross-modal photo search.
+- **4.3 Discovery Features** -- Time-aware "Near Me" quick filters, neighborhood exploration, new and trending venues, cuisine deep-dive pages, "Surprise Me" random recommendations, friend recommendations in search results, and seasonal collections.
+
+All features build on the existing Django 5.2 + DRF 3.15.2 backend, Next.js Pages Router frontend, and PostgreSQL database. Several features share infrastructure prerequisites (Redis, Celery, pgvector) detailed below.
+
+---
+
+### 11.1 Infrastructure Prerequisites
+
+These shared dependencies must be set up before most Section 4 features can be implemented. They form "Phase 0" of the build.
+
+#### 11.1.1 PostgreSQL Extensions
+
+**pgvector** -- Required for semantic search (4.1) and cross-modal photo search (4.2.8).
+- Migration: `CREATE EXTENSION IF NOT EXISTS vector;`
+- Python package: `pgvector>=0.3.0`
+- Enables `VectorField` in Django models and HNSW/IVFFlat indexes for approximate nearest neighbor search
+
+**pg_trgm** -- Required for enhanced autocomplete (4.2.4).
+- Migration: `CREATE EXTENSION IF NOT EXISTS pg_trgm;`
+- Enables `TrigramSimilarity`, `TrigramWordSimilarity` for fuzzy text matching
+- GIN indexes on text fields for fast trigram lookups
+
+#### 11.1.2 Redis
+
+- Replace current `LocMemCache` with `django-redis`
+- Required as Celery message broker
+- Used for: query embedding cache, search result cache, trending query cache, popular searches, user following ID cache
+- Package: `django-redis>=5.4.0`, `redis>=5.0.0`
+- Configuration: single Redis instance for both cache and Celery broker initially
+
+#### 11.1.3 Celery + Celery Beat
+
+- Required for: async embedding generation (4.1), trending search computation (4.2.3), trending venue scores (4.3.3), seasonal collection auto-generation (4.3.7), collection archival (4.3.7)
+- Packages: `celery[redis]>=5.3.0`, `django-celery-beat>=2.5.0`
+- Setup: `backend/celery.py` app configuration, worker process, Beat scheduler
+- Docker Compose: add `celery-worker` and `celery-beat` services
+
+#### 11.1.4 Python Packages (New)
+
+| Package | Version | Purpose | Required By |
+|---------|---------|---------|-------------|
+| `pgvector` | >=0.3.0 | Django VectorField + pgvector integration | 4.1, 4.2.8 |
+| `sentence-transformers` | >=2.2.0 | Embedding model loading (MiniLM, BGE) | 4.1 |
+| `onnxruntime` | >=1.16.0 | Fast CPU inference for embedding models | 4.1 |
+| `celery[redis]` | >=5.3.0 | Async task queue | 4.1, 4.2.3, 4.3.3, 4.3.7 |
+| `django-celery-beat` | >=2.5.0 | DB-backed periodic task schedule | 4.3.3, 4.3.7 |
+| `django-redis` | >=5.4.0 | Redis cache backend | All features |
+| `redis` | >=5.0.0 | Redis client | All features |
+| `torch` | >=2.0.0 | PyTorch for CLIP model | 4.2.8 |
+| `clip` | git+https://github.com/openai/CLIP.git | CLIP ViT-B/32 model | 4.2.8 |
+| `transformers` | >=4.35.0 | HuggingFace Food-101 classifier | 4.2.8 |
+| `imagehash` | >=4.3.0 | Perceptual hashing for photo search cache | 4.2.8 |
+
+#### 11.1.5 New Django Apps
+
+- `backend/apps/collections/` -- For seasonal collections (4.3.7). Models: `Collection`, `CollectionVenue`, `SavedCollection`.
+
+#### 11.1.6 Frontend: LocationContext Provider
+
+- `src/contexts/LocationContext.tsx` -- Centralized geolocation wrapping `_app.tsx`
+- Uses `navigator.geolocation.watchPosition` with caching in `localStorage`
+- State: `lat`, `lng`, `accuracy`, `loading`, `error`, `permissionState`
+- Graceful fallback to IP-based approximate location or manual city selection
+- Required by: Near Me (4.3.1), distance sort (4.2.6), map toggle (4.2.7), surprise me (4.3.5)
+
+---
+
+### 11.2 Semantic Search (4.1)
+
+**Goal**: Replace `icontains` keyword search with hybrid semantic + keyword search that understands natural language queries like "cozy date night spot with great wine."
+
+#### 11.2.1 Vector Database: pgvector
+
+- **Decision**: pgvector with HNSW indexing for Phase 1 (zero new infrastructure, ACID consistency with existing PostgreSQL). Evaluate Qdrant sidecar for Phase 2 if p99 latency exceeds targets at >500K vectors.
+- **Rationale**: Benchmarks show pgvector HNSW achieves <15ms search at 100K vectors. At Delectable's scale, this is sufficient. Avoids operational complexity of a separate vector DB.
+- **Index type**: HNSW (not IVFFlat) -- supports concurrent inserts without retraining, O(log n) search, ~98% recall with m=16, ef_construction=64.
+
+#### 11.2.2 Embedding Models
+
+- **MVP**: `all-MiniLM-L6-v2` with ONNX INT8 quantization -- 384-dim embeddings, ~8-15ms inference on CPU, free/self-hosted
+- **Production upgrade**: `BAAI/bge-base-en-v1.5` -- 768-dim, 2x better retrieval accuracy on MTEB benchmark, still self-hosted
+- **Future**: Fine-tune bge-base on Delectable's own review corpus using (query, clicked_review) pairs from SearchLog -- expected 10-20% MRR improvement
+- **Loading**: Singleton pattern per Django/Celery worker process with thread-safe lock. ONNX Runtime for fast CPU inference.
+
+#### 11.2.3 New Models
+
+**`ReviewEmbedding`** (in `backend/apps/search/models.py`):
+- `review` -- OneToOneField to Review (primary_key=True)
+- `embedding` -- VectorField(dimensions=384)
+- `model_version` -- CharField(max_length=100)
+- `indexed_text` -- TextField (stores the text that was embedded for debugging)
+- `created_at`, `updated_at` -- DateTimeField
+- Index: `HnswIndex` with `vector_cosine_ops`, m=16, ef_construction=64
+
+**`VenueEmbedding`** (in `backend/apps/search/models.py`):
+- `venue` -- OneToOneField to Venue (primary_key=True)
+- `embedding` -- VectorField(dimensions=384)
+- `model_version` -- CharField(max_length=100)
+- `review_count_at_embed` -- PositiveIntegerField
+- Index: `HnswIndex` with `vector_cosine_ops`
+
+**`SearchLog`** (in `backend/apps/search/models.py`):
+- `id` -- UUIDField (primary_key)
+- `query` -- CharField(max_length=500)
+- `user` -- ForeignKey to User (nullable)
+- `result_count` -- PositiveIntegerField
+- `clicked_venue_id` -- UUIDField (nullable)
+- `search_type` -- CharField choices: keyword, semantic, hybrid
+- `filters_applied` -- JSONField (stores applied filters)
+- `latency_ms` -- IntegerField
+- `created_at` -- DateTimeField
+- Indexes: `[-created_at]`, `[query]`
+
+#### 11.2.4 Hybrid Search Architecture
+
+**Reciprocal Rank Fusion (RRF)** combining two retrieval paths:
+1. **Semantic path**: Query text → embedding → pgvector HNSW cosine similarity → ranked list
+2. **Keyword path**: Query text → PostgreSQL GIN full-text search → ranked list
+3. **Fusion**: `RRF_score(d) = Σ 1/(k + rank_i(d))` with k=60
+
+**Intent-based weight tuning** (classify query before search):
+- `exact_name` (short, capitalized) → 80% keyword, 20% semantic
+- `dish_search` (contains food noun) → 50/50
+- `mood_occasion` (long, descriptive, "cozy", "romantic") → 20% keyword, 80% semantic
+- `hybrid` (default) → 50/50
+
+**Query expansion** for short queries: food synonym dictionary maps "sushi" → ["japanese", "raw fish", "nigiri", "maki", "omakase"] to enrich embedding input.
+
+#### 11.2.5 Embedding Pipeline
+
+- **New reviews**: Celery `post_save` signal on Review → async `generate_review_embedding` task
+- **Backfill**: Management command `python manage.py build_search_index` -- batch embeds all existing reviews
+- **What to embed**: Concatenation of `venue_name + cuisine + occasions + dish_name + review_text[:400] + tags`
+- **Venue-level**: Average of all review embeddings for that venue, recomputed when review count changes by >10%
+
+#### 11.2.6 Backend Changes
+
+- Update `SearchView` in `apps/search/views.py`:
+  - Accept `mode` param: `hybrid` (default), `semantic`, `keyword`
+  - Call hybrid search when embedding model available, fall back to keyword-only
+  - Cache query embeddings (1-hour TTL) and full search results (5-min TTL)
+  - Log to `SearchLog` asynchronously via Celery task
+- New file: `apps/search/embedding.py` -- singleton model loader, `embed_query()`, `embed_document()`
+- New file: `apps/search/hybrid.py` -- `hybrid_search_reviews()` with RRF implementation
+
+#### 11.2.7 Frontend Changes
+
+- Update search bar placeholder: `"Try: cozy date night, bold spicy flavors, somewhere romantic..."`
+- Increase debounce to 400ms (semantic queries are more expensive)
+- Add `matchConcepts` chips to search result cards (extracted top TF-IDF terms from matched review)
+- Progressive fallback: show "Showing keyword results only" when embedding model unavailable
+- Update `useSearch` hook to accept `mode` parameter
+
+#### 11.2.8 Performance Targets
+
+| Step | Budget |
+|------|--------|
+| Query embedding (ONNX, CPU) | 10-15ms |
+| pgvector HNSW search | 8-12ms |
+| GIN full-text search | 3-8ms |
+| RRF fusion | <1ms |
+| Django serialization | 5-10ms |
+| **Total (uncached)** | **<120ms** |
+| **Total (cached)** | **<35ms** |
+
+#### 11.2.9 Implementation Sprints
+
+- **Sprint 1**: pgvector extension, ReviewEmbedding model, MiniLM ONNX singleton, post_save signal, backfill command, GIN index migration
+- **Sprint 2**: RRF hybrid search in SearchView, query/result caching in Redis, SearchLog model and logging
+- **Sprint 3**: Upgrade to bge-base-en-v1.5, VenueEmbedding model, frontend UX (placeholder, debounce, concept chips)
+- **Sprint 4**: Cross-encoder re-ranker for mood/occasion queries, A/B testing hybrid vs keyword, load testing
+
+---
+
+### 11.3 Search UX Improvements (4.2)
+
+#### 11.3.1 Voice Search (4.2.1)
+
+**Goal**: Microphone icon in search bar for hands-free queries.
+
+**Architecture**: Web Speech API (browser-native, 0ms startup, ~93% browser coverage) as primary. OpenAI Whisper API as fallback for non-supporting browsers (Firefox).
+
+**Frontend**:
+- `useVoiceSearch` hook (`src/hooks/useVoiceSearch.ts`): manages `SpeechRecognition` lifecycle, interim/final results, error states, 1.5s silence timeout for auto-submit
+- `VoiceSearchButton` component (`src/components/search/VoiceSearchButton.tsx`): animated mic icon in Header search bar `endAdornment`, pulsing animation during recording, inline transcript display
+
+**Whisper fallback**:
+- Record via `MediaRecorder` API → send audio blob to `POST /api/search/voice/`
+- Backend: accept audio file, call OpenAI Whisper API, return transcription
+- Cost: ~$0.006/minute of audio at OpenAI pricing
+
+**NLP parsing**: Extract structured intents from voice queries:
+- "Italian near me" → `{cuisine: "Italian", location: "near_me"}`
+- "Best sushi for date night" → `{cuisine: "Japanese", occasion: "date-night", sort: "rating"}`
+
+**Dependencies**: No infrastructure prerequisites. Whisper fallback requires OpenAI API key (optional).
+
+---
+
+#### 11.3.2 Recent Searches (4.2.2)
+
+**Goal**: Persist and display recent search queries.
+
+**Architecture**: Hybrid localStorage + backend approach.
+- **Anonymous users**: localStorage (max 20 entries, JSON array with `{query, timestamp, resultCount}`)
+- **Authenticated users**: `SearchLog` model in backend, synced on login via `POST /api/search/recent/sync/`
+- Deduplication by query text (newest wins)
+
+**Frontend**:
+- `useRecentSearches` hook (`src/hooks/useRecentSearches.ts`): `getRecent()`, `addRecent()`, `removeRecent()`, `clearAll()`
+- Recent searches dropdown in `Header.tsx` search bar, shown on focus when query is empty
+- Individual delete (X button per entry) and "Clear all" link
+- Replace current hardcoded `recentSearches` array in `search.tsx`
+
+**Backend**: `GET /api/search/recent/` (authenticated), `DELETE /api/search/recent/` (clear all)
+
+**Dependencies**: `SearchLog` model (shared with semantic search). No infrastructure prerequisites for localStorage path.
+
+---
+
+#### 11.3.3 Popular Searches (4.2.3)
+
+**Goal**: Show trending search terms from the community.
+
+**Architecture**:
+- Hourly Celery Beat task `compute_trending_searches()`: aggregates `SearchLog` entries
+- Exponential decay scoring: `score = Σ exp(-λ * age_hours)` with λ=0.05 (half-life ~14 hours)
+- Top 10 stored in cache with 1-hour TTL
+- API: `GET /api/search/popular/` (public, no auth required)
+
+**Frontend**: "Trending" section below recent searches in search dropdown, shown as chips with fire icon.
+
+**Dependencies**: Requires `SearchLog` model, Celery Beat, Redis cache.
+
+---
+
+#### 11.3.4 Search Suggestions / Autocomplete (4.2.4)
+
+**Goal**: Enhanced real-time suggestions as user types, replacing current `icontains` with fuzzy matching.
+
+**Backend changes to `AutocompleteView`**:
+- **Remove auth requirement** (currently blocks anonymous users -- critical bug)
+- **Min query length**: 2 chars (currently 1, too noisy)
+- Replace `icontains` with `pg_trgm` trigram matching: `TrigramSimilarity` + `TrigramWordSimilarity`
+- Multi-entity suggestions: venues, cuisines, dishes, occasion tags -- all in one response, grouped by entity type
+- Add GIN index: `CREATE INDEX idx_venue_name_trgm ON venues USING gin(name gin_trgm_ops)`
+- Redis caching of top-1000 queries (5-min TTL)
+- **Performance target**: <50ms response
+
+**Frontend**:
+- Replace `InputBase` in `Header.tsx` with MUI `Autocomplete` component
+- Grouped results by entity type (Venues, Cuisines, Dishes)
+- Debounce 300ms + `AbortController` for request cancellation on new keystrokes
+- Keyboard navigation support
+
+**Dependencies**: pg_trgm extension (11.1.1). Redis for caching (11.1.2).
+
+---
+
+#### 11.3.5 Filter Chips & Open Now Filter (4.2.5)
+
+**Goal**: Persistent filter chips below search bar for cuisine, dietary, occasion, price, distance, and "Open Now."
+
+**Frontend**:
+- `FilterChipBar` component (`src/components/search/FilterChipBar.tsx`): horizontal scroll of filter chips below search bar on `search.tsx`
+- Chips: Cuisine, Dietary, Occasion, Price Range, Open Now, Distance
+- **URL-driven state**: `router.push` with `shallow: true` -- enables deep linking, back-button support, shareable filtered URLs
+- Extend `SearchFilters` type in `src/types/index.ts` with: `cuisine`, `price_range`, `sort`, `open_now`, `distance`
+
+**Open Now Filter -- New `VenueHours` Model** (in `backend/apps/venues/models.py`):
+- `venue` -- ForeignKey to Venue
+- `day_of_week` -- IntegerField (0=Monday, 6=Sunday)
+- `open_time` -- TimeField
+- `close_time` -- TimeField
+- `is_closed` -- BooleanField (for holidays/closures)
+- UniqueConstraint: `(venue, day_of_week)`
+
+**Backend query logic**:
+- Filter by current day of week + current time between `open_time` and `close_time`
+- Handle midnight crossing (e.g., bar open 8PM-2AM): OR condition where `close_time < open_time` AND (current_time >= open_time OR current_time <= close_time)
+- Django Admin: `VenueHoursInline` (TabularInline) on VenueAdmin for hours management
+
+**Dependencies**: No infrastructure prerequisites. `VenueHours` model is standalone.
+
+---
+
+#### 11.3.6 Sort Options (4.2.6)
+
+**Goal**: Sort search results by relevance, rating, distance, newest, or most reviewed.
+
+**Frontend**:
+- `SortSelector` component (`src/components/search/SortSelector.tsx`): MUI Select or ToggleButtonGroup
+- Options: Relevance (default), Rating, Distance, Newest, Most Reviewed
+- URL param: `?sort=relevance|rating|distance|newest|reviews`
+
+**Backend sort implementations**:
+- **Relevance**: RRF hybrid score (default, from semantic search)
+- **Rating**: Bayesian average -- `weighted = (v*R + m*C)/(v+m)` where v=venue review count, R=venue avg rating, m=5 (prior), C=global mean rating. Prevents venues with 1 review of 10.0 from ranking above venues with 50 reviews averaging 9.2.
+- **Distance**: Haversine formula using user's lat/lng from `LocationContext`. Without PostGIS: Python-side sort on bounding-box-filtered queryset.
+- **Newest**: `ORDER BY created_at DESC`
+- **Most Reviewed**: `ORDER BY reviews_count DESC`
+
+**Dependencies**: `LocationContext` for distance sort. No infrastructure prerequisites.
+
+---
+
+#### 11.3.7 Map Toggle in Search Results (4.2.7)
+
+**Goal**: Switch between list and map view for search results, Airbnb-style.
+
+**Architecture**:
+- Reuse existing `GoogleMapView.tsx` (already has clustering, heatmap, cuisine-colored markers, MarkerClusterer)
+- `viewMode` state: `'list' | 'map' | 'split'`
+- **Desktop** (>1024px): split-view (list left 50%, map right 50%)
+- **Mobile**: toggle between list and map via floating pill/FAB at bottom of search results
+
+**Frontend**:
+- `SearchViewToggle` component (`src/components/search/SearchViewToggle.tsx`): pill toggle button
+- Bidirectional sync: hover on list item → highlight corresponding map marker, click marker → scroll to list item
+- `OverlayView` popups for venue cards on marker click (not native InfoWindow -- matches app design language)
+- `onBoundsChanged` → re-query with viewport bounding box for "Search this area" functionality
+- Add props to `GoogleMapView.tsx`: `hoveredVenueId`, `onMarkerClick`, `onBoundsChanged`
+
+**Dependencies**: Existing `GoogleMapView.tsx`. No infrastructure prerequisites.
+
+---
+
+#### 11.3.8 Cross-Modal Photo Search (4.2.8)
+
+**Goal**: Upload a food photo and find similar dishes nearby.
+
+**Architecture**: CLIP ViT-B/32 for image embeddings (512-dim) + `nateraw/food` Food-101 classifier for dish identification.
+
+**Pipeline**:
+1. User uploads photo → compress to <800KB in browser (`browser-image-compression`)
+2. `POST /api/search/visual/` (MultiPartParser, 10MB limit, 20/hour rate limit)
+3. Strip EXIF metadata (privacy), validate food/not-food (Food-101 confidence threshold 0.30)
+4. Parallel: CLIP embedding generation + dish classification (`ThreadPoolExecutor`)
+5. pgvector cosine similarity search on `ReviewPhotoEmbedding` table (with optional geo bounding box)
+6. Text-based venue search from identified dish label
+7. Merge + deduplicate, boost venues appearing in both visual and text paths
+
+**New Model: `ReviewPhotoEmbedding`** (in `backend/apps/search/models.py`):
+- `review` -- OneToOneField to Review
+- `clip_embedding` -- VectorField(dimensions=512)
+- `embedding_status` -- CharField choices: pending, done, failed
+- `embedding_model` -- CharField(default='clip-vit-b-32')
+- Index: `HnswIndex` with `vector_cosine_ops`
+
+**Backend**:
+- `backend/apps/search/visual_service.py`: CLIP model singleton loader, image preprocessing, EXIF stripping, embedding generation, Food-101 classification, food/not-food gate
+- `backend/apps/search/views_visual.py`: `VisualSearchView` -- validates input, runs pipeline, returns `{dish_identified, confidence, similar_dishes[], venue_matches[]}`
+- Celery task `embed_review_photo`: async CLIP embedding on new review creation (called from `ReviewViewSet.perform_create`)
+- Management command `embed_review_photos`: batch backfill for existing review photos
+
+**Frontend**:
+- Camera icon button in search bar `endAdornment` → `<input type="file" accept="image/*" capture="environment">` (opens rear camera on mobile, file picker on desktop)
+- `VisualSearchResults` component (`src/components/search/VisualSearchResults.tsx`): dish identification card + similar dishes grid + venue matches list
+- Loading state: "Analyzing your photo..." with spinner
+- `useVisualSearch` mutation hook in `useApi.ts`
+
+**Performance**: Total CPU path 635ms-1.17s (within 3-second target). CLIP on CPU: ~200ms. Food-101: ~80ms.
+
+**Privacy**: EXIF stripping before any processing, search photos processed in-memory only (never stored), content moderation with NudeNet (optional), perceptual hash caching in Redis (1-hour TTL).
+
+**Dependencies**: pgvector (11.1.1), Redis (11.1.2), Celery (11.1.3), `torch`, `clip`, `transformers` packages (11.1.4).
+
+---
+
+### 11.4 Discovery Features (4.3)
+
+#### 11.4.1 Near Me Quick Filters (4.3.1)
+
+**Goal**: One-tap, time-aware quick filters for nearby venue discovery.
+
+**Frontend**:
+- `useTimeAwareCategories` hook (`src/hooks/useTimeAwareCategories.ts`): returns time-appropriate quick filters based on current local time. Updates every 30 minutes.
+
+| Time Window | Categories |
+|-------------|------------|
+| 6 AM - 11 AM | Coffee, Breakfast, Juice Bar, Bakery |
+| 11 AM - 2 PM | Lunch, Quick Bite, Takeout, Salad |
+| 2 PM - 5 PM | Coffee, Dessert, Tea, Gelato |
+| 5 PM - 10 PM | Dinner, Wine Bar, Cocktails, Fine Dining |
+| 10 PM - 6 AM | Late Night, Pizza, Bar, Late Eats |
+
+- Each category object: `{label, emoji, cuisine_filter, occasion_filter?}`
+- `QuickFilterBar` component (`src/components/discover/QuickFilterBar.tsx`): horizontal scroll of pill-shaped chips. One-tap applies combined filter: `cuisine={filter}&open_now=true&lat={lat}&lng={lng}&radius=3km`
+
+**Backend**: Bounding box geo filter using lat/lng deltas (Haversine approximation, no PostGIS needed): `lat_delta = radius_km / 111.0`, `lng_delta = radius_km / (111.0 * cos(radians(lat)))`.
+
+**Dependencies**: `LocationContext` (11.1.6). No infrastructure prerequisites.
+
+---
+
+#### 11.4.2 Neighborhood Exploration (4.3.2)
+
+**Goal**: Browse venues organized by neighborhood with curated highlights per area.
+
+**New Model: `Neighborhood`** (in `backend/apps/venues/models.py`):
+- `name` -- CharField(max_length=100)
+- `slug` -- SlugField(unique=True)
+- `city` -- CharField(max_length=100)
+- `description` -- TextField
+- `center_lat`, `center_lng` -- FloatField
+- `bounds` -- JSONField (GeoJSON polygon defining neighborhood boundary)
+- `photo_url` -- URLField(blank=True)
+- `highlights` -- JSONField(default=list), e.g., `["Best coffee scene", "Late-night eats"]`
+- `venue_count` -- IntegerField(default=0), denormalized
+- `is_active` -- BooleanField(default=True)
+
+**Venue-Neighborhood assignment**:
+- Add `neighborhood` ForeignKey(nullable) to `Venue` model
+- Management command `assign_neighborhoods`: iterates venues with lat/lng, checks point-in-polygon containment, assigns FK
+- Re-run as Celery task on new venue creation
+
+**Backend API**:
+- `GET /api/neighborhoods/` -- list active neighborhoods with top 3 venues per neighborhood, review count
+- `GET /api/neighborhoods/{slug}/` -- neighborhood detail + paginated venue list
+- `GET /api/neighborhoods/{slug}/venues/` -- venue list filtered by neighborhood, supports all search filters
+
+**Frontend**:
+- `/explore/neighborhoods/index.tsx` (SSR): grid of `NeighborhoodCard` components (photo, name, description, venue count, top cuisine tags)
+- `/explore/neighborhoods/[slug].tsx` (SSR): hero image, editorial description, highlights chips, venue list, map with boundary polygon + markers
+
+**Dependencies**: Venue lat/lng data must be populated. No infrastructure prerequisites.
+
+---
+
+#### 11.4.3 New & Trending (4.3.3)
+
+**Goal**: Surface newly added venues and trending venues gaining rapid popularity.
+
+**Upgrade existing `VenueTrendingScore`** (in `backend/apps/feed/models.py`):
+- Replace current threading hack in `feed/engine.py` with proper Celery Beat task
+- Enhanced trending algorithm (runs hourly):
+  - Velocity (50%): rate of new reviews in last 7 days vs. venue's historical average
+  - Z-score (20%): standard deviations above mean review rate
+  - Rating quality (20%): average rating of reviews in last 14 days
+  - Exponential decay (10%): recency bonus with λ=0.03
+
+**"New Venues" query**: venues with `created_at` within last 30 days AND `avg_rating >= 7.0`, ordered by `created_at DESC`
+
+**Backend API**:
+- `GET /api/discover/trending/?limit=20` -- top venues by trending score
+- `GET /api/discover/new/?days=30&min_rating=7.0` -- recently added high-rated venues
+
+**Frontend**:
+- Dedicated sections on explore/discover page
+- `TrendingVenueCard` (`src/components/discover/TrendingVenueCard.tsx`): venue card with trending rank number and fire badge
+- "New" section: venue cards with "NEW" badge (MUI Badge component)
+- Horizontal scroll layout for both sections
+
+**Dependencies**: Celery Beat (11.1.3). Uses existing `VenueTrendingScore` model (no schema change, logic change only).
+
+---
+
+#### 11.4.4 Cuisine Deep-Dive (4.3.4)
+
+**Goal**: Dedicated, SEO-friendly landing pages per cuisine with top venues, popular dishes, and editorial guides.
+
+**New Model: `Cuisine`** (in `backend/apps/venues/models.py`):
+- `name` -- CharField(max_length=100, unique=True)
+- `slug` -- SlugField(unique=True)
+- `emoji` -- CharField(max_length=10)
+- `description` -- TextField
+- `hero_image_url` -- URLField(blank=True)
+- `popular_dishes` -- JSONField(default=list), e.g., `["Margherita Pizza", "Carbonara", "Tiramisu"]`
+- `guide_content` -- TextField(blank=True), long-form editorial guide (markdown)
+- `venue_count` -- IntegerField(default=0), denormalized
+- `is_featured` -- BooleanField(default=False)
+
+**Migration: `Venue.cuisine_type` CharField → `Cuisine` FK**:
+1. Create `Cuisine` model and populate from distinct `Venue.cuisine_type` values
+2. Add `cuisine` ForeignKey(nullable) to `Venue`
+3. Data migration: match existing `cuisine_type` strings to `Cuisine` records, populate FK
+4. Keep `cuisine_type` CharField as deprecated during transition
+5. This is a breaking change -- requires coordinated frontend + backend deployment
+
+**Backend API**:
+- `GET /api/cuisines/` -- list all cuisines with venue count
+- `GET /api/cuisines/{slug}/` -- cuisine detail with editorial content
+- `GET /api/cuisines/{slug}/venues/` -- venues of this cuisine, supports all search filters
+
+**Frontend** (ISR for SEO):
+- `/cuisine/[slug].tsx` with `getStaticProps` and `revalidate: 3600`
+- Page layout: hero image, editorial description, popular dishes chips, top venues grid, friend activity ("3 friends love Italian"), related cuisines
+- Components: `CuisineHero`, `CuisineVenueGrid`, `PopularDishesBar` (all in `src/components/cuisine/`)
+- SEO: JSON-LD structured data (`Restaurant` schema), meta descriptions, Open Graph tags
+
+**Dependencies**: No infrastructure prerequisites. Migration from `cuisine_type` to `Cuisine` FK requires coordinated deployment.
+
+---
+
+#### 11.4.5 Surprise Me (4.3.5)
+
+**Goal**: Fun, one-tap random venue recommendation weighted by user's taste profile.
+
+**Backend: `SurpriseMeView`** (`GET /api/discover/surprise/`):
+
+**Algorithm**:
+1. Candidate pool: venues within radius (default 10km) with avg_rating >= 6.5
+2. Exclude: venues user reviewed in last 30 days
+3. Weighted scoring:
+   - Rating quality (40%): normalized avg_rating
+   - Taste profile match (30%): overlap with `UserTasteProfile.preferred_cuisines`
+   - Friend reviews (20%): count of reviews by followed users
+   - Recency (10%): bonus for venues created in last 90 days
+4. Weighted random selection using scores as probability weights
+5. Return: venue detail + reason text + friend reviews
+
+**Query params**: `lat`, `lng` (required), `radius`, `dietary`, `price_range`, `exclude_cuisines` (optional)
+
+**Frontend**:
+- `SurpriseMe` component (`src/components/discover/SurpriseMe.tsx`): dice/sparkle button on discover page
+- On tap: spinning animation (1-2s) → venue card reveal with confetti effect (CSS or `canvas-confetti`)
+- Actions: "Let's go!" (directions), "Try again" (re-roll), "Save" (bookmark)
+
+**Dependencies**: `UserTasteProfile` (existing), `Follow` model (existing), venue lat/lng data. No infrastructure prerequisites.
+
+---
+
+#### 11.4.6 Friend Recommendations in Search (4.3.6)
+
+**Goal**: "3 friends loved this" badges in search results with optional social boost in ranking.
+
+**Backend** (in `SearchView`):
+- Annotate each venue result with `friend_review_count` using Django `Subquery` + `OuterRef`:
+  - Get user's following IDs from `Follow` model (cached 5-min TTL)
+  - Count `Review` entries by followed users for each venue in result set
+- Batch helper: `get_friend_avatars_for_venues(user, venue_ids)` -- single query, returns dict mapping `venue_id → [avatar_urls]` (max 3)
+- Social boost: venues with `friend_review_count > 0` get `+5` additive RRF score boost (configurable via `FRIEND_REVIEW_BOOST` setting)
+- Only applied when user is authenticated
+
+**Frontend**:
+- `FriendReviewBadge` component (`src/components/search/FriendReviewBadge.tsx`): overlapping avatar stack (max 3, 24px circles) + "3 friends loved this" text
+- Shown on search result cards when `friend_review_count > 0`
+- Tap opens mini-drawer showing friend reviews for this venue
+
+**No new models needed** -- uses existing `Follow` model and `Review` model.
+
+**Dependencies**: User authentication for friend annotations. Works without auth (annotations omitted). No infrastructure prerequisites.
+
+---
+
+#### 11.4.7 Seasonal Collections (4.3.7)
+
+**Goal**: Curated, time-limited venue collections organized around seasons, holidays, and events.
+
+**New Django app**: `backend/apps/collections/`
+
+**Models**:
+
+**`Collection`**:
+- `title` -- CharField(max_length=200)
+- `slug` -- SlugField(unique=True)
+- `description` -- TextField
+- `collection_type` -- CharField choices: seasonal, weather, holiday, occasion, editorial, event
+- `season` -- CharField choices: spring, summer, fall, winter (nullable for non-seasonal)
+- `emoji` -- CharField(max_length=10)
+- `cover_image_url` -- URLField(blank=True)
+- `gradient_start`, `gradient_end` -- CharField(max_length=7), hex colors for card gradient
+- `accent_color` -- CharField(max_length=7)
+- `status` -- CharField choices: draft, published, featured, archived
+- `featured_rank` -- IntegerField(default=0)
+- `start_date`, `end_date` -- DateField
+- `is_auto_generated` -- BooleanField(default=False)
+- `curated_by` -- ForeignKey to User (nullable)
+- `save_count`, `view_count`, `items_count` -- PositiveIntegerField (denormalized)
+
+**`CollectionVenue`**:
+- `collection` -- ForeignKey to Collection (related_name=`items`)
+- `venue` -- ForeignKey to Venue
+- `position` -- IntegerField (ordering)
+- `curator_note` -- TextField(blank=True)
+- UniqueConstraint: `(collection, venue)`
+
+**`SavedCollection`**:
+- `user` -- ForeignKey to User
+- `collection` -- ForeignKey to Collection
+- `saved_at` -- DateTimeField(auto_now_add=True)
+- UniqueConstraint: `(user, collection)`
+
+**Auto-generation**: Celery Beat task `auto_generate_seasonal_collections()`:
+- Runs March 1, June 1, September 1, December 1
+- Season detection: month-based (Northern hemisphere), shared utility in `collections/season_utils.py` with Southern hemisphere + holiday event support
+- Templates per season define: title, tag filters, min rating, venue query logic
+  - Spring: "Fresh Bites for Spring" -- outdoor dining, brunch, farm-to-table
+  - Summer: "Best Patios for Summer" -- rooftop, outdoor, ice cream, cocktails
+  - Fall: "Cozy Fall Favorites" -- comfort food, soup, warm drinks
+  - Winter: "Winter Warmers" -- hearty meals, hot chocolate, holiday specials
+- Generates with `status=draft` for editorial review before publishing
+
+**Archive expired**: Daily Celery Beat task `archive_expired_collections()` at 2:00 AM -- sets `status=archived` for collections with `end_date < today`
+
+**Django Admin**: `CollectionAdmin` with `CollectionVenueInline` (TabularInline), `list_editable` for status/featured_rank, `list_filter` by status/type/season, "Publish selected" and "Archive selected" actions
+
+**Backend API**:
+- `GET /api/collections/` -- list published, ordered by featured_rank. Filter by `type`, `season`. Returns metadata + first 3 venue thumbnails.
+- `GET /api/collections/{slug}/` -- detail with full venue list
+- `POST /api/collections/{slug}/save/` -- save/bookmark (authenticated)
+- `DELETE /api/collections/{slug}/save/` -- unsave (authenticated)
+- `GET /api/collections/saved/` -- user's saved collections (authenticated)
+
+**Frontend**:
+- `SeasonalCollectionsBanner` (`src/components/discover/SeasonalCollectionsBanner.tsx`): horizontal scroll of collection cards on discover page. Each card: gradient background, emoji, title, venue count. ~280px wide, ~180px tall, borderRadius 24px.
+- Collection detail page (`src/pages/collection/[slug].tsx`): cover image/gradient hero, save button, venue list with curator notes, share button, related collections
+- Hooks: `useCollections(filters?)`, `useCollectionDetail(slug)`, `useSaveCollection(slug)` mutation
+
+**Dependencies**: Celery Beat (11.1.3) for auto-generation and archival. New Django app (11.1.5).
+
+---
+
+### 11.5 Implementation Order & Dependencies
+
+Features are organized into phases accounting for shared infrastructure and inter-feature dependencies. Features within the same phase can be parallelized across team members.
+
+#### Phase 0: Infrastructure Foundation
+
+| Task | Description | Blocks |
+|------|-------------|--------|
+| Redis setup | Install, configure `django-redis`, replace LocMemCache | Celery, caching for all features |
+| Celery + Beat setup | `backend/celery.py`, worker config, Beat schedule | Trending, embeddings, collections |
+| pgvector extension | Migration to enable extension | Semantic search, photo search |
+| pg_trgm extension | Migration to enable extension | Autocomplete |
+| `LocationContext` provider | Centralized geolocation in frontend | Near Me, distance sort, map toggle |
+
+#### Phase 1: Core Search Upgrades
+
+| Feature | Dependencies | Can Parallelize With |
+|---------|-------------|---------------------|
+| 4.2.4 Autocomplete (pg_trgm) | pg_trgm extension | Filter chips, recent searches |
+| 4.2.5 Filter Chips + Open Now | `VenueHours` model (standalone) | Autocomplete, recent searches |
+| 4.2.6 Sort Options | Existing venue fields | Filter chips, autocomplete |
+| 4.2.2 Recent Searches | `SearchLog` model | Autocomplete |
+| 4.1 Semantic Search (Sprint 1-2) | pgvector, Redis, Celery | (sequential internally) |
+
+#### Phase 2: Discovery & Social
+
+| Feature | Dependencies | Can Parallelize With |
+|---------|-------------|---------------------|
+| 4.3.1 Near Me Quick Filters | `LocationContext` | Neighborhoods, trending |
+| 4.3.3 New & Trending | Celery Beat | Near Me, neighborhoods |
+| 4.3.6 Friend Recommendations | Existing Follow + Review models | Near Me, trending |
+| 4.3.2 Neighborhood Exploration | Venue lat/lng data | Friend recs, trending |
+| 4.2.3 Popular Searches | `SearchLog` + Celery Beat | Neighborhoods, friend recs |
+
+#### Phase 3: Rich Content & Curation
+
+| Feature | Dependencies | Can Parallelize With |
+|---------|-------------|---------------------|
+| 4.3.4 Cuisine Deep-Dive | `Cuisine` model migration | Collections, surprise me |
+| 4.3.7 Seasonal Collections | Celery Beat, new `collections` app | Cuisine pages |
+| 4.3.5 Surprise Me | `UserTasteProfile`, Follow model | Collections, cuisine pages |
+| 4.2.7 Map Toggle in Search | `GoogleMapView` (existing) | All Phase 3 features |
+
+#### Phase 4: Advanced Features
+
+| Feature | Dependencies | Can Parallelize With |
+|---------|-------------|---------------------|
+| 4.2.1 Voice Search | Web Speech API (browser), optional Whisper | Photo search |
+| 4.2.8 Cross-Modal Photo Search | pgvector, torch, CLIP, Celery | Voice search |
+| 4.1 Semantic Search (Sprint 3-4) | Phases 1-2 search foundation | Voice/photo search |
+
+---
+
+### 11.6 New Models Summary
+
+| Model | Django App | Key Fields | Purpose |
+|-------|-----------|------------|---------|
+| `ReviewEmbedding` | `search` | `review` (O2O), `embedding` (VectorField 384-dim), `model_version` | Review text embeddings for semantic search |
+| `VenueEmbedding` | `search` | `venue` (O2O), `embedding` (VectorField 384-dim), `model_version` | Aggregated venue-level semantic search |
+| `SearchLog` | `search` | `user` (FK nullable), `query`, `result_count`, `search_type`, `filters_applied` (JSON), `latency_ms` | Search analytics, recent searches, trending computation |
+| `ReviewPhotoEmbedding` | `search` | `review` (O2O), `clip_embedding` (VectorField 512-dim), `embedding_status` | CLIP embeddings for visual/photo search |
+| `VenueHours` | `venues` | `venue` (FK), `day_of_week`, `open_time`, `close_time`, `is_closed` | Operating hours for "Open Now" filter |
+| `Neighborhood` | `venues` | `name`, `slug`, `city`, `center_lat/lng`, `bounds` (JSON), `highlights` (JSON) | Geographic area for neighborhood exploration |
+| `Cuisine` | `venues` | `name`, `slug`, `emoji`, `description`, `hero_image_url`, `popular_dishes` (JSON), `guide_content` | First-class cuisine entity for deep-dive pages |
+| `Collection` | `collections` | `title`, `slug`, `collection_type`, `season`, `gradient_start/end`, `status`, `featured_rank`, `start/end_date` | Curated seasonal/editorial venue collections |
+| `CollectionVenue` | `collections` | `collection` (FK), `venue` (FK), `position`, `curator_note` | Ordered membership in a collection |
+| `SavedCollection` | `collections` | `user` (FK), `collection` (FK), `saved_at` | User bookmarks for collections |
+
+**Modified existing models**:
+- `Venue`: add `neighborhood` FK (nullable), add `cuisine` FK (nullable, replaces `cuisine_type`)
+- `VenueTrendingScore`: enhanced scoring algorithm (logic change only, no schema change)
+
+---
+
+### 11.7 New API Endpoints Summary
+
+| Method | Path | Auth | Purpose | Feature |
+|--------|------|------|---------|---------|
+| `GET` | `/api/search/` | Optional | Hybrid semantic + keyword search | 4.1, 4.2.5, 4.2.6 |
+| `GET` | `/api/search/autocomplete/` | None | Fuzzy multi-entity autocomplete | 4.2.4 |
+| `POST` | `/api/search/voice/` | Required | Whisper transcription fallback | 4.2.1 |
+| `GET` | `/api/search/recent/` | Required | User's recent search queries | 4.2.2 |
+| `POST` | `/api/search/recent/sync/` | Required | Sync localStorage recent searches | 4.2.2 |
+| `DELETE` | `/api/search/recent/` | Required | Clear recent searches | 4.2.2 |
+| `GET` | `/api/search/popular/` | None | Trending search queries | 4.2.3 |
+| `POST` | `/api/search/visual/` | Required | Visual/photo search with CLIP | 4.2.8 |
+| `GET` | `/api/discover/trending/` | None | Trending venues by score | 4.3.3 |
+| `GET` | `/api/discover/new/` | None | Recently added high-rated venues | 4.3.3 |
+| `GET` | `/api/discover/surprise/` | Required | Weighted random venue recommendation | 4.3.5 |
+| `GET` | `/api/neighborhoods/` | None | List neighborhoods with top venues | 4.3.2 |
+| `GET` | `/api/neighborhoods/{slug}/` | None | Neighborhood detail | 4.3.2 |
+| `GET` | `/api/neighborhoods/{slug}/venues/` | None | Venues in a neighborhood | 4.3.2 |
+| `GET` | `/api/cuisines/` | None | List all cuisines with venue counts | 4.3.4 |
+| `GET` | `/api/cuisines/{slug}/` | None | Cuisine detail with editorial content | 4.3.4 |
+| `GET` | `/api/cuisines/{slug}/venues/` | None | Venues of a specific cuisine | 4.3.4 |
+| `GET` | `/api/collections/` | None | List published collections | 4.3.7 |
+| `GET` | `/api/collections/{slug}/` | None | Collection detail with venues | 4.3.7 |
+| `POST` | `/api/collections/{slug}/save/` | Required | Save/bookmark a collection | 4.3.7 |
+| `DELETE` | `/api/collections/{slug}/save/` | Required | Unsave a collection | 4.3.7 |
+| `GET` | `/api/collections/saved/` | Required | User's saved collections | 4.3.7 |
+
+---
+
+### 11.8 Frontend Components Summary
+
+| Component | Path | Purpose | Feature |
+|-----------|------|---------|---------|
+| `MatchConceptChips` | `src/components/search/MatchConceptChips.tsx` | Semantic match concepts on search results | 4.1 |
+| `VoiceSearchButton` | `src/components/search/VoiceSearchButton.tsx` | Mic button with recording animation | 4.2.1 |
+| `FilterChipBar` | `src/components/search/FilterChipBar.tsx` | Filter chips below search bar | 4.2.5 |
+| `SortSelector` | `src/components/search/SortSelector.tsx` | Sort option selector | 4.2.6 |
+| `SearchViewToggle` | `src/components/search/SearchViewToggle.tsx` | List/map/split view toggle | 4.2.7 |
+| `VisualSearchResults` | `src/components/search/VisualSearchResults.tsx` | Photo search results display | 4.2.8 |
+| `FriendReviewBadge` | `src/components/search/FriendReviewBadge.tsx` | "3 friends loved this" badge | 4.3.6 |
+| `LocationContext` | `src/contexts/LocationContext.tsx` | Centralized geolocation provider | 4.3.1 |
+| `QuickFilterBar` | `src/components/discover/QuickFilterBar.tsx` | Time-aware "Near Me" quick filters | 4.3.1 |
+| `NeighborhoodCard` | `src/components/discover/NeighborhoodCard.tsx` | Neighborhood preview card | 4.3.2 |
+| `TrendingVenueCard` | `src/components/discover/TrendingVenueCard.tsx` | Venue card with trending badge | 4.3.3 |
+| `CuisineHero` | `src/components/cuisine/CuisineHero.tsx` | Hero banner for cuisine pages | 4.3.4 |
+| `CuisineVenueGrid` | `src/components/cuisine/CuisineVenueGrid.tsx` | Paginated venue grid | 4.3.4 |
+| `PopularDishesBar` | `src/components/cuisine/PopularDishesBar.tsx` | Popular dishes horizontal scroll | 4.3.4 |
+| `SurpriseMe` | `src/components/discover/SurpriseMe.tsx` | Surprise Me button and reveal | 4.3.5 |
+| `SeasonalCollectionsBanner` | `src/components/discover/SeasonalCollectionsBanner.tsx` | Seasonal collection cards | 4.3.7 |
+
+**Modified existing components**:
+- `Header.tsx` -- Replace search `InputBase` with MUI `Autocomplete`, add `VoiceSearchButton` and camera button in `endAdornment`
+- `search.tsx` -- Add `FilterChipBar`, `SortSelector`, `SearchViewToggle`, split view layout, semantic search integration
+- `_app.tsx` -- Wrap with `LocationContext` provider
+- `GoogleMapView.tsx` -- Add bidirectional sync props (`hoveredVenueId`, `onMarkerClick`) for search map toggle
+
+**New hooks**:
+
+| Hook | Path | Purpose |
+|------|------|---------|
+| `useVoiceSearch` | `src/hooks/useVoiceSearch.ts` | Web Speech API lifecycle |
+| `useRecentSearches` | `src/hooks/useRecentSearches.ts` | Hybrid localStorage + backend recent searches |
+| `useTimeAwareCategories` | `src/hooks/useTimeAwareCategories.ts` | Time-based quick filter categories |
+| `useCollections` | `src/hooks/useCollections.ts` | Fetch published collections |
+| `useCollectionDetail` | `src/hooks/useCollectionDetail.ts` | Fetch single collection with venues |
+| `useSaveCollection` | `src/hooks/useSaveCollection.ts` | Save/unsave collection mutation |
+
+**New pages**:
+
+| Page | Path | Rendering | Purpose |
+|------|------|-----------|---------|
+| Neighborhood list | `src/pages/explore/neighborhoods/index.tsx` | SSR | Browse neighborhoods |
+| Neighborhood detail | `src/pages/explore/neighborhoods/[slug].tsx` | SSR | Neighborhood venues + map |
+| Cuisine deep-dive | `src/pages/cuisine/[slug].tsx` | ISR (revalidate: 3600) | SEO-friendly cuisine pages |
+| Collection detail | `src/pages/collection/[slug].tsx` | SSR | Seasonal collection venue list |

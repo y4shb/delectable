@@ -28,6 +28,11 @@ class Venue(TimeStampedModel):
         max_digits=9, decimal_places=6, null=True, blank=True
     )
     google_place_id = models.CharField(max_length=200, blank=True, default="")
+    price_level = models.PositiveSmallIntegerField(
+        choices=[(1, "$"), (2, "$$"), (3, "$$$"), (4, "$$$$")],
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "venues"
@@ -226,3 +231,135 @@ class VenueSimilarity(models.Model):
 
     def __str__(self):
         return f"{self.venue_a.name} ~ {self.venue_b.name}: {self.score:.2f}"
+
+
+class VenueOwner(TimeStampedModel):
+    """A verified venue owner/manager."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_venues"
+    )
+    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="owners")
+    is_verified = models.BooleanField(default=False)
+    role = models.CharField(
+        max_length=50,
+        default="owner",
+        choices=[("owner", "Owner"), ("manager", "Manager")],
+    )
+
+    class Meta:
+        db_table = "venue_owners"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "venue"],
+                name="uq_venue_owner_user_venue",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} owns {self.venue.name} ({self.role})"
+
+
+class VenueResponse(TimeStampedModel):
+    """A venue owner's response to a review."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    review = models.OneToOneField(
+        "reviews.Review", on_delete=models.CASCADE, related_name="venue_response"
+    )
+    responder = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE
+    )
+    text = models.TextField(max_length=1000)
+
+    class Meta:
+        db_table = "venue_responses"
+
+    def __str__(self):
+        return f"Response to {self.review_id} by {self.responder}"
+
+
+class KitchenStory(TimeStampedModel):
+    """Behind-the-scenes content from a venue."""
+
+    STORY_TYPE_CHOICES = [
+        ("chef_interview", "Chef Interview"),
+        ("sourcing", "Sourcing Story"),
+        ("recipe", "Recipe Feature"),
+        ("behind_scenes", "Behind the Scenes"),
+        ("history", "History"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="kitchen_stories")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="kitchen_stories"
+    )
+    title = models.CharField(max_length=300)
+    story_type = models.CharField(max_length=30, choices=STORY_TYPE_CHOICES)
+    content = models.TextField()
+    cover_photo_url = models.URLField(max_length=500, blank=True, default="")
+    chef_name = models.CharField(max_length=200, blank=True, default="")
+    chef_title = models.CharField(max_length=200, blank=True, default="")
+    chef_photo_url = models.URLField(max_length=500, blank=True, default="")
+    is_published = models.BooleanField(default=True)
+    view_count = models.PositiveIntegerField(default=0)
+    like_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "kitchen_stories"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} @ {self.venue.name}"
+
+
+class FoodGuide(TimeStampedModel):
+    """A curated city food guide."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="food_guides"
+    )
+    title = models.CharField(max_length=300)
+    description = models.TextField(blank=True, default="")
+    city = models.CharField(max_length=100)
+    neighborhood = models.CharField(max_length=200, blank=True, default="")
+    cover_photo_url = models.URLField(max_length=500, blank=True, default="")
+    duration_hours = models.PositiveSmallIntegerField(default=4)
+    is_published = models.BooleanField(default=False)
+    view_count = models.PositiveIntegerField(default=0)
+    save_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "food_guides"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.city})"
+
+
+class GuideStop(models.Model):
+    """A stop/venue in a food guide itinerary."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    guide = models.ForeignKey(FoodGuide, on_delete=models.CASCADE, related_name="stops")
+    venue = models.ForeignKey(Venue, on_delete=models.CASCADE)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    description = models.TextField(max_length=500, blank=True, default="")
+    recommended_dishes = models.JSONField(default=list, blank=True)
+    estimated_time_minutes = models.PositiveSmallIntegerField(default=45)
+
+    class Meta:
+        db_table = "guide_stops"
+        ordering = ["sort_order"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["guide", "venue"],
+                name="uq_guide_stop_guide_venue",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Stop {self.sort_order}: {self.venue.name} in {self.guide.title}"

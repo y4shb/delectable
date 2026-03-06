@@ -356,6 +356,7 @@ class WantToTryListView(generics.ListCreateAPIView):
     POST /api/want-to-try/ — Add a venue to want-to-try."""
 
     serializer_class = WantToTrySerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return (
@@ -372,6 +373,7 @@ class WantToTryDetailView(generics.DestroyAPIView):
     """DELETE /api/want-to-try/{pk}/ — Remove from want-to-try."""
 
     serializer_class = WantToTrySerializer
+    permission_classes = [permissions.IsAuthenticated]
     lookup_field = "pk"
 
     def get_queryset(self):

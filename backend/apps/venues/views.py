@@ -50,6 +50,20 @@ class VenueViewSet(viewsets.ReadOnlyModelViewSet):
             except (ValueError, TypeError, ArithmeticError):
                 pass
 
+        # Price level filter
+        price_level = params.get("price_level")
+        if price_level:
+            try:
+                qs = qs.filter(price_level=int(price_level))
+            except (ValueError, TypeError):
+                pass
+        price_max = params.get("price_max")
+        if price_max:
+            try:
+                qs = qs.filter(price_level__lte=int(price_max))
+            except (ValueError, TypeError):
+                pass
+
         # Bounding box filter: bbox=sw_lat,sw_lng,ne_lat,ne_lng
         bbox = params.get("bbox")
         if bbox:

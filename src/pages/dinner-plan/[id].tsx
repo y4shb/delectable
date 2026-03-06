@@ -93,7 +93,7 @@ export default function DinnerPlanDetailPage() {
       await navigator.clipboard.writeText(link);
       setCopySuccess(true);
     } catch {
-      setCopySuccess(true);
+      // Clipboard API not available — don't report success
     }
   };
 

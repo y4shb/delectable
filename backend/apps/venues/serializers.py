@@ -4,10 +4,14 @@ from rest_framework import serializers
 from .models import (
     DietaryReport,
     Dish,
+    FoodGuide,
+    GuideStop,
+    KitchenStory,
     OccasionTag,
     SeasonalHighlight,
     Venue,
     VenueOccasion,
+    VenueResponse,
 )
 
 
@@ -19,6 +23,7 @@ class VenueListSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "cuisine_type", "location_text", "rating",
             "photo_url", "tags", "latitude", "longitude", "reviews_count",
+            "price_level",
         ]
 
 
@@ -91,7 +96,7 @@ class VenueDetailSerializer(serializers.ModelSerializer):
             "id", "name", "cuisine_type", "location_text", "city",
             "rating", "photo_url", "tags", "latitude", "longitude",
             "reviews_count", "google_place_id", "created_at",
-            "occasions", "dietary_badges", "dishes",
+            "price_level", "occasions", "dietary_badges", "dishes",
         ]
 
     def get_occasions(self, obj):
@@ -156,4 +161,101 @@ class SeasonalHighlightSerializer(serializers.ModelSerializer):
             "start_date",
             "end_date",
             "created_at",
+        ]
+
+
+class VenueResponseSerializer(serializers.ModelSerializer):
+    """Read serializer for venue owner responses."""
+
+    responder_name = serializers.CharField(source="responder.name", read_only=True)
+
+    class Meta:
+        model = VenueResponse
+        fields = ["id", "responder_name", "text", "created_at"]
+        read_only_fields = ["id", "responder_name", "created_at"]
+
+
+class VenueResponseCreateSerializer(serializers.ModelSerializer):
+    """Write serializer for creating venue owner responses."""
+
+    class Meta:
+        model = VenueResponse
+        fields = ["text"]
+
+    def validate_text(self, value):
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError("Response must be at least 10 characters.")
+        return value
+
+
+class KitchenStoryListSerializer(serializers.ModelSerializer):
+    """Lightweight kitchen story for lists."""
+
+    venue_detail = VenueListSerializer(source="venue", read_only=True)
+
+    class Meta:
+        model = KitchenStory
+        fields = [
+            "id", "venue", "venue_detail", "title", "story_type",
+            "cover_photo_url", "chef_name", "view_count", "like_count",
+            "created_at",
+        ]
+
+
+class KitchenStoryDetailSerializer(serializers.ModelSerializer):
+    """Full kitchen story detail."""
+
+    venue_detail = VenueListSerializer(source="venue", read_only=True)
+
+    class Meta:
+        model = KitchenStory
+        fields = [
+            "id", "venue", "venue_detail", "title", "story_type",
+            "content", "cover_photo_url", "chef_name", "chef_title",
+            "chef_photo_url", "view_count", "like_count", "created_at",
+        ]
+
+
+class GuideStopSerializer(serializers.ModelSerializer):
+    """Serializer for a food guide stop."""
+
+    venue_detail = VenueListSerializer(source="venue", read_only=True)
+
+    class Meta:
+        model = GuideStop
+        fields = [
+            "id", "venue", "venue_detail", "sort_order", "description",
+            "recommended_dishes", "estimated_time_minutes",
+        ]
+
+
+class FoodGuideListSerializer(serializers.ModelSerializer):
+    """Lightweight food guide for lists."""
+
+    stops_count = serializers.IntegerField(source="stops.count", read_only=True)
+    author_name = serializers.CharField(source="author.name", read_only=True)
+
+    class Meta:
+        model = FoodGuide
+        fields = [
+            "id", "title", "description", "city", "neighborhood",
+            "cover_photo_url", "duration_hours", "view_count",
+            "save_count", "stops_count", "author_name", "created_at",
+        ]
+
+
+class FoodGuideDetailSerializer(serializers.ModelSerializer):
+    """Full food guide detail with stops."""
+
+    stops = GuideStopSerializer(many=True, read_only=True)
+    author_name = serializers.CharField(source="author.name", read_only=True)
+    author_avatar = serializers.URLField(source="author.avatar_url", read_only=True)
+
+    class Meta:
+        model = FoodGuide
+        fields = [
+            "id", "title", "description", "city", "neighborhood",
+            "cover_photo_url", "duration_hours", "is_published",
+            "view_count", "save_count", "stops", "author_name",
+            "author_avatar", "created_at",
         ]

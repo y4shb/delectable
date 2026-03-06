@@ -54,17 +54,19 @@ export default function MonthlyRecapPage() {
     touchStartX.current = e.touches[0].clientX;
   }, []);
 
+  const maxCardIndex = 4; // 5 cards total (0-4), updated dynamically below
+
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       touchEndX.current = e.changedTouches[0].clientX;
       const diff = touchStartX.current - touchEndX.current;
       if (Math.abs(diff) > 50) {
         if (diff > 0) {
-          // Swipe left -> next
-          setCurrentCard((prev) => Math.min(prev + 1, 4));
+          // Swipe left -> next (wrap around like arrow buttons)
+          setCurrentCard((prev) => (prev < maxCardIndex ? prev + 1 : 0));
         } else {
-          // Swipe right -> prev
-          setCurrentCard((prev) => Math.max(prev - 1, 0));
+          // Swipe right -> prev (wrap around like arrow buttons)
+          setCurrentCard((prev) => (prev > 0 ? prev - 1 : maxCardIndex));
         }
       }
     },

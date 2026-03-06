@@ -45,9 +45,9 @@ export default function ChallengesPage() {
 
   const joinMutation = useMutation({
     mutationFn: joinChallengeApi,
-    onSuccess: () => {
+    onSuccess: (_data, challengeId) => {
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
-      setSelectedChallenge(null);
+      queryClient.invalidateQueries({ queryKey: ['challengeLeaderboard', challengeId] });
     },
   });
 

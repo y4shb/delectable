@@ -737,3 +737,324 @@ Prompt sharing at peak emotional satisfaction:
 - [iFood Personalized Recommendation with LightGBM](https://arxiv.org/abs/2508.03670)
 - [Yelp Menu Vision - TechCrunch](https://techcrunch.com/2025/10/21/yelps-ai-assistant-can-now-scan-restaurant-menus-to-show-you-what-dishes-look-like/)
 - [Qdrant Food Discovery Demo](https://qdrant.tech/articles/food-discovery-demo/)
+
+---
+
+## 13. Code-Level Polish & Optimization Plan (NEW — from March 2026 Deep Audit)
+
+> Generated: 2026-03-06
+> Based on: 6 parallel research agents performing deep code review, performance analysis, animation audit, design system audit, UI/UX review, and frontend performance analysis
+
+---
+
+### 13.1 CRITICAL Backend Performance Fixes
+
+#### 13.1.1 SSE Architecture Overhaul
+**File:** `notifications/views.py:78-131`
+**Problem:** `BadgeStreamView` uses synchronous `time.sleep(5)` inside a generator, blocking an entire WSGI worker thread per SSE client. With 4-8 Gunicorn workers, 4-8 SSE clients = zero capacity for regular HTTP requests. Each client fires 2 DB queries every 5 seconds (40 queries/sec at 100 clients).
+**Fix:**
+- Switch to ASGI (Uvicorn + Django Channels)
+- Replace database polling with Redis pub/sub
+- Use `asyncio.sleep()` instead of `time.sleep()`
+- Add disconnect detection to clean up zombie connections
+
+#### 13.1.2 Production Cache Backend
+**File:** `config/settings/base.py:190-196`
+**Problem:** `LocMemCache` is per-process and not shared across Gunicorn workers. Cache set by worker A is invisible to worker B. The trending lock variable is also process-local.
+**Fix:**
+- Install `django-redis` and configure Redis as the default cache backend in `prod.py`
+- Replace module-level `_trending_computation_lock` with a Redis-based distributed lock
+
+#### 13.1.3 Review Creation Transaction Storm
+**File:** `reviews/views.py:40-63`
+**Problem:** Creating a single review executes 15-25+ SQL statements synchronously (review save, quality score, venue aggregate, XP award chain, streak recording, badge checking). User waits for all of this before getting `201 Created`.
+**Fix:**
+- Keep review + venue update in the atomic block
+- Dispatch gamification side-effects (`award_xp`, `record_activity`, `check_badge_progress`) as Celery tasks after the transaction commits
+- Same fix needed for `QuickReviewView.post()` at line 300
+
+#### 13.1.4 Serializer N+1 Queries
+**File:** `reviews/serializers.py:83-112`
+**Problem:** `ReviewSerializer` fires 4 DB queries per review instance (`get_is_liked`, `get_is_bookmarked`, `get_photo_urls`, `get_recent_comments`) when pre-computed attributes are absent. A feed page of 20 reviews = 80 extra queries.
+**Fix:**
+- Pre-annotate querysets with `Prefetch('likes', queryset=ReviewLike.objects.filter(user=viewer), to_attr='_likes_by_viewer')`
+- Set `_is_liked`, `_is_bookmarked`, `_photos`, `_recent_comments` attributes before serialization
+- Apply same pattern in `BookmarkListView` which nests `ReviewSerializer`
+
+#### 13.1.5 Feed Engine N+1 in Trending
+**File:** `feed/engine.py:371-383`
+**Problem:** `compute_trending_scores()` loop fires 2 queries per active venue. 500 venues = 1000 queries every 30 minutes.
+**Fix:**
+- Batch-fetch all review data with `values('venue_id').annotate(...)` before the loop
+- Replace threading-based recomputation with a Celery periodic task
+
+---
+
+### 13.2 Database Indexing Additions
+
+| Model | Missing Index | Access Pattern |
+|-------|--------------|----------------|
+| `Follow` | `Index(fields=["following"])` | Mutual follow checks, follower listing |
+| `ReviewLike` | `Index(fields=["user"])` | Social scoring `filter(user=viewer)` |
+| `Bookmark` | `Index(fields=["user"])` | `BookmarkListView.filter(user=...)` |
+| `Comment` | `Index(fields=["user"])` | Social scoring `filter(user=viewer)` |
+| `Venue` | `Index(fields=["-rating"])` | Rating-sorted venue lists |
+| `VenueOccasion` | `Index(fields=["venue"])` | Venue detail occasion display |
+| `OccasionVote` | `Index(fields=["user", "venue"])` | User vote lookups |
+| `DietaryReport` | `Index(fields=["venue", "category"])` | Dietary badge computation |
+| `Dish` | `Index(fields=["venue"])` | Venue dish listing |
+| `UserAffinity` | `Index(fields=["user", "updated_at"])` | Staleness checks |
+
+---
+
+### 13.3 Uncached Hot Paths
+
+| Path | Current | Fix | Cache TTL |
+|------|---------|-----|-----------|
+| `get_user_tier()` — 2 queries every feed request | No cache | Cache in Redis per user | 60s |
+| `get_engagement_percentiles()` — loads all 30-day counts into Python | No cache | Use PostgreSQL `percentile_cont()` + Redis cache | 5 min |
+| `VenueTrendingScore` map — full table scan per explore_feed call | No cache | Cache dict in Redis | 30 min |
+| `BadgeDefinition.objects.filter(is_active=True)` | No cache | Cache in Redis | 1 hour |
+| `SeasonalHighlightsView` — same data for all users per season | No cache | Cache response in Redis | 6 hours |
+| SSE `get_unread_count()` — bare COUNT query per 5-second tick | No cache | Redis counter with TTL | 5s |
+| `MonthlyRecapView` — 12 queries on first request | No cache | Pre-compute via Celery beat | 1 day |
+
+---
+
+### 13.4 Serializer Optimizations
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `venues/serializers.py:113-133` | `get_dietary_badges()` fires 2 identical-table queries | Merge into single query with `Count('id', filter=Q(is_available=True))` |
+| `gamification/views.py:99` | `LeaderboardView` missing `select_related("user")` | Add `select_related("user")` — saves 50 queries for 50-entry leaderboard |
+| `feed/engine.py:181-190` | `update_or_create` in loop for social scores | Replace with `bulk_create(update_conflicts=True)` — single SQL statement |
+| `reviews/views.py:50-53` | Venue rating full `AVG` aggregate on every review create | Use incremental `F()` expression update |
+
+---
+
+### 13.5 Premium Animation System (Framer Motion Integration)
+
+#### 13.5.1 Critical Missing Animations (P0)
+
+| Animation | Current State | Target |
+|-----------|---------------|--------|
+| **Page transitions** | Hard cut between routes | `AnimatePresence` in `_app.tsx` with `opacity` fade (200ms) |
+| **Wrapped card transitions** | Cards swap instantly — no animation at all | Direction-aware horizontal slide with spring physics |
+| **XP bar fill** | Static on mount | Animate from 0 to current value over 600ms `cubic-bezier(0, 0, 0.2, 1)` |
+| **Badge unlock** | Zero celebration | Scale pop `0 → 1.3 → 1.0` (400ms) + gold glow pulse |
+| **Skeleton → content** | Instant unmount/mount pop | 300ms `opacity` crossfade via `AnimatePresence` |
+| **Feed card stagger** | All cards appear simultaneously | Stagger-in with 60ms delays + `translateY(20px → 0)` |
+
+#### 13.5.2 High Priority Animations (P1)
+
+| Animation | Current State | Target |
+|-----------|---------------|--------|
+| **Tab content crossfade** (WelcomeSection) | Hard cut | 200ms opacity transition |
+| **Streak flame flicker** | Static icon | Looping `@keyframes` opacity/scale variation (0.8s) |
+| **BottomTabBar selected indicator** | Color-only | Sliding pill with `layoutId` (Framer Motion) |
+| **AddToPlaylistSheet entry** | MUI Dialog default (center scale) | `Slide direction="up"` proper sheet animation |
+| **Onboarding step transitions** | `Fade` only (225ms) | Directional slide matching DiscoverWizard |
+| **Number counter animations** | Static display | Count up from 0 on mount (XP, reviews, followers) |
+| **Like icon morph** | Instant icon swap | Scale `1 → 1.3 → 1.0` over 200ms with color transition |
+
+#### 13.5.3 Easing Curve Standardization
+
+Establish 4 global easing tokens:
+```
+--ease-standard:  cubic-bezier(0.4, 0, 0.2, 1)      /* State changes */
+--ease-enter:     cubic-bezier(0, 0, 0.2, 1)          /* Elements entering */
+--ease-exit:      cubic-bezier(0.4, 0, 1, 1)          /* Elements leaving */
+--ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1)   /* Playful interactions */
+```
+
+Replace all `ease`, `ease-in-out`, and inconsistent curves across the app with these tokens.
+
+#### 13.5.4 Animation Anti-Patterns to Fix
+
+| Anti-Pattern | Location | Fix |
+|-------------|----------|-----|
+| `transition: 'all'` | ReviewCard content reveal | Enumerate explicit properties |
+| `maxHeight` animation | `.expandable-content` | Replace with MUI `Collapse` or height + ResizeObserver |
+| `background` gradient animation | monthly-recap page | Animate via pseudo-element `opacity` instead |
+| `width` in keyframe | Header search bar | Use `transform: scaleX()` from right anchor |
+| No `will-change` hints | FAB, VenueSwipeCard, Header | Add `will-change: transform` for GPU compositing |
+| Zero `prefers-reduced-motion` support | Entire app | Add global CSS suppression rule |
+
+#### 13.5.5 `prefers-reduced-motion` (Accessibility)
+**Critical gap:** The entire app has zero `prefers-reduced-motion` support. All custom `@keyframes` run regardless of user preference.
+**Fix:** Add to `globals.css`:
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+---
+
+### 13.6 Design System Polish
+
+#### 13.6.1 Theme Gaps
+**File:** `src/theme/theme.ts`
+- Missing `primary.light` and `primary.dark` explicit definitions (MUI auto-generates but may not match brand)
+- Missing `error`, `warning`, `success`, `info` palette overrides — defaults to MUI blue/green which clash with the warm palette
+- No elevation/shadow tokens — 47 `boxShadow` occurrences across 29 files use inconsistent inline values
+- No transition tokens — easing curves vary across components
+- Missing MUI component overrides (default `borderRadius`, `Button`, `Card`, `Chip` styles)
+
+#### 13.6.2 Border Radius Inconsistency
+Found across 60+ locations:
+- `'20px'` — cards, chips (standard)
+- `'48px'` — pills, buttons (standard)
+- `'16px'` — login inputs, NudgeMessage, compare items
+- `'12px'` — AddToPlaylistSheet inputs, rating badges
+- `'24px'` — AuthGate, PhotoCarousel
+- `borderRadius: 2` / `4` / `8` — MUI multiplied values (16px/32px/64px)
+
+**Fix:** Define 5 named radius tokens: `xs: 8`, `sm: 12`, `md: 16`, `lg: 20`, `pill: 48`
+
+#### 13.6.3 Hardcoded Colors Still Present
+- `#F24D4F` appears in 15+ component files instead of `theme.palette.primary.main`
+- `#FFD700` (star gold) used in ComparisonCard, VenueSwipeCard without token
+- `'rgba(255,255,255,0.2)'` and similar glass effects repeated in 20+ places — should be a `glass` theme token
+- `#4caf50` (green for confidence bars) used directly instead of `theme.palette.success.main`
+
+#### 13.6.4 Dark Mode Gaps
+- Login page inputs use `borderRadius: '16px'` with hardcoded light-mode styling
+- `RecapCard`, `MonthlyRecap` use hardcoded gradient colors that don't adapt
+- `WelcomeSection` tab pills have inconsistent dark mode opacity values
+- `ActivityGrid` day cells don't have sufficient dark mode contrast
+
+---
+
+### 13.7 Frontend Performance Optimizations
+
+#### 13.7.1 Image Optimization
+**Problem:** 5 files use raw `<img>` tags instead of `next/image`:
+- `BadgeShelf.tsx:128` — badge icons
+- `ReviewCard.tsx:379, 402, 430` — review photos (the most viewed images in the app)
+- `playlist/[id].tsx:365` — playlist item photos
+
+**Fix:** Replace with `next/image` using `sizes`, `priority` (for above-fold), blur placeholders, and AVIF/WebP format. Expected impact: 40-70% image weight reduction.
+
+#### 13.7.2 Code Splitting Gaps
+Currently dynamically imported: `GoogleMapView`, `ActivityGrid`, `BadgeShelf`, `Leaderboard` (4 components).
+
+**Should also be dynamic:**
+- `PhotoCarousel` — heavy gesture handling, only used on tap
+- `DiscoverWizard` — only on `/discover` page
+- `VenueSwipeCard` — only on dinner plan pages
+- `ShareButton` — only when sharing (can lazy load the Web Share API logic)
+- `DinnerPlanResult` — only on dinner plan result view
+- All chart/visualization components (`TasteDNA radar chart`)
+
+#### 13.7.3 React Query Missing staleTime
+Multiple hooks in `src/hooks/useApi.ts` and inline `useQuery` calls across pages use default `staleTime: 0`, causing unnecessary refetches:
+
+| Query | Current staleTime | Recommended |
+|-------|-------------------|-------------|
+| `userXP` | 0 (default) | 60s |
+| `diningStreak` | 0 | 60s |
+| `activityGrid` | 0 | 5 min |
+| `userBadges` | 0 | 5 min |
+| `userStats` | 0 | 2 min |
+| `challenges` | 0 | 2 min |
+| `notificationPreferences` | 0 | 10 min |
+| `personalRankings` | 0 | 30s |
+| `wantToTry` | 0 | 30s |
+
+#### 13.7.4 Excessive Cache Invalidation
+36 `invalidateQueries` calls across the app. Many over-invalidate:
+- `ReviewCard.tsx:103,112` — invalidates entire `feedReviews` on like/unlike (should optimistically update instead)
+- `FollowButton.tsx:37-48` — invalidates both `user` and `suggestedUsers` on every follow action
+- `venue/[id].tsx:51,71` — invalidates `wantToTry` on add/remove (should use optimistic update)
+
+**Fix:** Replace `invalidateQueries` with `setQueryData` for optimistic mutations where possible. Keep invalidation only for mutations that change server-computed values.
+
+#### 13.7.5 Missing Memoization
+- `ReviewCard` — 560+ line component with no `React.memo`. Re-renders on every parent state change in feed.
+- `GoogleMapView` — complex component with marker creation in render path, partially mitigated by dynamic import
+- `WelcomeSection` — creates new style objects on every render via inline `sx` props
+- Inline arrow functions in `map()` calls throughout create new function references every render
+
+---
+
+### 13.8 New Enhancement Ideas (Beyond enhancements.md Sections 1-12)
+
+#### 13.8.1 Haptic Rhythm System
+Extend the existing `navigator.vibrate?.(10)` pattern into a cohesive haptic language:
+- **10ms** — light tap (tab switch, chip select)
+- **[5, 5, 15]** — success pattern (review posted, badge earned)
+- **[2, 2, 2, 2, 20]** — celebration (level up, streak milestone)
+- **3ms** — micro feedback (scroll snap, slider tick)
+
+#### 13.8.2 Contextual Gradient System
+Create a venue-cuisine-aware gradient generator for review cards:
+- Japanese → coral/rose gradients
+- Italian → warm amber/red
+- American → golden/honey
+- Indian → saffron/maroon
+- Mexican → lime/terracotta
+
+#### 13.8.3 Smart Prefetching
+- Prefetch venue detail on review card hover (50% of users who hover will tap)
+- Prefetch next feed page when user is 80% through current scroll
+- Prefetch user profile on avatar hover
+- Prefetch similar venues when user opens venue detail
+
+#### 13.8.4 Review Draft Auto-Save
+Save review form state to `localStorage` every 5 seconds. Restore on return. Prevents data loss from accidental navigation or app crash.
+
+#### 13.8.5 Venue "Vibe Check" Quick Rating
+A lightweight 3-second interaction: present 5 emoji vibes (Romantic, Lively, Chill, Trendy, Cozy) and let the user tap one. Aggregates into venue atmosphere data. Lower friction than a full review.
+
+---
+
+### 13.9 Implementation Priority Matrix
+
+#### Tier 1: Ship This Week (Highest ROI, Lowest Risk)
+1. Add `prefers-reduced-motion` global CSS rule
+2. Replace 5 raw `<img>` tags with `next/image`
+3. Add `staleTime` to 9 React Query hooks
+4. Add 10 missing database indexes (single migration)
+5. Add `select_related("user")` to `LeaderboardView`
+6. Merge duplicate dietary badge queries in `VenueDetailSerializer`
+7. Fix `ReviewCard` `transition: 'all'` anti-pattern
+8. Add `React.memo` to `ReviewCard`
+9. Standardize easing curves (define 4 CSS custom properties)
+
+#### Tier 2: Ship This Sprint (High ROI)
+10. Install Framer Motion + add page transitions in `_app.tsx`
+11. XP bar animate-from-zero
+12. Feed card stagger animation
+13. Skeleton → content crossfade
+14. Badge unlock celebration animation
+15. Streak flame flicker animation
+16. Dynamic import `PhotoCarousel`, `DiscoverWizard`, `VenueSwipeCard`
+17. Replace `LocMemCache` with Redis in prod settings
+18. Move gamification side-effects to Celery tasks
+19. Batch social score computation with `bulk_create`
+
+#### Tier 3: Ship Next Sprint (Medium ROI)
+20. Wrapped card slide transitions
+21. BottomTabBar sliding indicator
+22. Number counter animations (XP, followers)
+23. Tab content crossfade in WelcomeSection
+24. AddToPlaylistSheet proper slide-up entry
+25. Onboarding directional slide transitions
+26. Fix SSE to ASGI + Redis pub/sub
+27. Cache hot paths in Redis (user tier, engagement percentiles, trending map)
+28. Optimistic mutations replacing `invalidateQueries` in ReviewCard/FollowButton
+29. Theme token expansion (radius, shadow, glass, easing tokens)
+
+#### Tier 4: Polish (Lower Priority)
+30. Hardcoded color → theme token sweep (15+ files)
+31. Dark mode consistency fixes
+32. Review draft auto-save
+33. Smart prefetching (hover prefetch)
+34. Haptic rhythm system
+35. Contextual gradient system
+36. Venue "Vibe Check" quick rating

@@ -113,6 +113,8 @@ class ChallengeSerializer(serializers.ModelSerializer):
         ]
 
     def get_participant_count(self, obj):
+        if hasattr(obj, "_participant_count"):
+            return obj._participant_count
         return obj.participants.count()
 
     def get_is_participating(self, obj):
