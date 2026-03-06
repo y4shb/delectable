@@ -3,7 +3,7 @@ from rest_framework import serializers
 from apps.users.serializers import UserPublicSerializer
 from apps.venues.serializers import DishListSerializer, VenueListSerializer
 
-from .models import Bookmark, Comment, Review, ReviewPhoto
+from .models import Bookmark, Comment, Review, ReviewPhoto, WantToTry
 
 
 class CommentReplySerializer(serializers.ModelSerializer):
@@ -190,3 +190,14 @@ class QuickReviewSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("Photo is required for quick review.")
         return value
+
+
+class WantToTrySerializer(serializers.ModelSerializer):
+    """Serializer for Want to Try items with nested venue detail."""
+
+    venue_detail = VenueListSerializer(source="venue", read_only=True)
+
+    class Meta:
+        model = WantToTry
+        fields = ["id", "venue", "venue_detail", "note", "created_at"]
+        read_only_fields = ["id", "venue_detail", "created_at"]

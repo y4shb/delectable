@@ -14,4 +14,6 @@ urlpatterns = [
     path("api/gamification/", include("apps.gamification.urls")),
     path("api/", include("apps.sharing.urls")),
     path("api/ml/", include("apps.ml.urls")),
+    path("api/groups/", include("apps.groups.urls")),
+    path("api/rankings/", include("apps.rankings.urls")),
 ]

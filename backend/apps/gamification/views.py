@@ -1,14 +1,16 @@
 from datetime import date, timedelta
 
-from django.db.models import Sum
+from django.db.models import Count, Max, Sum
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
+    ActivityDay,
     BadgeDefinition,
     DiningStreak,
     LeaderboardEntry,
+    MonthlyRecap,
     UserBadge,
     UserStatsCache,
     UserXP,
@@ -19,6 +21,7 @@ from .serializers import (
     BadgeDefinitionSerializer,
     DiningStreakSerializer,
     LeaderboardEntrySerializer,
+    MonthlyRecapSerializer,
     UserBadgeSerializer,
     UserStatsCacheSerializer,
     UserXPSerializer,
@@ -192,4 +195,161 @@ class UserStatsView(APIView):
     def get(self, request):
         stats, _ = UserStatsCache.objects.get_or_create(user=request.user)
         serializer = UserStatsCacheSerializer(stats)
+        return Response(serializer.data)
+
+
+class MonthlyRecapView(APIView):
+    """GET /api/gamification/monthly-recap/ — Monthly mini-recap stats."""
+
+    def get(self, request):
+        today = date.today()
+        try:
+            year = int(request.query_params.get("year", today.year))
+            month = int(request.query_params.get("month", today.month))
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "Invalid year or month parameter."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate month/year
+        if month < 1 or month > 12:
+            return Response(
+                {"error": "Invalid month. Must be between 1 and 12."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Try to get cached recap
+        try:
+            recap = MonthlyRecap.objects.get(user=request.user, year=year, month=month)
+            serializer = MonthlyRecapSerializer(recap)
+            return Response(serializer.data)
+        except MonthlyRecap.DoesNotExist:
+            pass
+
+        # Generate on-the-fly
+        from apps.reviews.models import Review, ReviewLike
+
+        # Date range for the month
+        from calendar import monthrange
+        _, last_day = monthrange(year, month)
+        start_date = date(year, month, 1)
+        end_date = date(year, month, last_day)
+
+        # Reviews in this month
+        month_reviews = Review.objects.filter(
+            user=request.user,
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+        ).select_related("venue")
+
+        total_reviews = month_reviews.count()
+
+        if total_reviews == 0:
+            return Response(
+                {"error": f"No reviews found for {year}/{month:02d}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Total unique venues
+        total_venues = month_reviews.values("venue").distinct().count()
+
+        # Total photos
+        total_photos = month_reviews.exclude(photo_url="").count()
+
+        # Top cuisine (most reviewed cuisine type)
+        cuisine_counts = (
+            month_reviews.values("venue__cuisine_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        top_cuisine = cuisine_counts[0]["venue__cuisine_type"] if cuisine_counts else ""
+
+        # New cuisines tried (cuisines in this month not reviewed before)
+        prev_cuisines = set(
+            Review.objects.filter(
+                user=request.user,
+                created_at__date__lt=start_date,
+            ).values_list("venue__cuisine_type", flat=True).distinct()
+        )
+        month_cuisines = set(
+            month_reviews.values_list("venue__cuisine_type", flat=True).distinct()
+        )
+        new_cuisines_tried = len(month_cuisines - prev_cuisines)
+
+        # Top venue (most visited)
+        venue_counts = (
+            month_reviews.values("venue__name")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        top_venue_name = venue_counts[0]["venue__name"] if venue_counts else ""
+
+        # Top rated dish
+        top_dish = month_reviews.order_by("-rating").first()
+        top_rated_dish = top_dish.dish_name if top_dish and top_dish.dish_name else ""
+
+        # XP earned in this month
+        xp_earned = (
+            XPTransaction.objects.filter(
+                user=request.user,
+                created_at__date__gte=start_date,
+                created_at__date__lte=end_date,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        # Likes received on reviews this month
+        likes_received = (
+            ReviewLike.objects.filter(
+                review__user=request.user,
+                created_at__date__gte=start_date,
+                created_at__date__lte=end_date,
+            ).count()
+        )
+
+        # Longest streak in month from ActivityDay
+        activity_days = list(
+            ActivityDay.objects.filter(
+                user=request.user,
+                date__gte=start_date,
+                date__lte=end_date,
+                review_count__gt=0,
+            ).values_list("date", flat=True).order_by("date")
+        )
+        longest_streak = 0
+        current_streak = 0
+        prev_date = None
+        for d in activity_days:
+            if prev_date and (d - prev_date).days == 1:
+                current_streak += 1
+            else:
+                current_streak = 1
+            longest_streak = max(longest_streak, current_streak)
+            prev_date = d
+
+        # Save the recap
+        recap = MonthlyRecap.objects.create(
+            user=request.user,
+            year=year,
+            month=month,
+            total_reviews=total_reviews,
+            total_venues=total_venues,
+            total_photos=total_photos,
+            new_cuisines_tried=new_cuisines_tried,
+            top_cuisine=top_cuisine,
+            top_venue_name=top_venue_name,
+            top_rated_dish=top_rated_dish,
+            longest_streak_in_month=longest_streak,
+            xp_earned=xp_earned,
+            likes_received=likes_received,
+            stats_data={
+                "cuisine_breakdown": {
+                    c["venue__cuisine_type"]: c["count"]
+                    for c in cuisine_counts
+                },
+            },
+        )
+
+        serializer = MonthlyRecapSerializer(recap)
         return Response(serializer.data)

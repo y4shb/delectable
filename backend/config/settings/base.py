@@ -55,6 +55,8 @@ INSTALLED_APPS = [
     "apps.gamification",
     "apps.sharing",
     "apps.ml",
+    "apps.rankings",
+    "apps.groups",
 ]
 
 MIDDLEWARE = [

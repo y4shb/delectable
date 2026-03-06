@@ -1,11 +1,14 @@
+from datetime import date
 from decimal import Decimal
 
 from rest_framework import permissions, viewsets
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.core.db import json_array_contains
 
-from .models import Venue
-from .serializers import VenueDetailSerializer, VenueListSerializer
+from .models import SeasonalHighlight, Venue
+from .serializers import SeasonalHighlightSerializer, VenueDetailSerializer, VenueListSerializer
 
 
 class VenueViewSet(viewsets.ReadOnlyModelViewSet):
@@ -102,3 +105,39 @@ class VenueViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.order_by("-rating")
 
         return qs
+
+
+class SeasonalHighlightsView(APIView):
+    """GET /api/venues/seasonal/ — Active seasonal highlights for current season."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @staticmethod
+    def _get_current_season():
+        """Determine season from current date."""
+        month = date.today().month
+        if month in (3, 4, 5):
+            return "spring"
+        elif month in (6, 7, 8):
+            return "summer"
+        elif month in (9, 10, 11):
+            return "fall"
+        else:
+            return "winter"
+
+    def get(self, request):
+        season = request.query_params.get("season", self._get_current_season())
+        today = date.today()
+
+        highlights = SeasonalHighlight.objects.filter(
+            season=season,
+            is_active=True,
+            start_date__lte=today,
+            end_date__gte=today,
+        ).select_related("venue")
+
+        serializer = SeasonalHighlightSerializer(highlights, many=True)
+        return Response({
+            "season": season,
+            "data": serializer.data,
+        })

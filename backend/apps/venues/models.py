@@ -171,6 +171,38 @@ class DietaryReport(TimeStampedModel):
         return f"{self.category} @ {self.venue.name} ({self.scope})"
 
 
+class SeasonalHighlight(models.Model):
+    """Seasonal dish highlight at a venue."""
+
+    SEASON_CHOICES = [
+        ("spring", "Spring"),
+        ("summer", "Summer"),
+        ("fall", "Fall"),
+        ("winter", "Winter"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="seasonal_highlights")
+    dish_name = models.CharField(max_length=200)
+    season = models.CharField(max_length=10, choices=SEASON_CHOICES)
+    description = models.TextField(blank=True, default="")
+    photo_url = models.URLField(max_length=500, blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "seasonal_highlights"
+        ordering = ["-created_at"]
+        indexes = [
+            Index(name="idx_seasonal_season_active", fields=["season", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.dish_name} @ {self.venue.name} ({self.season})"
+
+
 class VenueSimilarity(models.Model):
     """Pre-computed similarity score between two venues."""
 

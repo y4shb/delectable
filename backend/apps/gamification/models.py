@@ -355,6 +355,41 @@ class WrappedStats(models.Model):
         return f"{self.user.name} - {self.year} Wrapped"
 
 
+class MonthlyRecap(models.Model):
+    """Monthly mini-recap statistics (shareable monthly stats cards)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="monthly_recaps"
+    )
+    year = models.PositiveIntegerField()
+    month = models.PositiveIntegerField()
+    total_reviews = models.PositiveIntegerField(default=0)
+    total_venues = models.PositiveIntegerField(default=0)
+    total_photos = models.PositiveIntegerField(default=0)
+    new_cuisines_tried = models.PositiveIntegerField(default=0)
+    top_cuisine = models.CharField(max_length=100, blank=True, default="")
+    top_venue_name = models.CharField(max_length=200, blank=True, default="")
+    top_rated_dish = models.CharField(max_length=200, blank=True, default="")
+    longest_streak_in_month = models.PositiveIntegerField(default=0)
+    xp_earned = models.PositiveIntegerField(default=0)
+    likes_received = models.PositiveIntegerField(default=0)
+    stats_data = models.JSONField(default=dict, blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "monthly_recaps"
+        constraints = [
+            models.UniqueConstraint(fields=["user", "year", "month"], name="uq_monthly_recap"),
+        ]
+        indexes = [
+            Index(name="idx_monthly_recap_user", fields=["user", "-year", "-month"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.name} - {self.year}/{self.month:02d} Recap"
+
+
 class UserStatsCache(models.Model):
     """Cached activity dashboard statistics (refreshed daily)."""
 

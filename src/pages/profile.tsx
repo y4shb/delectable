@@ -13,6 +13,7 @@ import ForkRightIcon from '@mui/icons-material/ForkRight';
 import LockIcon from '@mui/icons-material/Lock';
 import PeopleIcon from '@mui/icons-material/People';
 import PublicIcon from '@mui/icons-material/Public';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { reviewToFeedReview } from '../api/api';
 
 const TASTE_DNA_CUISINES = ['Italian', 'Japanese', 'Indian', 'Mexican', 'American', 'Thai', 'French', 'Korean'] as const;
@@ -249,6 +250,30 @@ export default function ProfilePage() {
             }}
           >
             Edit Profile
+          </Button>
+        </Link>
+
+        {/* My Rankings button */}
+        <Link href="/rankings" legacyBehavior passHref>
+          <Button
+            component="a"
+            variant="outlined"
+            size="small"
+            startIcon={<EmojiEventsIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              mt: 1,
+              borderRadius: '48px',
+              textTransform: 'none',
+              fontWeight: 600,
+              borderColor: '#FFD36E',
+              color: theme.palette.text.primary,
+              '&:hover': {
+                borderColor: '#FFD36E',
+                bgcolor: 'rgba(255, 211, 110, 0.08)',
+              },
+            }}
+          >
+            My Rankings
           </Button>
         </Link>
 

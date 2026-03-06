@@ -5,6 +5,7 @@ from .models import (
     BadgeDefinition,
     DiningStreak,
     LeaderboardEntry,
+    MonthlyRecap,
     UserBadge,
     UserStatsCache,
     UserXP,
@@ -108,6 +109,34 @@ class LeaderboardEntrySerializer(serializers.ModelSerializer):
             "score",
             "rank",
         ]
+
+
+class MonthlyRecapSerializer(serializers.ModelSerializer):
+    month_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MonthlyRecap
+        fields = [
+            "year",
+            "month",
+            "month_name",
+            "total_reviews",
+            "total_venues",
+            "total_photos",
+            "new_cuisines_tried",
+            "top_cuisine",
+            "top_venue_name",
+            "top_rated_dish",
+            "longest_streak_in_month",
+            "xp_earned",
+            "likes_received",
+            "stats_data",
+            "generated_at",
+        ]
+
+    def get_month_name(self, obj):
+        import calendar
+        return calendar.month_name[obj.month]
 
 
 class WrappedStatsSerializer(serializers.ModelSerializer):

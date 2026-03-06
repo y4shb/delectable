@@ -390,3 +390,243 @@ export interface UserStats {
   reviewThisMonth: number;
   lastRefreshed: string;
 }
+
+// ---------------------------------------------------------------------------
+// Monthly Recap types
+// ---------------------------------------------------------------------------
+
+export interface MonthlyRecap {
+  year: number;
+  month: number;
+  monthName: string;
+  totalReviews: number;
+  totalVenues: number;
+  totalPhotos: number;
+  newCuisinesTried: number;
+  topCuisine: string;
+  topVenueName: string;
+  topRatedDish: string;
+  longestStreakInMonth: number;
+  xpEarned: number;
+  likesReceived: number;
+  statsData: Record<string, unknown>;
+  generatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Seasonal Discovery types
+// ---------------------------------------------------------------------------
+
+export interface SeasonalHighlight {
+  id: string;
+  venue: string;
+  venueDetail: Venue;
+  dishName: string;
+  season: string;
+  description: string;
+  photoUrl: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+}
+
+export interface WeatherRecommendation {
+  condition: string;
+  message: string;
+  data: Venue[];
+}
+
+// ---------------------------------------------------------------------------
+// Elo-style Personal Rankings
+// ---------------------------------------------------------------------------
+
+export interface PairwiseComparison {
+  id: string;
+  venueA: string;
+  venueADetail: Venue;
+  venueB: string;
+  venueBDetail: Venue;
+  winner: string | null;
+  winnerDetail: Venue | null;
+  createdAt: string;
+}
+
+export interface PersonalRanking {
+  id: string;
+  venue: string;
+  venueDetail: Venue;
+  eloScore: number;
+  displayScore: number;
+  comparisonCount: number;
+  confidence: number;
+  rank: number;
+  updatedAt: string;
+}
+
+export interface RankingsResponse {
+  data: PersonalRanking[];
+  meta: {
+    totalVenues: number;
+    totalComparisons: number;
+  };
+}
+
+export interface ComparisonPair {
+  venueA: Venue;
+  venueB: Venue;
+}
+
+export interface ComparisonResult {
+  comparison: PairwiseComparison;
+  updatedRankings: PersonalRanking[];
+}
+
+// ---------------------------------------------------------------------------
+// Decision Engine — "What Should I Eat?" discovery types
+// ---------------------------------------------------------------------------
+
+export interface DiscoverRequest {
+  occasion: string;
+  distance?: 'walking' | 'short_drive' | 'worth_the_trip';
+  dietary?: string[];
+  cuisinePreference?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface DiscoverResult {
+  venue: Venue;
+  score: number;
+  explanation: string;
+  matchReasons: string[];
+  distanceKm: number | null;
+}
+
+export interface DiscoverResponse {
+  picks: DiscoverResult[];
+}
+
+// ---------------------------------------------------------------------------
+// Want to Try
+// ---------------------------------------------------------------------------
+
+export interface WantToTryItem {
+  id: string;
+  venue: string; // venue UUID
+  venueDetail: Venue;
+  note: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Challenges
+// ---------------------------------------------------------------------------
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  rules: string;
+  coverImageUrl: string;
+  startDate: string;
+  endDate: string;
+  targetCount: number;
+  cuisineFilter: string;
+  tagFilter: string;
+  xpReward: number;
+  badgeSlug: string;
+  status: string;
+  participantCount: number;
+  isParticipating: boolean;
+  userProgress: {
+    progress: number;
+    completed: boolean;
+    target: number;
+  } | null;
+  createdAt: string;
+}
+
+export interface ChallengeParticipant {
+  id: string;
+  userName: string;
+  userAvatar: string;
+  userLevel: number;
+  progress: number;
+  completed: boolean;
+  joinedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Group Dining Consensus (Dinner Plans)
+// ---------------------------------------------------------------------------
+
+export interface DinnerPlanMember {
+  id: string;
+  user: UserPublic;
+  role: 'host' | 'member';
+  hasVoted: boolean;
+  joinedAt: string;
+}
+
+export interface DinnerPlanVenue {
+  id: string;
+  venue: string; // venue UUID
+  venueDetail: Venue;
+  totalYes: number;
+  totalNo: number;
+  sortOrder: number;
+}
+
+export interface DinnerPlanVote {
+  venueId: string;
+  vote: 'yes' | 'no' | 'skip';
+}
+
+export interface DinnerPlan {
+  id: string;
+  creator: UserPublic;
+  title: string;
+  description: string;
+  status: 'planning' | 'voting' | 'decided' | 'cancelled';
+  shareCode: string;
+  selectedVenue: string | null;
+  selectedVenueDetail: Venue | null;
+  voteDeadline: string | null;
+  suggestedDate: string | null;
+  suggestedTime: string | null;
+  maxVenues: number;
+  cuisineFilter: string;
+  members: DinnerPlanMember[];
+  venueOptions: DinnerPlanVenue[];
+  totalMembers: number;
+  votedCount: number;
+  hasUserVoted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DinnerPlanResult {
+  planId: string;
+  title: string;
+  status: string;
+  totalMembers: number;
+  votedCount: number;
+  allVoted: boolean;
+  winner: {
+    venueOptionId: string;
+    venue: Venue;
+    totalYes: number;
+    totalNo: number;
+    sortOrder: number;
+  } | null;
+  venueResults: Array<{
+    venueOptionId: string;
+    venue: Venue;
+    totalYes: number;
+    totalNo: number;
+    sortOrder: number;
+  }>;
+  suggestedDate: string | null;
+  suggestedTime: string | null;
+}

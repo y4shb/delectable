@@ -12,5 +12,6 @@ urlpatterns = [
     path("leaderboard/", views.LeaderboardView.as_view(), name="leaderboard"),
     path("leaderboard/friends/", views.FriendsLeaderboardView.as_view(), name="friends-leaderboard"),
     path("wrapped/", views.WrappedView.as_view(), name="wrapped"),
+    path("monthly-recap/", views.MonthlyRecapView.as_view(), name="monthly-recap"),
     path("stats/", views.UserStatsView.as_view(), name="stats"),
 ]

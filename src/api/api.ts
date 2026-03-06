@@ -31,6 +31,20 @@ import type {
   LeaderboardEntry,
   WrappedStats,
   UserStats,
+  DiscoverRequest,
+  DiscoverResponse,
+  WantToTryItem,
+  Challenge,
+  ChallengeParticipant,
+  DinnerPlan,
+  DinnerPlanVote,
+  DinnerPlanResult,
+  RankingsResponse,
+  ComparisonPair,
+  ComparisonResult,
+  MonthlyRecap,
+  SeasonalHighlight,
+  WeatherRecommendation,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -569,6 +583,40 @@ export async function fetchUserStats(): Promise<UserStats> {
   return data;
 }
 
+// Monthly Recap
+export async function fetchMonthlyRecap(
+  year?: number,
+  month?: number,
+): Promise<MonthlyRecap> {
+  const params: Record<string, number> = {};
+  if (year) params.year = year;
+  if (month) params.month = month;
+  const { data } = await api.get('/gamification/monthly-recap/', { params });
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Seasonal Discovery
+// ---------------------------------------------------------------------------
+
+export async function fetchSeasonalHighlights(
+  season?: string,
+): Promise<{ season: string; data: SeasonalHighlight[] }> {
+  const params: Record<string, string> = {};
+  if (season) params.season = season;
+  const { data } = await api.get('/venues/seasonal/', { params });
+  return data;
+}
+
+export async function fetchWeatherRecommendations(
+  condition: string,
+): Promise<WeatherRecommendation> {
+  const { data } = await api.get('/feed/weather-recs/', {
+    params: { condition },
+  });
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 // Playlist Save/Fork (M7 User Profiles & Sharing)
 // ---------------------------------------------------------------------------
@@ -613,4 +661,146 @@ export async function removePlaylistItem(
   itemId: string,
 ): Promise<void> {
   await api.delete(`/playlists/${playlistId}/items/${itemId}/`);
+}
+
+// ---------------------------------------------------------------------------
+// Decision Engine — "What Should I Eat?" discovery
+// ---------------------------------------------------------------------------
+
+export async function discoverVenues(
+  params: DiscoverRequest,
+): Promise<DiscoverResponse> {
+  const { data } = await api.post('/feed/discover/', params);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Want to Try
+// ---------------------------------------------------------------------------
+
+export async function fetchWantToTry(): Promise<WantToTryItem[]> {
+  const { data } = await api.get('/want-to-try/');
+  return data.data ?? data.results ?? data;
+}
+
+export async function addWantToTry(
+  venueId: string,
+  note?: string,
+): Promise<WantToTryItem> {
+  const body: { venue: string; note?: string } = { venue: venueId };
+  if (note) body.note = note;
+  const { data } = await api.post('/want-to-try/', body);
+  return data;
+}
+
+export async function removeWantToTry(id: string): Promise<void> {
+  await api.delete(`/want-to-try/${id}/`);
+}
+
+// ---------------------------------------------------------------------------
+// Challenges
+// ---------------------------------------------------------------------------
+
+export async function fetchChallenges(): Promise<Challenge[]> {
+  const { data } = await api.get('/challenges/');
+  return data.data ?? data.results ?? data;
+}
+
+export async function fetchChallengeDetail(id: string): Promise<Challenge> {
+  const { data } = await api.get(`/challenges/${id}/`);
+  return data;
+}
+
+export async function joinChallenge(id: string): Promise<void> {
+  await api.post(`/challenges/${id}/join/`);
+}
+
+export async function fetchChallengeLeaderboard(
+  id: string,
+): Promise<ChallengeParticipant[]> {
+  const { data } = await api.get(`/challenges/${id}/leaderboard/`);
+  return data.data ?? data.results ?? data;
+}
+
+// ---------------------------------------------------------------------------
+// Group Dining Consensus (Dinner Plans)
+// ---------------------------------------------------------------------------
+
+export async function fetchDinnerPlans(): Promise<DinnerPlan[]> {
+  const { data } = await api.get('/groups/plans/');
+  return data.data ?? data.results ?? data;
+}
+
+export async function createDinnerPlan(plan: {
+  title: string;
+  description?: string;
+  cuisineFilter?: string;
+  suggestedDate?: string;
+  suggestedTime?: string;
+  maxVenues?: number;
+}): Promise<DinnerPlan> {
+  const { data } = await api.post('/groups/plans/', plan);
+  return data;
+}
+
+export async function fetchDinnerPlanDetail(id: string): Promise<DinnerPlan> {
+  const { data } = await api.get(`/groups/plans/${id}/`);
+  return data;
+}
+
+export async function joinDinnerPlan(shareCode: string): Promise<DinnerPlan> {
+  const { data } = await api.post('/groups/plans/join/', { shareCode });
+  return data;
+}
+
+export async function submitDinnerPlanVotes(
+  planId: string,
+  votes: DinnerPlanVote[],
+): Promise<DinnerPlan> {
+  const { data } = await api.post(`/groups/plans/${planId}/votes/`, { votes });
+  return data;
+}
+
+export async function fetchDinnerPlanResult(
+  planId: string,
+): Promise<DinnerPlanResult> {
+  const { data } = await api.get(`/groups/plans/${planId}/result/`);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Elo-style Personal Rankings
+// ---------------------------------------------------------------------------
+
+export async function fetchPersonalRankings(
+  full = false,
+  limit = 10,
+): Promise<RankingsResponse> {
+  const params: Record<string, string | number> = {};
+  if (full) params.full = 'true';
+  else params.limit = limit;
+  const { data } = await api.get('/rankings/', { params });
+  return data;
+}
+
+export async function fetchNextComparison(
+  venueId?: string,
+): Promise<ComparisonPair> {
+  const params: Record<string, string> = {};
+  if (venueId) params.venueId = venueId;
+  const { data } = await api.get('/rankings/next/', { params });
+  return data.data ?? data;
+}
+
+export async function submitComparison(
+  venueA: string,
+  venueB: string,
+  winner: string | null,
+): Promise<ComparisonResult> {
+  const { data } = await api.post('/rankings/comparisons/', {
+    venueA,
+    venueB,
+    winner,
+  });
+  return data.data ?? data;
 }

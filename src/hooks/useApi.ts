@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   fetchMe,
   fetchUser as fetchUserApi,
@@ -28,8 +28,22 @@ import {
   fetchFriendsVenues,
   fetchSavedPlaylists,
   fetchUserPlaylists,
+  discoverVenues,
+  fetchWantToTry,
+  fetchChallenges,
+  fetchChallengeDetail,
+  fetchChallengeLeaderboard,
+  fetchDinnerPlans,
+  fetchDinnerPlanDetail,
+  fetchDinnerPlanResult,
+  fetchPersonalRankings,
+  fetchNextComparison,
+  submitComparison,
+  fetchMonthlyRecap,
+  fetchSeasonalHighlights,
+  fetchWeatherRecommendations,
 } from '../api/api';
-import type { SearchFilters } from '../types';
+import type { DiscoverRequest, SearchFilters } from '../types';
 
 export function useUser(id?: string) {
   const hasValidId = id !== undefined && id !== '';
@@ -267,5 +281,154 @@ export function useUserPlaylists(userId?: string) {
     queryFn: () => fetchUserPlaylists(userId!),
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Decision Engine — "What Should I Eat?"
+// ---------------------------------------------------------------------------
+
+export function useDiscoverVenues() {
+  return useMutation({
+    mutationKey: ['discoverVenues'],
+    mutationFn: (params: DiscoverRequest) => discoverVenues(params),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Want to Try
+// ---------------------------------------------------------------------------
+
+export function useWantToTry() {
+  return useQuery({
+    queryKey: ['wantToTry'],
+    queryFn: () => fetchWantToTry(),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Challenges
+// ---------------------------------------------------------------------------
+
+export function useChallenges() {
+  return useQuery({
+    queryKey: ['challenges'],
+    queryFn: () => fetchChallenges(),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useChallengeDetail(id?: string) {
+  return useQuery({
+    queryKey: ['challengeDetail', id],
+    queryFn: () => fetchChallengeDetail(id!),
+    enabled: !!id,
+  });
+}
+
+export function useChallengeLeaderboard(id?: string) {
+  return useQuery({
+    queryKey: ['challengeLeaderboard', id],
+    queryFn: () => fetchChallengeLeaderboard(id!),
+    enabled: !!id,
+    staleTime: 60 * 1000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Group Dining Consensus (Dinner Plans)
+// ---------------------------------------------------------------------------
+
+export function useDinnerPlans() {
+  return useQuery({
+    queryKey: ['dinnerPlans'],
+    queryFn: () => fetchDinnerPlans(),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useDinnerPlanDetail(id?: string) {
+  return useQuery({
+    queryKey: ['dinnerPlanDetail', id],
+    queryFn: () => fetchDinnerPlanDetail(id!),
+    enabled: !!id,
+  });
+}
+
+export function useDinnerPlanResult(id?: string) {
+  return useQuery({
+    queryKey: ['dinnerPlanResult', id],
+    queryFn: () => fetchDinnerPlanResult(id!),
+    enabled: !!id,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Elo-style Personal Rankings
+// ---------------------------------------------------------------------------
+
+export function usePersonalRankings(full = false, limit = 10) {
+  return useQuery({
+    queryKey: ['personalRankings', full, limit],
+    queryFn: () => fetchPersonalRankings(full, limit),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useNextComparison(venueId?: string) {
+  return useQuery({
+    queryKey: ['nextComparison', venueId],
+    queryFn: () => fetchNextComparison(venueId),
+    staleTime: 0, // Always fetch fresh pairs
+    retry: false,
+  });
+}
+
+export function useSubmitComparison() {
+  return useMutation({
+    mutationFn: ({
+      venueA,
+      venueB,
+      winner,
+    }: {
+      venueA: string;
+      venueB: string;
+      winner: string | null;
+    }) => submitComparison(venueA, venueB, winner),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Monthly Recap
+// ---------------------------------------------------------------------------
+
+export function useMonthlyRecap(year?: number, month?: number) {
+  return useQuery({
+    queryKey: ['monthlyRecap', year, month],
+    queryFn: () => fetchMonthlyRecap(year, month),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Seasonal Discovery
+// ---------------------------------------------------------------------------
+
+export function useSeasonalHighlights(season?: string) {
+  return useQuery({
+    queryKey: ['seasonalHighlights', season],
+    queryFn: () => fetchSeasonalHighlights(season),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+}
+
+export function useWeatherRecommendations(condition: string) {
+  return useQuery({
+    queryKey: ['weatherRecs', condition],
+    queryFn: () => fetchWeatherRecommendations(condition),
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    enabled: !!condition,
   });
 }

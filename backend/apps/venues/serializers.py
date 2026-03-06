@@ -5,6 +5,7 @@ from .models import (
     DietaryReport,
     Dish,
     OccasionTag,
+    SeasonalHighlight,
     Venue,
     VenueOccasion,
 )
@@ -134,3 +135,25 @@ class VenueDetailSerializer(serializers.ModelSerializer):
     def get_dishes(self, obj):
         qs = Dish.objects.filter(venue=obj).order_by("-review_count")[:10]
         return DishListSerializer(qs, many=True).data
+
+
+class SeasonalHighlightSerializer(serializers.ModelSerializer):
+    """Seasonal dish highlight with venue detail."""
+
+    venue_detail = VenueListSerializer(source="venue", read_only=True)
+
+    class Meta:
+        model = SeasonalHighlight
+        fields = [
+            "id",
+            "venue",
+            "venue_detail",
+            "dish_name",
+            "season",
+            "description",
+            "photo_url",
+            "is_active",
+            "start_date",
+            "end_date",
+            "created_at",
+        ]

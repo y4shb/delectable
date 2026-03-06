@@ -1,10 +1,13 @@
 import AppShell from '../layouts/AppShell';
-import { Typography, Box, CircularProgress } from '@mui/material';
+import { Typography, Box, CircularProgress, useTheme } from '@mui/material';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ReviewCard from '../components/ReviewCard';
 import ReviewCardSkeleton from '../components/ReviewCardSkeleton';
 import WelcomeSection from '../components/WelcomeSection';
 import TrendingSection from '../components/TrendingSection';
 import TasteWizard from '../components/TasteWizard';
+import Link from 'next/link';
 import { useState, useRef, useCallback } from 'react';
 import { useFeedReviews, useFeedTier, useTasteProfile } from '../hooks/useApi';
 import { useRequireAuth } from '../hooks/useRequireAuth';
@@ -15,6 +18,7 @@ const RESISTANCE_FACTOR = 0.4;
 const MIN_REFRESH_DURATION = 800;
 
 export default function FeedPage() {
+  const theme = useTheme();
   const { isLoading: authLoading } = useRequireAuth();
   const [activeTab, setActiveTab] = useState('top-picks');
   const { data: reviews, isLoading } = useFeedReviews(activeTab);
@@ -163,6 +167,51 @@ export default function FeedPage() {
         </Box>
 
         <WelcomeSection onTabChange={handleTabChange} />
+
+        {/* Discovery banner */}
+        <Link href="/discover" passHref legacyBehavior>
+          <Box
+            component="a"
+            role="link"
+            aria-label="Not sure what to eat? Let us help you decide"
+            tabIndex={0}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              mx: 2,
+              mb: 2.5,
+              px: 2,
+              py: 1.8,
+              borderRadius: '16px',
+              textDecoration: 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #FF6B6B 50%, #FFD36E 100%)`,
+              boxShadow: '0 4px 16px rgba(242, 77, 79, 0.25)',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              '&:hover': {
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 20px rgba(242, 77, 79, 0.35)',
+              },
+              '&:focus-visible': {
+                outline: '2px solid #fff',
+                outlineOffset: '2px',
+              },
+            }}
+          >
+            <AutoAwesomeIcon sx={{ fontSize: 22 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>
+                Not sure what to eat?
+              </Typography>
+              <Typography sx={{ fontSize: 12, opacity: 0.9, lineHeight: 1.3 }}>
+                Let us help you decide
+              </Typography>
+            </Box>
+            <ArrowForwardIcon sx={{ fontSize: 20, opacity: 0.8 }} />
+          </Box>
+        </Link>
 
         {/* Taste Wizard for cold-start users */}
         {showWizard && <TasteWizard onComplete={handleWizardComplete} />}

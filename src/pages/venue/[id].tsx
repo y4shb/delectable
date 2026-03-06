@@ -15,13 +15,17 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import StarIcon from '@mui/icons-material/Star';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import AppShell from '../../layouts/AppShell';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
-import { useVenueDetail, useVenueReviews, useSimilarVenues } from '../../hooks/useApi';
+import { useVenueDetail, useVenueReviews, useSimilarVenues, useWantToTry } from '../../hooks/useApi';
+import { addWantToTry, removeWantToTry } from '../../api/api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AddToPlaylistSheet from '../../components/AddToPlaylistSheet';
 import OccasionSection from '../../components/OccasionSection';
 import DietaryBadges from '../../components/DietaryBadges';
-import type { Dish } from '../../types';
+import type { Dish, WantToTryItem } from '../../types';
 
 export default function VenueDetailPage() {
   useRequireAuth();
@@ -30,9 +34,43 @@ export default function VenueDetailPage() {
   const { id } = router.query;
   const [playlistSheetOpen, setPlaylistSheetOpen] = useState(false);
 
+  const queryClient = useQueryClient();
   const { data: venue, isLoading: venueLoading } = useVenueDetail(id as string);
   const { data: reviews, isLoading: reviewsLoading } = useVenueReviews(id as string);
   const { data: similarVenues } = useSimilarVenues(id as string);
+  const { data: wantToTryItems } = useWantToTry();
+
+  const wantToTryItem = wantToTryItems?.find(
+    (item: WantToTryItem) => (item.venueDetail?.id ?? item.venue) === id,
+  );
+  const isWantToTry = Boolean(wantToTryItem);
+
+  const addWantToTryMutation = useMutation({
+    mutationFn: () => addWantToTry(id as string),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wantToTry'] });
+    },
+  });
+
+  const removeWantToTryMutation = useMutation({
+    mutationFn: () => removeWantToTry(wantToTryItem!.id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['wantToTry'] });
+      const previous = queryClient.getQueryData<WantToTryItem[]>(['wantToTry']);
+      queryClient.setQueryData<WantToTryItem[]>(['wantToTry'], (old) =>
+        old ? old.filter((item) => item.id !== wantToTryItem!.id) : [],
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['wantToTry'], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['wantToTry'] });
+    },
+  });
 
   // Handle SSR / static first render where router.query is not yet populated
   if (!router.isReady || venueLoading || reviewsLoading) {
@@ -472,6 +510,32 @@ export default function VenueDetailPage() {
           >
             Add to Playlist
           </Button>
+          <IconButton
+            onClick={() =>
+              isWantToTry
+                ? removeWantToTryMutation.mutate()
+                : addWantToTryMutation.mutate()
+            }
+            disabled={
+              addWantToTryMutation.isPending || removeWantToTryMutation.isPending
+            }
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              border: `2px solid ${isWantToTry ? '#F24D4F' : theme.palette.divider}`,
+              color: isWantToTry ? '#F24D4F' : theme.palette.text.secondary,
+              transition: 'all 0.2s',
+              '&:hover': {
+                borderColor: '#F24D4F',
+                color: '#F24D4F',
+                bgcolor: 'rgba(242,77,79,0.05)',
+              },
+            }}
+            aria-label={isWantToTry ? 'Remove from Want to Try' : 'Add to Want to Try'}
+          >
+            {isWantToTry ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+          </IconButton>
         </Stack>
 
         {/* Occasion tags */}

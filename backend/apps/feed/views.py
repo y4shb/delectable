@@ -1,6 +1,9 @@
-from django.db.models import Count
+import math
+from decimal import Decimal
+
+from django.db.models import Count, Q
 from django.utils import timezone
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, serializers as drf_serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -9,6 +12,7 @@ from apps.core.permissions import ReadPublicWriteAuthenticated
 from apps.reviews.models import Review
 from apps.reviews.serializers import ReviewSerializer
 from apps.users.models import Follow
+from apps.venues.models import DietaryReport, OccasionTag, Venue, VenueOccasion
 from apps.venues.serializers import VenueListSerializer
 
 from .engine import (
@@ -232,3 +236,333 @@ class FeedTierView(APIView):
             "tier": tier,
             "tier_name": tier_names.get(tier, "unknown"),
         })
+
+
+# ---------------------------------------------------------------------------
+# Decision Engine — "What Should I Eat?" discovery wizard
+# ---------------------------------------------------------------------------
+
+DISTANCE_RADIUS_KM = {
+    "walking": 1,
+    "short_drive": 5,
+    "worth_the_trip": 15,
+}
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    """Compute great-circle distance between two points in km."""
+    R = 6371  # Earth radius in km
+    lat1, lon1, lat2, lon2 = (
+        math.radians(float(v)) for v in (lat1, lon1, lat2, lon2)
+    )
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+class DecisionEngineSerializer(drf_serializers.Serializer):
+    """Validates the POST body for the decision engine endpoint."""
+
+    occasion = drf_serializers.CharField(required=True, help_text="Occasion slug")
+    distance = drf_serializers.ChoiceField(
+        choices=["walking", "short_drive", "worth_the_trip"],
+        required=False,
+        default=None,
+    )
+    dietary = drf_serializers.ListField(
+        child=drf_serializers.CharField(), required=False, default=list
+    )
+    cuisine_preference = drf_serializers.CharField(required=False, default=None, allow_blank=True)
+    lat = drf_serializers.FloatField(required=False, default=None)
+    lng = drf_serializers.FloatField(required=False, default=None)
+
+
+class DecisionEngineView(APIView):
+    """
+    POST /api/feed/discover/ — Decision engine for restaurant discovery.
+
+    Accepts occasion, distance, dietary filters and returns top venue picks
+    with personalized scoring and explanations.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = DecisionEngineSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.validated_data
+
+        occasion_slug = params["occasion"]
+        distance_key = params.get("distance")
+        dietary_filters = params.get("dietary") or []
+        cuisine_preference = params.get("cuisine_preference")
+        user_lat = params.get("lat")
+        user_lng = params.get("lng")
+
+        # Step 1: Filter venues by occasion tags (join VenueOccasion)
+        venue_ids_by_occasion = set(
+            VenueOccasion.objects.filter(occasion_id=occasion_slug)
+            .values_list("venue_id", flat=True)
+        )
+
+        if not venue_ids_by_occasion:
+            # Fallback: if no venues match the occasion, use all venues
+            venues_qs = Venue.objects.all()
+        else:
+            venues_qs = Venue.objects.filter(id__in=venue_ids_by_occasion)
+
+        # Step 2: Filter by dietary availability
+        if dietary_filters:
+            dietary_venue_ids = set(
+                DietaryReport.objects.filter(
+                    category__in=dietary_filters, is_available=True
+                )
+                .values_list("venue_id", flat=True)
+            )
+            if dietary_venue_ids:
+                venues_qs = venues_qs.filter(id__in=dietary_venue_ids)
+
+        # Step 3: Filter by distance radius from user location
+        candidates = list(venues_qs[:200])  # Cap candidates
+
+        if distance_key and user_lat is not None and user_lng is not None:
+            max_km = DISTANCE_RADIUS_KM.get(distance_key, 15)
+            filtered = []
+            for venue in candidates:
+                if venue.latitude is not None and venue.longitude is not None:
+                    dist = _haversine_km(user_lat, user_lng, venue.latitude, venue.longitude)
+                    venue._distance_km = dist
+                    if dist <= max_km:
+                        filtered.append(venue)
+                else:
+                    # Venues without coordinates: include with unknown distance
+                    venue._distance_km = None
+                    filtered.append(venue)
+            candidates = filtered
+        else:
+            for venue in candidates:
+                venue._distance_km = None
+
+        # Step 4: Score remaining venues
+        user = request.user if request.user.is_authenticated else None
+        taste_profile = None
+        if user:
+            taste_profile = UserTasteProfile.objects.filter(user=user).first()
+
+        # Get occasion vote counts for scoring
+        occasion_votes = {}
+        if venue_ids_by_occasion:
+            for vo in VenueOccasion.objects.filter(
+                occasion_id=occasion_slug, venue_id__in=[v.id for v in candidates]
+            ):
+                occasion_votes[vo.venue_id] = vo.vote_count
+
+        # Get trending scores for boost
+        trending_map = {
+            ts.venue_id: ts.score
+            for ts in VenueTrendingScore.objects.filter(
+                venue_id__in=[v.id for v in candidates], score__gt=0
+            )
+        }
+
+        # Pre-compute social data to avoid N+1 queries inside the loop
+        following_ids = set()
+        friend_review_counts = {}
+        if user:
+            following_ids = set(
+                Follow.objects.filter(follower=user).values_list("following_id", flat=True)
+            )
+            if following_ids:
+                candidate_ids = [v.id for v in candidates]
+                friend_venue_counts = (
+                    Review.objects.filter(
+                        venue_id__in=candidate_ids, user_id__in=following_ids
+                    )
+                    .values("venue_id")
+                    .annotate(cnt=Count("id"))
+                )
+                friend_review_counts = {
+                    row["venue_id"]: row["cnt"] for row in friend_venue_counts
+                }
+
+        scored_venues = []
+        for venue in candidates:
+            score = 0.0
+            match_reasons = []
+
+            # Rating component (0-0.30)
+            rating_val = float(venue.rating) if venue.rating else 0
+            rating_score = min(rating_val / 10, 1.0) * 0.30
+            score += rating_score
+            if rating_val >= 8.0:
+                match_reasons.append("Highly rated")
+
+            # Occasion relevance (0-0.25)
+            vote_count = occasion_votes.get(venue.id, 0)
+            occasion_score = min(vote_count / 10, 1.0) * 0.25
+            score += occasion_score
+            if vote_count >= 3:
+                match_reasons.append("Popular for this occasion")
+
+            # Cuisine preference match (0-0.20)
+            if cuisine_preference and venue.cuisine_type:
+                if cuisine_preference.lower() in venue.cuisine_type.lower():
+                    score += 0.20
+                    match_reasons.append(f"Matches your {cuisine_preference} craving")
+            elif user and taste_profile and taste_profile.preferred_cuisines:
+                fav = {c.lower() for c in taste_profile.preferred_cuisines}
+                if venue.cuisine_type and venue.cuisine_type.lower() in fav:
+                    score += 0.15
+                    match_reasons.append("Matches your taste profile")
+            elif user and hasattr(user, "favorite_cuisines") and user.favorite_cuisines:
+                fav = {c.lower() for c in user.favorite_cuisines}
+                if venue.cuisine_type and venue.cuisine_type.lower() in fav:
+                    score += 0.15
+                    match_reasons.append("One of your favorite cuisines")
+
+            # Trending boost (0-0.10)
+            trending_val = trending_map.get(venue.id, 0)
+            if trending_val > 0:
+                trending_boost = min(trending_val / 10, 1.0) * 0.10
+                score += trending_boost
+                match_reasons.append("Trending right now")
+
+            # Social signal — reviews from friends (0-0.10)
+            if user and following_ids:
+                friend_count = friend_review_counts.get(venue.id, 0)
+                if friend_count > 0:
+                    social_boost = min(friend_count / 5, 1.0) * 0.10
+                    score += social_boost
+                    match_reasons.append("Loved by friends you follow")
+
+            # Review count component (0-0.05)
+            reviews_count = venue.reviews_count or 0
+            if reviews_count >= 10:
+                score += 0.05
+                match_reasons.append(f"{reviews_count} reviews")
+            elif reviews_count >= 5:
+                score += 0.03
+
+            # Proximity bonus for closer venues
+            if venue._distance_km is not None and venue._distance_km < 1:
+                match_reasons.append("Very close to you")
+
+            # Generate explanation text
+            explanation = _build_explanation(
+                venue, occasion_slug, match_reasons, venue._distance_km
+            )
+
+            scored_venues.append({
+                "venue": venue,
+                "score": round(score, 4),
+                "explanation": explanation,
+                "match_reasons": match_reasons[:5],
+                "distance_km": round(venue._distance_km, 2) if venue._distance_km is not None else None,
+            })
+
+        # Sort by score descending
+        scored_venues.sort(key=lambda x: x["score"], reverse=True)
+        top_picks = scored_venues[:5]
+
+        # Serialize response
+        picks = []
+        for item in top_picks:
+            venue_data = VenueListSerializer(item["venue"]).data
+            picks.append({
+                "venue": venue_data,
+                "score": round(item["score"] * 100, 1),  # Convert to percentage
+                "explanation": item["explanation"],
+                "match_reasons": item["match_reasons"],
+                "distance_km": item["distance_km"],
+            })
+
+        return Response({"picks": picks})
+
+
+def _build_explanation(venue, occasion_slug, match_reasons, distance_km):
+    """Build a personalized explanation string for a venue pick."""
+    parts = []
+    name = venue.name
+
+    if "Highly rated" in match_reasons:
+        parts.append(f"{name} has excellent ratings")
+    elif venue.rating and float(venue.rating) >= 7:
+        parts.append(f"{name} is well-reviewed")
+    else:
+        parts.append(f"{name} could be a great find")
+
+    if "Popular for this occasion" in match_reasons:
+        parts.append("and is a popular choice for this occasion")
+
+    if "Trending right now" in match_reasons:
+        parts.append("and is trending right now")
+
+    if distance_km is not None:
+        if distance_km < 0.5:
+            parts.append("- just a short walk away")
+        elif distance_km < 2:
+            parts.append(f"- about {int(distance_km * 15)} min walk")
+        elif distance_km < 10:
+            parts.append(f"- a {int(distance_km * 2)} min drive")
+
+    explanation = " ".join(parts) + "."
+    return explanation
+
+
+class WeatherRecommendationsView(APIView):
+    """GET /api/feed/weather-recs/ — Weather-aware venue recommendations."""
+
+    permission_classes = [permissions.AllowAny]
+
+    WEATHER_TAG_MAP = {
+        "rain": ["ramen", "comfort-food", "soup", "stew", "hot-pot"],
+        "cold": ["ramen", "comfort-food", "soup", "stew", "hot-pot"],
+        "hot": ["salad", "ice-cream", "cold-noodles", "sushi", "smoothie"],
+        "nice": ["outdoor-dining", "brunch", "patio"],
+    }
+
+    WEATHER_CUISINE_MAP = {
+        "rain": ["Japanese", "Korean", "Vietnamese"],
+        "cold": ["Japanese", "Korean", "Indian"],
+        "hot": ["Japanese", "Mexican", "Mediterranean"],
+        "nice": ["Italian", "American", "French"],
+    }
+
+    def get(self, request):
+        condition = request.query_params.get("condition", "nice")
+        if condition not in self.WEATHER_TAG_MAP:
+            condition = "nice"
+
+        matching_tags = self.WEATHER_TAG_MAP[condition]
+        matching_cuisines = self.WEATHER_CUISINE_MAP[condition]
+
+        # Find venues matching tags or cuisine
+        tag_filter = Q()
+        for tag in matching_tags:
+            tag_filter |= Q(tags__icontains=tag)
+
+        cuisine_filter = Q(cuisine_type__in=matching_cuisines)
+
+        venues = (
+            Venue.objects.filter(tag_filter | cuisine_filter)
+            .distinct()
+            .order_by("-rating")[:5]
+        )
+
+        serializer = VenueListSerializer(venues, many=True)
+        return Response({
+            "condition": condition,
+            "message": self._get_message(condition),
+            "data": serializer.data,
+        })
+
+    @staticmethod
+    def _get_message(condition):
+        messages = {
+            "rain": "Rainy day comfort food picks",
+            "cold": "Warm up with these cozy spots",
+            "hot": "Beat the heat with these refreshing picks",
+            "nice": "Perfect weather for these spots",
+        }
+        return messages.get(condition, "Top picks for today")

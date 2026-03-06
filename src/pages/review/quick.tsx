@@ -16,6 +16,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import CelebrationIcon from '@mui/icons-material/Celebration';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import AppShell from '../../layouts/AppShell';
 import { useAuth } from '../../context/AuthContext';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
@@ -88,7 +89,8 @@ export default function QuickReviewPage() {
           router.push('/feed');
         }, 3000);
       } else {
-        router.push('/feed');
+        // After posting a review, offer to rank the venue
+        router.push(`/compare?venueId=${selectedVenue.id}`);
       }
     } catch (err) {
       console.error('Failed to create review:', err);

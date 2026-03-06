@@ -10,6 +10,7 @@ from .views_similar import SimilarVenuesView
 
 urlpatterns = [
     path("venues/", views.VenueViewSet.as_view({"get": "list"}), name="venue-list"),
+    path("venues/seasonal/", views.SeasonalHighlightsView.as_view(), name="seasonal-highlights"),
     path("venues/friends/", FriendsVenuesView.as_view(), name="venue-friends"),
     path("venues/nearby-saved/", NearbySavedVenuesView.as_view(), name="nearby-saved"),
     path("venues/<uuid:id>/", views.VenueViewSet.as_view({"get": "retrieve"}), name="venue-detail"),

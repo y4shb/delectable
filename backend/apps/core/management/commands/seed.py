@@ -11,9 +11,10 @@ from django.db import transaction
 from apps.notifications.models import Notification
 from apps.playlists.models import Playlist, PlaylistItem
 from apps.reviews.models import Comment, Review, ReviewLike
+from apps.sharing.models import Challenge
 from apps.users.models import Follow, User
 from apps.venues.models import (
-    DietaryReport, Dish, OccasionTag, Venue, VenueOccasion, VenueSimilarity,
+    DietaryReport, Dish, OccasionTag, SeasonalHighlight, Venue, VenueOccasion, VenueSimilarity,
 )
 
 
@@ -541,6 +542,31 @@ DIETARY_REPORTS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Challenge cover images
+# ---------------------------------------------------------------------------
+CHALLENGE_COVERS = [
+    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=400&fit=crop",  # food spread
+    "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop",  # fine dining
+    "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=800&h=400&fit=crop",  # burger
+]
+
+
+# ---------------------------------------------------------------------------
+# Seasonal Highlights: (venue_idx, dish_name, season, description, photo_url, start_date, end_date)
+# ---------------------------------------------------------------------------
+SEASONAL_HIGHLIGHTS = [
+    (9, "Spring Pea Crostini", "spring", "Fresh English peas on grilled bread with ricotta and mint. A Via Carota springtime staple.", FOOD_PHOTOS[6], "2026-03-01", "2026-05-31"),
+    (2, "Ramp Butter Lobster", "spring", "Le Bernardin's seasonal lobster with foraged ramps and spring vegetables.", FOOD_PHOTOS[11], "2026-03-15", "2026-05-15"),
+    (7, "Mango Sticky Rice", "summer", "Thai Diner's tropical summer dessert with coconut cream.", FOOD_PHOTOS[17], "2026-06-01", "2026-08-31"),
+    (0, "Summer Omakase", "summer", "Nakazawa's special summer selection featuring seasonal fish from Tsukiji.", FOOD_PHOTOS[0], "2026-06-01", "2026-08-31"),
+    (5, "Pumpkin Curry", "fall", "Dhamaka's slow-cooked pumpkin curry with autumn spices and freshly baked naan.", FOOD_PHOTOS[9], "2026-09-01", "2026-11-30"),
+    (15, "Truffle Pasta", "fall", "L'Artusi's handmade pappardelle with shaved black truffle and brown butter.", FOOD_PHOTOS[19], "2026-10-01", "2026-12-15"),
+    (14, "Winter Miso Ramen", "winter", "Ippudo's limited winter miso tonkotsu with roasted garlic oil.", FOOD_PHOTOS[3], "2025-12-01", "2026-02-28"),
+    (12, "Lamb Nihari", "winter", "Adda's warming lamb nihari stew, slow-cooked overnight with winter spices.", FOOD_PHOTOS[9], "2025-12-01", "2026-03-31"),
+]
+
+
 class Command(BaseCommand):
     help = "Seed the database with realistic test data"
 
@@ -778,6 +804,79 @@ class Command(BaseCommand):
             )
             dr_count += 1
         self.stdout.write(f"  Dietary Reports: {dr_count}")
+
+        # --- Challenges ---
+        from datetime import timedelta
+        from django.utils import timezone
+
+        now = timezone.now()
+        challenges_data = [
+            {
+                "title": "Cuisine Explorer",
+                "description": "Try 5 different cuisines this month. Expand your palate and discover new flavors from around the world.",
+                "rules": "Each review must be at a venue with a different cuisine type. Only reviews created during the challenge period count.",
+                "cover_image_url": CHALLENGE_COVERS[0],
+                "start_date": now - timedelta(days=5),
+                "end_date": now + timedelta(days=25),
+                "target_count": 5,
+                "xp_reward": 500,
+                "badge_slug": "cuisine-explorer",
+                "status": Challenge.Status.ACTIVE,
+            },
+            {
+                "title": "Hidden Gem Hunter",
+                "description": "Review 3 venues with fewer than 5 reviews. Help the community discover new places!",
+                "rules": "The venue must have fewer than 5 reviews at the time of your submission. Only new reviews count.",
+                "cover_image_url": CHALLENGE_COVERS[1],
+                "start_date": now - timedelta(days=3),
+                "end_date": now + timedelta(days=27),
+                "target_count": 3,
+                "xp_reward": 750,
+                "badge_slug": "hidden-gem-hunter",
+                "status": Challenge.Status.ACTIVE,
+            },
+            {
+                "title": "Photo Foodie",
+                "description": "Post 10 reviews with photos this month. Show off those delicious dishes!",
+                "rules": "Each review must include at least one photo. Reviews without photos will not count toward this challenge.",
+                "cover_image_url": CHALLENGE_COVERS[2],
+                "start_date": now - timedelta(days=2),
+                "end_date": now + timedelta(days=28),
+                "target_count": 10,
+                "xp_reward": 1000,
+                "badge_slug": "photo-foodie",
+                "status": Challenge.Status.ACTIVE,
+            },
+        ]
+
+        challenge_count = 0
+        for cdata in challenges_data:
+            _, created = Challenge.objects.get_or_create(
+                title=cdata["title"],
+                defaults=cdata,
+            )
+            if created:
+                challenge_count += 1
+        self.stdout.write(f"  Challenges: {challenge_count}")
+
+        # --- Seasonal Highlights ---
+        from datetime import date as dt_date
+        sh_count = 0
+        for venue_idx, dish_name, season, desc, photo, start, end in SEASONAL_HIGHLIGHTS:
+            SeasonalHighlight.objects.get_or_create(
+                venue=venues[venue_idx],
+                dish_name=dish_name,
+                season=season,
+                defaults={
+                    "description": desc,
+                    "photo_url": photo,
+                    "start_date": dt_date.fromisoformat(start),
+                    "end_date": dt_date.fromisoformat(end),
+                    "is_active": True,
+                },
+            )
+            sh_count += 1
+        self.stdout.write(f"  Seasonal Highlights: {sh_count}")
 
         # --- Venue Similarity ---
         from apps.core.management.commands.refresh_venue_similarity import Command as SimCommand

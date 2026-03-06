@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from apps.core.pagination import FeedCursorPagination
 from apps.core.permissions import IsOwnerOrReadOnly
 
-from .models import Bookmark, Comment, Review, ReviewLike
+from .models import Bookmark, Comment, Review, ReviewLike, WantToTry
 from .serializers import (
     BookmarkSerializer,
     CommentCreateSerializer,
@@ -15,6 +15,7 @@ from .serializers import (
     QuickReviewSerializer,
     ReviewCreateSerializer,
     ReviewSerializer,
+    WantToTrySerializer,
 )
 
 
@@ -348,3 +349,30 @@ class QuickReviewView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class WantToTryListView(generics.ListCreateAPIView):
+    """GET /api/want-to-try/ — List user's want-to-try venues.
+    POST /api/want-to-try/ — Add a venue to want-to-try."""
+
+    serializer_class = WantToTrySerializer
+
+    def get_queryset(self):
+        return (
+            WantToTry.objects.filter(user=self.request.user)
+            .select_related("venue")
+            .order_by("-created_at")
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class WantToTryDetailView(generics.DestroyAPIView):
+    """DELETE /api/want-to-try/{pk}/ — Remove from want-to-try."""
+
+    serializer_class = WantToTrySerializer
+    lookup_field = "pk"
+
+    def get_queryset(self):
+        return WantToTry.objects.filter(user=self.request.user)

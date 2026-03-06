@@ -171,3 +171,25 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"{self.user} bookmarked {self.review.id}"
+
+
+class WantToTry(models.Model):
+    """A venue the user wants to try in the future."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="want_to_try"
+    )
+    venue = models.ForeignKey(
+        "venues.Venue", on_delete=models.CASCADE, related_name="want_to_try"
+    )
+    note = models.CharField(max_length=300, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "want_to_try"
+        unique_together = [("user", "venue")]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} wants to try {self.venue}"

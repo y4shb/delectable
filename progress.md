@@ -765,3 +765,78 @@
 | 2026-03-06 | Enhancement 3.1: Map Integration | Auto-fit bounds (fitBounds + 50px padding), animated marker entry (DROP + 30ms stagger), light-mode map styling (20-rule warm/cream palette), "Search this area" button (onBoundsChanged + bbox filter), VenuePreviewSheet replaces InfoWindow (slide-up, swipe-dismiss, photo/tags/CTA), onVenueSelect prop |
 | 2026-03-06 | Enhancement 3.2: Venue Filtering UI | Consolidated 2-row filter bar (cuisine chips + active filter pills + action icons), unified filter panel (half-screen sheet with rating 6+/7+/8+/9+, distance slider, multi-select tags, sort radio), enhanced list view (full-width 140px photos, 2-column grid, distance, review count, tags), venue count indicator, "More" menu for heatmap/friends |
 | 2026-03-06 | New component: VenuePreviewSheet | Bottom-anchored venue preview card with slide-up entry animation, swipe-down-to-dismiss, drag handle, full-width photo, rating badge with review count, tag chips, "View Details" CTA |
+| 2026-03-06 | UI/UX Overhaul (10 agents) | Full UI/UX enhancement from enhancements.md Section 2: Feed tabs redesign (pill chips with icons), Quick Review FAB (gradient camera button with pulse), Search in header (expandable frosted glass input), Review card badges (price/distance/verified), Venue photo mosaic grid (3-photo layout), Pull-to-refresh (touch events + spring animation), Venue best dishes section (horizontal scroll cards), Profile taste DNA (SVG radar chart), Dark mode persistence (localStorage + system preference), Haptic feedback + micro-interactions (vibrate + scale animations) |
+| 2026-03-06 | Performance fixes | Frontend bundle optimization (dynamic imports for GoogleMapView, gamification components, optimizePackageImports), Database indexes (5 new indexes on Review + Notification models), N+1 query fixes (batch social scores, annotate bookmark_count, bulk user fetch), React Query staleTime tuning (8 hooks configured) |
+| 2026-03-06 | Database seeded | Fresh migration + seed: 10 users, 16 NYC venues (Unsplash photos), 45 reviews, 46 likes, 20 comments, 39 follows, 11 playlists, 38 notifications, 16 occasion tags, 130 venue similarities, taste profiles for all users |
+| 2026-03-06 | New Feature Research | Launched 15 parallel research agents for Section 3 New Feature Ideas: Elo rankings, Decision Engine, Group Dining, Want-to-Try, Price Filter, Food Challenges, Monthly Recap, Restaurant Responses, Collaborative Playlists, Seasonal Discovery, Weather-Aware Recs, Food Tourism Guides, Time Machine, Offline Journal, Kitchen Stories |
+
+---
+
+## Milestone 14: New Feature Ideas [IN PROGRESS]
+
+> Section 3 from enhancements.md — implementing all high-impact, medium-impact, and differentiating features
+
+### 14.1 High-Impact Features
+- [ ] Elo-Style Relative Ranking (PairwiseComparison model, comparison UI, personal "My Top 10")
+- [ ] "What Should I Eat?" Decision Engine (conversational wizard, curated picks)
+- [ ] Group Dining Consensus (DinnerPlan model, invite + swipe flow, consensus algorithm)
+- [ ] Time Machine / Dish Comparison (timeline view, quality trend tracking)
+- [ ] Offline Food Journal (Service Worker, IndexedDB, Background Sync)
+
+### 14.2 Medium-Impact Features
+- [ ] "Want to Try" List (WantToTry model, location-based reminders, map view)
+- [ ] Price Range Filter (price_level field, crowdsource from reviews, filter chips)
+- [ ] Food Challenges (challenge discovery page, join/progress/leaderboard UI — backend models exist)
+- [ ] Monthly Mini-Recap (swipeable cards, data visualizations, share-ready format)
+- [ ] Restaurant Response System (VenueOwner model, verification, inline responses)
+- [ ] Collaborative Playlists (invite flow, role management, activity feed — backend models exist)
+
+### 14.3 Differentiating Features
+- [ ] Seasonal Discovery (seasonal tags, curated collections, time-bounded promotions)
+- [ ] Weather-Aware Recommendations (weather API, food mood mapping, contextual banners)
+- [ ] Food Tourism Guides (itinerary model, walking routes, neighborhood exploration)
+- [ ] Kitchen Stories (behind-the-scenes content, chef profiles, venue integration)
+- [ ] AR Dish Preview — DEFERRED (shelved for future enhancement)
+
+### Status: Implementation Complete, Code Review In Progress
+
+**Completed Features (5 parallel implementation agents):**
+
+1. **Elo-Style Ranking System** (Agent a737a8a)
+   - [x] Backend: `apps/rankings/` - PairwiseComparison + PersonalRanking models, Elo algorithm (tiered K-factors), 4 API views, migration applied
+   - [x] Frontend: `/compare` page (side-by-side cards), `/rankings` page (top 10 list), ComparisonCard component
+   - [x] Integration: Quick review redirects to compare flow after posting
+
+2. **"What Should I Eat?" Decision Engine** (Agent a9af865)
+   - [x] Backend: DecisionEngineView (multi-signal scoring), WeatherRecommendationsView (food mood mapping), haversine distance, natural language explanations
+   - [x] Frontend: `/discover` page with 4-step wizard, DiscoverWizard + DiscoverResultCard components, gradient banner on feed
+   - [x] Types: DiscoverRequest, DiscoverResult, DiscoverResponse
+
+3. **Want-to-Try List + Challenges UI** (Agent a059bf6)
+   - [x] Backend: WantToTry model + serializer + views + URLs, 3 seed challenges with cover images
+   - [x] Frontend: `/want-to-try` page (venue grid, add dialog, optimistic delete), Want-to-Try toggle on venue detail
+   - [x] Challenges redesign: cover images, progress bars, leaderboard dialog, join/leave flow
+
+4. **Monthly Mini-Recap + Seasonal Discovery** (Agent a86fd07)
+   - [x] Backend: MonthlyRecap model + view (on-the-fly generation), SeasonalHighlight model + view, weather recs view
+   - [x] Frontend: `/monthly-recap` page (5-card carousel, gradient backgrounds, share), RecapCard, SeasonalBanner, WeatherBanner
+   - [x] Integration: Seasonal + Weather banners added to feed page
+
+5. **Group Dining Consensus** (Agent a85d3d3)
+   - [x] Backend: `apps/groups/` - DinnerPlan + Member + Venue + Vote models, 5 API views, auto venue population
+   - [x] Frontend: `/dinner-plan/new` (create), `/dinner-plan/[id]` (swipe voting + results), `/dinner-plan/join` (share code)
+   - [x] Components: VenueSwipeCard, DinnerPlanResult
+
+**Migrations applied:** rankings.0001, gamification.0002, venues.0004, reviews.0008
+
+**Deferred Features (shelved for future):**
+- [ ] AR Dish Preview — DEFERRED
+- [ ] Time Machine / Dish Comparison — planned for next sprint
+- [ ] Offline Food Journal (PWA) — planned for next sprint
+- [ ] Food Tourism Guides — planned for next sprint
+- [ ] Kitchen Stories — planned for next sprint
+- [ ] Restaurant Response System — planned for next sprint
+- [ ] Collaborative Playlists UI — backend models exist, frontend planned
+- [ ] Price Range Filter — planned for next sprint
+
+**Code Review:** In progress (1 agent reviewing all new code)
