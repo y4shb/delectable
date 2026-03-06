@@ -52,6 +52,7 @@ export interface Review {
   rating: number;
   text: string;
   photoUrl: string;
+  photoUrls: string[]; // all photos (primary + additional)
   dishName: string;
   tags: string[];
   likeCount: number;
@@ -219,6 +220,7 @@ export interface FeedReview {
   rating: number;
   text: string;
   photoUrl: string;
+  photoUrls: string[]; // all photos for multi-photo carousel
   date: string; // relative time string (e.g. "2h ago")
   likeCount: number;
   commentCount: number;

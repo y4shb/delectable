@@ -27,7 +27,7 @@ export default function ShareButton({ type, id, title, description }: ShareButto
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
-  const shareUrl = `${window.location.origin}/${type}/${id}`;
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/${type}/${id}` : `/${type}/${id}`;
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);

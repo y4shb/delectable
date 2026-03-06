@@ -91,7 +91,7 @@ export default function Leaderboard({ initialType = 'friends' }: LeaderboardProp
       ) : (
         <List disablePadding>
           {entries?.map((entry, index) => (
-            <LeaderboardRow key={index} entry={entry} />
+            <LeaderboardRow key={entry.userId || `rank-${entry.rank}`} entry={entry} />
           ))}
         </List>
       )}
@@ -113,7 +113,7 @@ interface LeaderboardRowProps {
 }
 
 function LeaderboardRow({ entry }: LeaderboardRowProps) {
-  const isTopThree = entry.rank <= 3;
+  const isTopThree = entry.rank >= 1 && entry.rank <= 3;
   const rankColor = isTopThree ? RANK_COLORS[entry.rank - 1] : undefined;
 
   return (

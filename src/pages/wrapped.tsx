@@ -22,6 +22,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
 import { fetchWrappedStats } from '../api/api';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 const CARD_BACKGROUNDS = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -34,6 +35,7 @@ const CARD_BACKGROUNDS = [
 ];
 
 export default function WrappedPage() {
+  useRequireAuth();
   const [currentCard, setCurrentCard] = useState(0);
   const year = new Date().getFullYear() - 1;
 

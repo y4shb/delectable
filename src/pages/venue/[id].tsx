@@ -14,12 +14,14 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import StarIcon from '@mui/icons-material/Star';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import AppShell from '../../layouts/AppShell';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useVenueDetail, useVenueReviews, useSimilarVenues } from '../../hooks/useApi';
 import AddToPlaylistSheet from '../../components/AddToPlaylistSheet';
 import OccasionSection from '../../components/OccasionSection';
 import DietaryBadges from '../../components/DietaryBadges';
+import type { Dish } from '../../types';
 
 export default function VenueDetailPage() {
   useRequireAuth();
@@ -75,6 +77,33 @@ export default function VenueDetailPage() {
 
   const relatedVenues = (similarVenues ?? []).slice(0, 4);
 
+  // Collect photos for the mosaic grid
+  const allPhotos: string[] = [];
+  if (venue.photoUrl) {
+    allPhotos.push(venue.photoUrl);
+  }
+  // Gather review photos
+  if (reviews && reviews.length > 0) {
+    for (const review of reviews) {
+      if (review.photoUrl && !allPhotos.includes(review.photoUrl)) {
+        allPhotos.push(review.photoUrl);
+      }
+      if (allPhotos.length >= 3) break;
+    }
+  }
+  const totalPhotoCount = allPhotos.length;
+  const canShowMosaic = allPhotos.length >= 3;
+
+  // Best Dishes: top 3 sorted by avgRating desc, then reviewCount desc
+  const topDishes: Dish[] = venue.dishes
+    ? [...venue.dishes]
+        .sort((a, b) => {
+          if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating;
+          return b.reviewCount - a.reviewCount;
+        })
+        .slice(0, 3)
+    : [];
+
   return (
     <AppShell>
       <Box sx={{ pb: 11 }}>
@@ -97,41 +126,178 @@ export default function VenueDetailPage() {
           </IconButton>
         </Box>
 
-        {/* Hero photo */}
-        <Box
-          sx={{
-            position: 'relative',
-            width: '100vw',
-            height: 250,
-            mx: 'calc(-50vw + 50%)',
-            overflow: 'hidden',
-          }}
-        >
-          {venue.photoUrl && (
-            <Box
-              component="img"
-              src={venue.photoUrl}
-              alt={venue.name}
-              sx={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-              }}
-            />
-          )}
-          {/* Gradient overlay */}
+        {/* Hero photo mosaic */}
+        {canShowMosaic ? (
           <Box
             sx={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '50%',
-              background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+              position: 'relative',
+              height: 280,
+              borderRadius: '16px',
+              overflow: 'hidden',
+              display: 'flex',
+              gap: '4px',
+              cursor: 'pointer',
             }}
-          />
-        </Box>
+          >
+            {/* Large photo on the left — 60% width */}
+            <Box
+              sx={{
+                width: '60%',
+                height: '100%',
+                flexShrink: 0,
+              }}
+            >
+              <Box
+                component="img"
+                src={allPhotos[0]}
+                alt={venue.name}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                }}
+              />
+            </Box>
+
+            {/* Two stacked photos on the right — 40% width */}
+            <Box
+              sx={{
+                width: '40%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                flexShrink: 0,
+              }}
+            >
+              <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                <Box
+                  component="img"
+                  src={allPhotos[1]}
+                  alt={`${venue.name} photo 2`}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+              </Box>
+              <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                <Box
+                  component="img"
+                  src={allPhotos[2]}
+                  alt={`${venue.name} photo 3`}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Photo count badge */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 8,
+                right: 8,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                bgcolor: 'rgba(0,0,0,0.6)',
+                color: '#fff',
+                borderRadius: '20px',
+                px: 1.5,
+                py: 0.5,
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              <CameraAltIcon sx={{ fontSize: 14 }} />
+              <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'inherit' }}>
+                {totalPhotoCount} photos
+              </Typography>
+            </Box>
+
+            {/* Gradient overlay */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '50%',
+                background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+                pointerEvents: 'none',
+              }}
+            />
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              position: 'relative',
+              height: 280,
+              borderRadius: '16px',
+              overflow: 'hidden',
+              cursor: 'pointer',
+            }}
+          >
+            {venue.photoUrl && (
+              <Box
+                component="img"
+                src={venue.photoUrl}
+                alt={venue.name}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                }}
+              />
+            )}
+            {/* Photo count badge */}
+            {totalPhotoCount > 0 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 8,
+                  right: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  bgcolor: 'rgba(0,0,0,0.6)',
+                  color: '#fff',
+                  borderRadius: '20px',
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                <CameraAltIcon sx={{ fontSize: 14 }} />
+                <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'inherit' }}>
+                  {totalPhotoCount} {totalPhotoCount === 1 ? 'photo' : 'photos'}
+                </Typography>
+              </Box>
+            )}
+            {/* Gradient overlay */}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '50%',
+                background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+                pointerEvents: 'none',
+              }}
+            />
+          </Box>
+        )}
 
         {/* Venue info section */}
         <Box sx={{ mt: 2, px: 1 }}>
@@ -192,6 +358,79 @@ export default function VenueDetailPage() {
           {/* Dietary badges */}
           {venue.dietaryBadges && <DietaryBadges badges={venue.dietaryBadges} />}
         </Box>
+
+        {/* Best Dishes section */}
+        {topDishes.length > 0 && (
+          <Box sx={{ mt: 2.5, px: 1 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1.5 }}>
+              Best Dishes
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                '&::-webkit-scrollbar': { display: 'none' },
+                pb: 0.5,
+              }}
+            >
+              {topDishes.map((dish) => (
+                <Box
+                  key={dish.id}
+                  sx={{
+                    width: 160,
+                    flexShrink: 0,
+                    borderRadius: '16px',
+                    p: 1.5,
+                    bgcolor: theme.palette.background.paper,
+                    boxShadow: '0 2px 12px 0 rgba(0,0,0,0.06)',
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: 14,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {dish.name}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mt: 0.75,
+                    }}
+                  >
+                    <StarIcon
+                      sx={{ fontSize: 16, color: theme.palette.primary.main }}
+                    />
+                    <Typography
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: theme.palette.primary.main,
+                      }}
+                    >
+                      {Number(dish.avgRating).toFixed(1)}
+                    </Typography>
+                  </Box>
+                  <Typography
+                    color="text.secondary"
+                    sx={{ fontSize: 12, mt: 0.5 }}
+                  >
+                    {dish.reviewCount} {dish.reviewCount === 1 ? 'review' : 'reviews'}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        )}
 
         {/* Action buttons */}
         <Stack direction="row" spacing={1.5} sx={{ mt: 2.5, px: 1 }}>

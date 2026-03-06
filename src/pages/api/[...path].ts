@@ -4,7 +4,7 @@ import https from 'https';
 
 export const config = {
   api: {
-    bodyParser: true,
+    bodyParser: false,
     externalResolver: true,
   },
 };
@@ -23,6 +23,39 @@ const HOP_BY_HOP = new Set([
   'upgrade',
 ]);
 
+// Only forward these request headers to the backend
+const ALLOWED_REQUEST_HEADERS = new Set([
+  'authorization',
+  'content-type',
+  'content-length',
+  'cookie',
+  'accept',
+  'user-agent',
+  'x-requested-with',
+]);
+
+// Validate that the path is safe to proxy
+function isValidPath(p: string): boolean {
+  // Block path traversal and protocol injections
+  if (p.includes('..') || p.includes('://') || p.includes('\\')) return false;
+  // Must start with /api/
+  if (!p.startsWith('/api/')) return false;
+  return true;
+}
+
+// Read the raw request body as a Buffer
+function readRawBody(req: NextApiRequest): Promise<Buffer | null> {
+  return new Promise((resolve, reject) => {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      return resolve(null);
+    }
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(chunks.length ? Buffer.concat(chunks) : null));
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -30,28 +63,36 @@ export default async function handler(
   const { path } = req.query;
   const targetPath = ('/api/' + (Array.isArray(path) ? path.join('/') : path) + '/').replace(/\/+/g, '/');
 
+  if (!isValidPath(targetPath)) {
+    res.status(400).json({ error: 'Invalid path' });
+    return;
+  }
+
   const url = new URL(targetPath, BACKEND);
-  // Forward query params
+  // Forward query params (preserve arrays via append)
   Object.entries(req.query).forEach(([key, value]) => {
     if (key !== 'path') {
-      url.searchParams.set(key, Array.isArray(value) ? value[0] : value || '');
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          url.searchParams.append(key, v || '');
+        }
+      } else {
+        url.searchParams.set(key, value || '');
+      }
     }
   });
 
-  const body = req.method !== 'GET' && req.method !== 'HEAD' && req.body
-    ? JSON.stringify(req.body)
-    : null;
+  const body = await readRawBody(req);
 
-  // Forward headers (except host and connection)
+  // Forward only allowed headers
   const headers: Record<string, string> = {};
   for (const [key, value] of Object.entries(req.headers)) {
-    if (key === 'host' || key === 'connection') continue;
+    if (!ALLOWED_REQUEST_HEADERS.has(key)) continue;
     if (typeof value === 'string') headers[key] = value;
     else if (Array.isArray(value)) headers[key] = value.join(', ');
   }
   if (body) {
-    headers['content-type'] = 'application/json';
-    headers['content-length'] = Buffer.byteLength(body).toString();
+    headers['content-length'] = body.length.toString();
   }
 
   // Pick http or https based on backend URL protocol

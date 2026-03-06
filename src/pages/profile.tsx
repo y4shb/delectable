@@ -1,6 +1,6 @@
 import AppShell from '../layouts/AppShell';
 import { Box, Typography, Avatar, Tabs, Tab, CircularProgress, Button, Stack, useTheme } from '@mui/material';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import ReviewCard from '../components/ReviewCard';
 import { useUser, useUserReviews, usePlaylists, useBookmarks, useSavedPlaylists } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,147 @@ import LockIcon from '@mui/icons-material/Lock';
 import PeopleIcon from '@mui/icons-material/People';
 import PublicIcon from '@mui/icons-material/Public';
 import { reviewToFeedReview } from '../api/api';
+
+const TASTE_DNA_CUISINES = ['Italian', 'Japanese', 'Indian', 'Mexican', 'American', 'Thai', 'French', 'Korean'] as const;
+
+function TasteDNAChart({ favoriteCuisines }: { favoriteCuisines: string[] }) {
+  const theme = useTheme();
+  const cx = 150;
+  const cy = 150;
+  const radius = 100;
+  const axes = TASTE_DNA_CUISINES.length;
+  const angleStep = (2 * Math.PI) / axes;
+  const primaryColor = '#F24D4F';
+
+  const favorites = useMemo(
+    () => new Set(favoriteCuisines.map((c) => c.toLowerCase())),
+    [favoriteCuisines],
+  );
+
+  const values = useMemo(
+    () =>
+      TASTE_DNA_CUISINES.map((cuisine, index) =>
+        favorites.has(cuisine.toLowerCase()) ? 0.85 : 0.15 + (index * 0.07) % 0.3,
+      ),
+    [favorites],
+  );
+
+  const getPoint = (index: number, value: number) => {
+    const angle = angleStep * index - Math.PI / 2;
+    return {
+      x: cx + radius * value * Math.cos(angle),
+      y: cy + radius * value * Math.sin(angle),
+    };
+  };
+
+  const buildOctagonPath = (scale: number) => {
+    const points = Array.from({ length: axes }, (_, i) => {
+      const angle = angleStep * i - Math.PI / 2;
+      return `${cx + radius * scale * Math.cos(angle)},${cy + radius * scale * Math.sin(angle)}`;
+    });
+    return `M${points.join('L')}Z`;
+  };
+
+  const dataPoints = values.map((v, i) => getPoint(i, v));
+  const dataPolygonPath = `M${dataPoints.map((p) => `${p.x},${p.y}`).join('L')}Z`;
+
+  const ringScales = [0.25, 0.5, 0.75, 1.0];
+
+  const labelOffset = 18;
+
+  return (
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: 280,
+        mx: 'auto',
+        mt: 2,
+        mb: 1,
+        bgcolor: theme.palette.background.paper,
+        borderRadius: '16px',
+        p: 2,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      }}
+    >
+      <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1, textAlign: 'center' }}>
+        Taste DNA
+      </Typography>
+      <svg
+        viewBox="0 0 300 300"
+        width="100%"
+        aria-label="Taste preference visualization"
+        style={{ display: 'block' }}
+      >
+        {/* Concentric octagon rings */}
+        {ringScales.map((scale) => (
+          <path
+            key={scale}
+            d={buildOctagonPath(scale)}
+            fill="none"
+            stroke={theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}
+            strokeWidth={1}
+          />
+        ))}
+
+        {/* Axis lines from center to each vertex */}
+        {TASTE_DNA_CUISINES.map((_, i) => {
+          const angle = angleStep * i - Math.PI / 2;
+          const ex = cx + radius * Math.cos(angle);
+          const ey = cy + radius * Math.sin(angle);
+          return (
+            <line
+              key={i}
+              x1={cx}
+              y1={cy}
+              x2={ex}
+              y2={ey}
+              stroke={theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}
+              strokeWidth={1}
+            />
+          );
+        })}
+
+        {/* Data polygon fill and stroke */}
+        <path
+          d={dataPolygonPath}
+          fill={`${primaryColor}33`}
+          stroke={`${primaryColor}CC`}
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
+
+        {/* Data point dots */}
+        {dataPoints.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={4} fill={primaryColor} />
+        ))}
+
+        {/* Cuisine labels */}
+        {TASTE_DNA_CUISINES.map((cuisine, i) => {
+          const angle = angleStep * i - Math.PI / 2;
+          const lx = cx + (radius + labelOffset) * Math.cos(angle);
+          const ly = cy + (radius + labelOffset) * Math.sin(angle);
+          let anchor: string = 'middle';
+          if (Math.cos(angle) > 0.1) anchor = 'start';
+          else if (Math.cos(angle) < -0.1) anchor = 'end';
+          return (
+            <text
+              key={cuisine}
+              x={lx}
+              y={ly}
+              textAnchor={anchor}
+              dominantBaseline="central"
+              fontSize={11}
+              fontWeight={500}
+              fill={theme.palette.text.secondary}
+            >
+              {cuisine}
+            </text>
+          );
+        })}
+      </svg>
+    </Box>
+  );
+}
 
 export default function ProfilePage() {
   const { isLoading: authLoading } = useRequireAuth();
@@ -110,6 +251,9 @@ export default function ProfilePage() {
             Edit Profile
           </Button>
         </Link>
+
+        {/* Taste DNA Radar Chart */}
+        <TasteDNAChart favoriteCuisines={user.favoriteCuisines ?? []} />
 
         <Box sx={{ width: '100%', mt: 2 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered>

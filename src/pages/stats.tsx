@@ -1,11 +1,21 @@
+import dynamic from 'next/dynamic';
 import { Box, Container, Typography, Grid, Skeleton, Alert } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
 import XPProgressBar from '../components/XPProgressBar';
 import StreakDisplay from '../components/StreakDisplay';
-import ActivityGrid from '../components/ActivityGrid';
-import BadgeShelf from '../components/BadgeShelf';
-import Leaderboard from '../components/Leaderboard';
+const ActivityGrid = dynamic(() => import('../components/ActivityGrid'), {
+  ssr: false,
+  loading: () => <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />,
+});
+const BadgeShelf = dynamic(() => import('../components/BadgeShelf'), {
+  ssr: false,
+  loading: () => <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 2 }} />,
+});
+const Leaderboard = dynamic(() => import('../components/Leaderboard'), {
+  ssr: false,
+  loading: () => <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />,
+});
 import {
   fetchUserXP,
   fetchDiningStreak,
@@ -13,8 +23,10 @@ import {
   fetchUserBadges,
   fetchUserStats,
 } from '../api/api';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 export default function StatsPage() {
+  useRequireAuth();
   const { data: xp, isLoading: xpLoading } = useQuery({
     queryKey: ['userXP'],
     queryFn: fetchUserXP,

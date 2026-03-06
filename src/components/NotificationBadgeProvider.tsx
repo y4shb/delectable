@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchUnreadCount } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 interface NotificationContextValue {
   unreadCount: number;
@@ -25,20 +26,23 @@ export function NotificationBadgeProvider({
   children,
   useSSE = true,
 }: NotificationBadgeProviderProps) {
+  const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [sseCount, setSSECount] = useState<number | null>(null);
+  const [sseActive, setSSEActive] = useState(useSSE);
 
-  // Polling fallback
+  // Polling fallback — only when authenticated
   const { data: polledCount, refetch } = useQuery({
     queryKey: ['unreadCount'],
     queryFn: fetchUnreadCount,
-    refetchInterval: useSSE ? false : 30000, // Poll every 30s if SSE disabled
+    refetchInterval: sseActive ? false : 30000,
     staleTime: 10000,
+    enabled: isAuthenticated,
   });
 
-  // SSE connection
+  // SSE connection — only when authenticated
   useEffect(() => {
-    if (!useSSE) return;
+    if (!useSSE || !isAuthenticated) return;
 
     let eventSource: EventSource | null = null;
     let reconnectTimeout: NodeJS.Timeout;
@@ -79,6 +83,7 @@ export function NotificationBadgeProvider({
           } else {
             // Fall back to polling
             console.warn('SSE connection failed, falling back to polling');
+            setSSEActive(false);
           }
         };
       } catch (e) {
@@ -92,7 +97,7 @@ export function NotificationBadgeProvider({
       eventSource?.close();
       clearTimeout(reconnectTimeout);
     };
-  }, [useSSE, queryClient]);
+  }, [useSSE, isAuthenticated, queryClient]);
 
   const handleRefetch = useCallback(() => {
     refetch();

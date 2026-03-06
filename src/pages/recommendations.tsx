@@ -26,6 +26,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
 import { RecommendationCard, RecommendationCardSkeleton } from '../components/RecommendationCard';
 import api from '../api/client';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 type RecommendationType = 'personalized' | 'similar' | 'explore';
 
@@ -78,6 +79,7 @@ const CUISINES = [
 ];
 
 export default function RecommendationsPage() {
+  useRequireAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<RecommendationType>('personalized');
   const [filters, setFilters] = useState<Filters>({

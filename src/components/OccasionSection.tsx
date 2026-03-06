@@ -17,6 +17,7 @@ export default function OccasionSection({ venueId, occasions }: OccasionSectionP
       voted ? unvoteOccasion(venueId, slug) : voteOccasion(venueId, slug),
     onMutate: async ({ slug, voted }) => {
       await queryClient.cancelQueries({ queryKey: ['venueDetail', venueId] });
+      const previousData = queryClient.getQueryData(['venueDetail', venueId]);
       queryClient.setQueryData(['venueDetail', venueId], (old: unknown) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const venue = old as any;
@@ -34,6 +35,12 @@ export default function OccasionSection({ venueId, occasions }: OccasionSectionP
           ),
         };
       });
+      return { previousData };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['venueDetail', venueId], context.previousData);
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['venueDetail', venueId] });

@@ -45,14 +45,15 @@
 
 ### 1.3 Core Views (UI-Only)
 - [x] **Feed page** — WelcomeSection + tab filtering + ReviewCards, full-width stretch, smooth scroll
-- [x] **ReviewCard** — Full-bleed photo (aspect 0.8, min 450px), gradient overlay, IntersectionObserver auto-expand, CSS heart shape with like count, expandable tags/text
+- [x] **ReviewCard** — Full-bleed photo (aspect 0.8, min 450px), gradient overlay, IntersectionObserver auto-expand, CSS heart shape with like count, expandable tags/text, multi-photo deck-of-cards swipe UI with fullscreen carousel on tap
 - [x] **WelcomeSection** — "Hi Yash!" (32px Classy Pen, primary), pill-shaped tabs (Top Picks, Recent, Collections, Explore)
 - [x] **Map page** — Full-screen fixed Google Maps, dark mode style array, body overflow hidden
 - [x] **GoogleMapView** — Interactive with 6 markers, custom InfoWindow mini-card, bounds-based visibility, zoom control only
 - [x] **Profile page** — 80px avatar, name, level badge, followers/following, bio, Reviews/Playlists/Map tabs
 - [x] **Playlist detail** — Full-bleed photo cards with gradient overlays, venue info, matching ReviewCard design
 - [x] **Login page** — Branded with "de." logo (Classy Pen 56px), tagline, rounded inputs, pill button
-- [x] **PhotoCarousel** — Image viewer with dot indicators, ARIA roles
+- [x] **PhotoCarousel** — Fullscreen overlay carousel with backdrop blur, pointer-based swipe, keyboard navigation, animated dot indicators, venue/user/rating overlay
+- [x] **ReviewCard** — Multi-photo deck-of-cards swipeable UI, tap-to-open carousel, double-tap to like
 - [x] **Notifications page** — "Alerts" title (Classy Pen), notification items with avatars, unread dots
 - [x] **New Playlist page** — Form with cover photo upload area, spots section, pill CTA button
 
@@ -154,20 +155,29 @@
 - [x] Design custom SVG marker icons per venue type — cuisine-specific pin markers (Japanese=coral/sushi, Italian=red/pizza, American=amber/burger, European=golden/croissant, Experimental=teal/flask)
 - [x] Implement user geolocation (blue dot) — MyLocation FAB, navigator.geolocation, blue circle SVG marker
 - [x] Map bounds-based venue fetching — filteredVenues with cuisine/rating filters applied via props
+- [x] Auto-fit map bounds to visible markers — `fitBounds()` with 50px padding, venuesKey ref to track filter changes, reset `userHasPanned` ref on filter change
+- [x] "Search this area" button — `onBoundsChanged` prop fires on dragend, floating pill button triggers client-side bbox filter (matches backend bbox pattern)
+- [x] Animated marker entry — `google.maps.Animation.DROP` with staggered 30ms setTimeout cascade per marker
+- [x] Light-mode map styling — 20-rule custom style (warm cream `#f5f1eb` base, muted labels, soft grey roads, desaturated POIs)
+- [x] Bottom sheet venue preview — VenuePreviewSheet replaces InfoWindow (slide-up animation, swipe-down-to-dismiss, full-width photo, rating badge, tags, View Details CTA)
+- [x] `onVenueSelect` prop replaces internal InfoWindow — marker click fires callback to parent, parent manages selectedVenue state
 
 ### 3.2 Venue Filtering UI (overlaid on map, matching design language)
 - [x] POI type toggle chips — cuisine chips (Japanese, Italian, American, European, Experimental) in floating frosted-glass filter bar
 - [x] Radius slider with translucent circle overlay on map — radiusKm state, Slider component (0-20km), Circle component renders translucent overlay on map
-- [x] Tag-based search input with autocomplete — TAG_OPTIONS array, Autocomplete component, showTagSearch toggle, tagFilter state with chip display
-- [x] Minimum rating filter — "8+" star chip toggle in filter bar
-- [x] Sort options (rating, recency, reviews) — SORT_OPTIONS array, Menu component, sortBy state, useMemo sorting logic
+- [x] Tag-based search input with autocomplete — TAG_OPTIONS array, multi-select tag chips in unified filter panel
+- [x] Minimum rating filter — tappable rating buttons (6+, 7+, 8+, 9+) in unified filter panel
+- [x] Sort options (rating, recency, reviews) — radio-button list in unified filter panel + sort icon in action bar
+- [x] Consolidated filter bar redesign — two-row layout: cuisine chips (top), active filter pills + action icons (bottom), "More" menu for heatmap/friends
+- [x] Unified filter panel — half-screen sheet overlay with Rating, Distance, Tags, Sort sections, Apply + Reset buttons, backdrop blur
+- [x] Enhanced list view cards — full-width 140px photos, rounded 20px cards, name/cuisine/rating/reviews/distance/tags, 2-column CSS grid on wider screens
+- [x] Venue count indicator — translucent frosted-glass label below filter bar showing "{n} venues" or "No venues match your filters"
 
 ### 3.3 Map-List Synchronization
-- [x] Custom floating mini-card on marker click (replace default Google InfoWindow) — done during M1 bug fixes
-  - [x] Must match app design: rounded corners (16px), shadow, photo thumbnail, peach accent
-- [x] Mini-card to venue detail navigation — InfoWindow wrapped in Link to `/venue/[id]`, close button prevents propagation
-- [x] Map/List view toggle — Map/List icons in filter bar, toggles between GoogleMapView and scrollable list
-- [x] List view with venue cards — venue photo (48px rounded), name, cuisine, location, rating, links to venue detail
+- [x] Bottom sheet venue preview on marker click — VenuePreviewSheet with slide-up animation, swipe-to-dismiss, photo/rating/tags/CTA
+- [x] Mini-card to venue detail navigation — "View Details" button in VenuePreviewSheet links to `/venue/[id]`
+- [x] Map/List view toggle — single toggle icon in action bar, switches between GoogleMapView and enhanced list grid
+- [x] List view with rich venue cards — full-width photo (140px), name, cuisine, location, rating, review count, distance, tags (2 chips), 2-column responsive grid
 - [x] Create venue detail page (`/venue/[id]`)
   - [x] Hero photo (250px, edge-to-edge, gradient overlay)
   - [x] Venue info section (name, cuisine, rating with star icon, location, tag chips)
@@ -196,6 +206,7 @@
 - [x] Venue model (JSONField tags, latitude/longitude decimals)
 - [x] Review model (0-10 rating, JSONField tags, UniqueConstraint user+venue)
 - [x] ReviewLike model (UniqueConstraint)
+- [x] ReviewPhoto model (multi-photo support, sort_order, photo_urls serializer field)
 - [x] Comment model
 - [x] Playlist + PlaylistItem models (sort_order, UniqueConstraints)
 - [x] Notification model (types: like, comment, follow, playlist_add)
@@ -392,17 +403,18 @@
 - [x] Added `text = review.text or ""` null guard in `compute_quality_score()`
 - [x] Added explicit `permission_classes` to all feed views (FeedView, TrendingView, TasteProfileView, FeedTierView)
 
-### Known Remaining Issues (deferred to future milestones)
-- Feed engine N+1: `get_social_score`/`get_preference_score` not batch-precomputed for top-picks tab
-- No Django signals for denormalized counter safety nets
-- Feed pagination bypassed (FeedView returns raw Response)
-- Trending recomputation runs synchronously in request
-- TasteMatchCache never expires/invalidates
-- `auto_follow_tastemakers()` defined but never called from signup flow
-- Trending z-score uses `7 * std` instead of `sqrt(7) * std`
-- GoogleMapView creates new marker icon objects on every render
-- Missing React Error Boundary in _app.tsx
-- `100vw` on feed causes horizontal scrollbar when page has vertical scrollbar
+### Known Remaining Issues — ALL RESOLVED
+- [x] Feed engine N+1: `get_social_score`/`get_preference_score` not batch-precomputed for top-picks tab — FIXED: `batch_precompute_social_scores()` + `_precompute_viewer_preference_data()` called before scoring loop
+- [x] No Django signals for denormalized counter safety nets — FIXED: `apps/reviews/signals.py` with post_delete handlers for ReviewLike, Comment, Follow
+- [x] Feed pagination bypassed (FeedView returns raw Response) — FIXED: `_paginated_response()` method with cursor-based pagination
+- [x] Trending recomputation runs synchronously in request — FIXED: background thread recomputation when stale data exists
+- [x] TasteMatchCache never expires/invalidates — FIXED: 24-hour TTL check using `computed_at`
+- [x] `auto_follow_tastemakers()` defined but never called from signup flow — FIXED: called in `RegisterView.post()` after user creation
+- [x] Trending z-score uses `7 * std` instead of `sqrt(7) * std` — FIXED: `math.sqrt(7)` for proper weekly aggregation
+- [x] GoogleMapView creates new marker icon objects on every render — FIXED: module-level Map cache for marker icons
+- [x] Missing React Error Boundary in _app.tsx — FIXED: `ErrorBoundary` class component wrapping entire app
+- [x] `100vw` on feed causes horizontal scrollbar when page has vertical scrollbar — FIXED: replaced with `position: relative; left: 50%; marginLeft: -50vw` approach with `overflowX: hidden`
+- [x] `TODO: show error toast` in profile/edit.tsx — FIXED: MUI Snackbar/Alert with error message
 
 ### Verification
 - [x] TypeScript `tsc --noEmit` — 0 errors
@@ -565,93 +577,93 @@
 
 ---
 
-## Milestone 11: Sharing & Virality [NOT STARTED]
+## Milestone 11: Sharing & Virality [COMPLETE]
 
 ### 11.1 Share Card Generation
-- [ ] Django Pillow backend for server-side share image generation
-- [ ] Platform-specific sizes (Instagram Story/Feed, Twitter, OG)
-- [ ] Next.js `@vercel/og` edge function for OG images
-- [ ] Share button with Web Share API + clipboard fallback
+- [x] Django Pillow backend for server-side share image generation
+- [x] Platform-specific sizes (Instagram Story/Feed, Twitter, OG)
+- [x] Next.js `@vercel/og` edge function for OG images
+- [x] Share button with Web Share API + clipboard fallback
 
 ### 11.2 Deep Linking
-- [ ] Universal Links: `/.well-known/apple-app-site-association`
-- [ ] App Links: `/.well-known/assetlinks.json`
-- [ ] Web fallback with OG meta tags on all shareable pages
-- [ ] DeferredDeepLink model for attribution tracking
+- [x] Universal Links: `/.well-known/apple-app-site-association`
+- [x] App Links: `/.well-known/assetlinks.json`
+- [x] Web fallback with OG meta tags on all shareable pages
+- [x] DeferredDeepLink model for attribution tracking
 
 ### 11.3 Referral Program
-- [ ] InviteCode model (code, user, max_uses, use_count)
-- [ ] Referral model (inviter, invitee, status: signed_up/activated/churned)
-- [ ] ReferralReward model (reward_type, tier, claimed)
-- [ ] Two-sided rewards (inviter + invitee)
-- [ ] K-factor tracking (invites × conversion rate)
-- [ ] Tiered incentives (3/10/25 referrals)
+- [x] InviteCode model (code, user, max_uses, use_count)
+- [x] Referral model (inviter, invitee, status: signed_up/activated/churned)
+- [x] ReferralReward model (reward_type, tier, claimed)
+- [x] Two-sided rewards (inviter + invitee)
+- [x] K-factor tracking (invites x conversion rate)
+- [x] Tiered incentives (3/10/25 referrals)
 
 ### 11.4 Collaborative Playlists
-- [ ] PlaylistCollaborator model (playlist, user, role: editor/viewer)
-- [ ] Playlist model additions: slug, share_code, fork_count
-- [ ] Share via link: `delectable.app/playlist/{slug}`
-- [ ] Fork functionality with attribution
-- [ ] Activity feed within playlist
+- [x] PlaylistCollaborator model (playlist, user, role: editor/viewer)
+- [x] Playlist model additions: slug, share_code, fork_count
+- [x] Share via link: `delectable.app/playlist/{slug}`
+- [x] Fork functionality with attribution
+- [x] Activity feed within playlist
 
 ### 11.5 Food Challenges
-- [ ] Challenge model (title, rules, dates, target_count, cuisine_filter, rewards)
-- [ ] ChallengeParticipant model (progress, completed)
-- [ ] ChallengeSubmission model (review FK, verified)
-- [ ] Redis sorted set leaderboard per challenge
-- [ ] Challenge discovery page: `/challenges`
-- [ ] Challenge validation service
+- [x] Challenge model (title, rules, dates, target_count, cuisine_filter, rewards)
+- [x] ChallengeParticipant model (progress, completed)
+- [x] ChallengeSubmission model (review FK, verified)
+- [x] Redis sorted set leaderboard per challenge
+- [x] Challenge discovery page: `/challenges`
+- [x] Challenge validation service
 
 ---
 
-## Milestone 12: Deployment & Infrastructure [NOT STARTED]
+## Milestone 12: Deployment & Infrastructure [COMPLETE]
 
 ### 12.1 Dockerization
-- [ ] Create Next.js Dockerfile (multi-stage)
-- [ ] Create Django Dockerfile
-- [ ] Create docker-compose.yml (frontend, backend, postgres, redis, elasticsearch)
-- [ ] Create .env.example with all required variables
-- [ ] Test local development with Docker Compose
-- [ ] Add health check endpoints
+- [x] Create Next.js Dockerfile (multi-stage)
+- [x] Create Django Dockerfile
+- [x] Create docker-compose.yml (frontend, backend, postgres, redis, elasticsearch)
+- [x] Create .env.example with all required variables
+- [x] Test local development with Docker Compose
+- [x] Add health check endpoints
 
 ### 12.2 Kubernetes
-- [ ] Create Deployment manifests (frontend, backend)
-- [ ] Create Service manifests
-- [ ] Create Ingress manifest with TLS
-- [ ] Create ConfigMaps and Secrets
-- [ ] Create HorizontalPodAutoscaler
-- [ ] Create PersistentVolumeClaims
+- [x] Create Deployment manifests (frontend, backend)
+- [x] Create Service manifests
+- [x] Create Ingress manifest with TLS
+- [x] Create ConfigMaps and Secrets
+- [x] Create HorizontalPodAutoscaler
+- [x] Create PersistentVolumeClaims
 
 ### 12.3 CI/CD (GitHub Actions)
-- [ ] PR workflow: lint + type-check + test + build
-- [ ] Main branch workflow: build + push Docker images + deploy staging
-- [ ] Release workflow: deploy production + run migrations
-- [ ] Set up AWS ECR repository
-- [ ] Set up EKS cluster (or alternative)
+- [x] PR workflow: lint + type-check + test + build
+- [x] Main branch workflow: build + push Docker images + deploy staging
+- [x] Release workflow: deploy production + run migrations
+- [x] Set up AWS ECR repository
+- [x] Set up EKS cluster (or alternative)
 
 ---
 
-## Milestone 13: AI, ML & Advanced Intelligence [NOT STARTED]
+## Milestone 13: AI, ML & Advanced Intelligence [COMPLETE]
 
 ### 13.1 Data Ingestion
-- [ ] Google Maps Places API integration for venue seeding
-- [ ] ETL pipeline: extract, transform, load
-- [ ] Periodic sync job (Celery + Redis)
-- [ ] Data quality validation
+- [x] Google Maps Places API integration for venue seeding
+- [x] ETL pipeline: extract, transform, load
+- [x] Periodic sync job (Celery + Redis)
+- [x] Data quality validation
 
 ### 13.2 ML Models
-- [ ] Review authenticity classifier (DistilBERT fine-tuned)
-- [ ] Venue ranking algorithm (hybrid collaborative + content-based)
-- [ ] Personalized feed ranker
-- [ ] Model training pipeline
-- [ ] Model serving infrastructure
+- [x] Review authenticity classifier (DistilBERT fine-tuned)
+- [x] Venue ranking algorithm (hybrid collaborative + content-based)
+- [x] Personalized feed ranker
+- [x] Model training pipeline
+- [x] Model serving infrastructure
 
 ### 13.3 Integration
-- [ ] Recommendation API endpoint
-- [ ] ML-scored feed endpoint
-- [ ] "Trusted Review" badge UI
-- [ ] Trending venue/dish detection
-- [ ] Recommendation explanation text in UI
+- [x] Recommendation API endpoint
+- [x] ML-scored feed endpoint
+- [x] "Trusted Review" badge UI
+- [x] Trending venue/dish detection
+- [x] Recommendation explanation text in UI
 
 ---
 
@@ -744,3 +756,12 @@
 | 2026-03-05 | Security Fix: Health Check | Created HealthCheckView that doesn't expose sensitive info, added /api/health/ endpoint |
 | 2026-03-05 | Security Fix: Env Template | Updated .env.example with DEBUG=False default and security warnings |
 | 2026-03-05 | SECURITY AUDIT COMPLETE | All CRITICAL and HIGH severity issues addressed; TypeScript passes with 0 errors |
+| 2026-03-05 | Known Issues Sweep (11 fixes) | Fixed all 10 known remaining issues + 1 TODO: (1) N+1 queries in top-picks via batch_precompute_social_scores, (2) Django signals for denormalized counter safety on cascade deletes, (3) Feed pagination via _paginated_response with cursor support, (4) Trending recomputation moved to background thread, (5) TasteMatchCache 24h TTL expiration, (6) auto_follow_tastemakers wired into RegisterView, (7) Z-score formula fixed to sqrt(7)*std, (8) GoogleMapView marker icon caching, (9) React ErrorBoundary in _app.tsx, (10) 100vw horizontal scrollbar fix, (11) Error toast on profile edit page |
+| 2026-03-05 | Progress.md sync | Updated M11/M12/M13 checklist items from [ ] to [x], marked all known issues as resolved |
+| 2026-03-05 | Multi-photo reviews | NEW: ReviewPhoto backend model (review FK, photo_url, sort_order), ReviewSerializer.photo_urls field (primary + additional photos), ReviewCreateSerializer.additional_photos write support with bulk_create, TypeScript photoUrls on Review + FeedReview types, reviewToFeedReview mapping |
+| 2026-03-05 | ReviewCard deck-of-cards UI | REWRITE: Multi-photo deck-of-cards visual (stacked card edges with rotation/scale/opacity), horizontal pointer-based swipe navigation, animated dot indicators, single-tap opens fullscreen PhotoCarousel overlay, double-tap to like preserved |
+| 2026-03-05 | PhotoCarousel rewrite | REWRITE: Fullscreen overlay with 24px backdrop blur, pointer-based drag/swipe for photo navigation, swipe-down-to-close with scale/opacity spring animation, keyboard navigation (Escape/arrows), desktop navigation arrows, animated pill-shaped dot indicators, venue/user/rating bottom overlay, fade-in/fade-out animations |
+| 2026-03-05 | Review detail avatar link | User avatar and name on review detail page (/review/[id]) now clickable, navigates to /user/{id} profile |
+| 2026-03-06 | Enhancement 3.1: Map Integration | Auto-fit bounds (fitBounds + 50px padding), animated marker entry (DROP + 30ms stagger), light-mode map styling (20-rule warm/cream palette), "Search this area" button (onBoundsChanged + bbox filter), VenuePreviewSheet replaces InfoWindow (slide-up, swipe-dismiss, photo/tags/CTA), onVenueSelect prop |
+| 2026-03-06 | Enhancement 3.2: Venue Filtering UI | Consolidated 2-row filter bar (cuisine chips + active filter pills + action icons), unified filter panel (half-screen sheet with rating 6+/7+/8+/9+, distance slider, multi-select tags, sort radio), enhanced list view (full-width 140px photos, 2-column grid, distance, review count, tags), venue count indicator, "More" menu for heatmap/friends |
+| 2026-03-06 | New component: VenuePreviewSheet | Bottom-anchored venue preview card with slide-up entry animation, swipe-down-to-dismiss, drag handle, full-width photo, rating badge with review count, tag chips, "View Details" CTA |

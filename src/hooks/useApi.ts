@@ -41,9 +41,18 @@ export function useUser(id?: string) {
 }
 
 export function useFeedReviews(tab?: string) {
+  const staleTime =
+    tab === 'recent'
+      ? 30 * 1000
+      : tab === 'top-picks'
+        ? 2 * 60 * 1000
+        : tab === 'explore'
+          ? 5 * 60 * 1000
+          : 30 * 1000; // default to shortest
   return useQuery({
     queryKey: ['feedReviews', tab],
     queryFn: () => fetchFeedReviews(tab),
+    staleTime,
   });
 }
 
@@ -75,6 +84,7 @@ export function usePlaylists() {
   return useQuery({
     queryKey: ['playlists'],
     queryFn: () => fetchPlaylists(),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -90,6 +100,7 @@ export function useVenues() {
   return useQuery({
     queryKey: ['venues'],
     queryFn: () => fetchVenues(),
+    staleTime: 10 * 60 * 1000,
   });
 }
 
@@ -113,6 +124,7 @@ export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
     queryFn: () => fetchNotifications(),
+    staleTime: 30 * 1000,
   });
 }
 
@@ -120,6 +132,7 @@ export function useBookmarks() {
   return useQuery({
     queryKey: ['bookmarks'],
     queryFn: () => fetchBookmarks(),
+    staleTime: 2 * 60 * 1000,
   });
 }
 
@@ -187,6 +200,7 @@ export function useSearch(
     queryKey: ['search', q, type, filters],
     queryFn: () => searchAll(q, type, 20, filters),
     enabled: q.length >= 2,
+    staleTime: 60 * 1000,
   });
 }
 
@@ -243,6 +257,7 @@ export function useSavedPlaylists() {
   return useQuery({
     queryKey: ['savedPlaylists'],
     queryFn: () => fetchSavedPlaylists(),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -251,5 +266,6 @@ export function useUserPlaylists(userId?: string) {
     queryKey: ['userPlaylists', userId],
     queryFn: () => fetchUserPlaylists(userId!),
     enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
   });
 }

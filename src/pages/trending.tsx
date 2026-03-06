@@ -23,7 +23,9 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import AppShell from '../layouts/AppShell';
+import VenueCardSkeleton from '../components/VenueCardSkeleton';
 import api from '../api/client';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 type TrendingType = 'venue' | 'review' | 'dish';
 
@@ -62,6 +64,7 @@ async function fetchTrending(type: TrendingType): Promise<TrendingItem[]> {
 }
 
 export default function TrendingPage() {
+  useRequireAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TrendingType>('venue');
 
@@ -94,14 +97,21 @@ export default function TrendingPage() {
         <Container maxWidth="md" sx={{ py: 4 }}>
           <Skeleton variant="text" width={200} height={40} sx={{ mb: 2 }} />
           <Skeleton variant="rectangular" height={48} sx={{ mb: 3, borderRadius: 1 }} />
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton
-              key={i}
-              variant="rectangular"
-              height={100}
-              sx={{ mb: 2, borderRadius: 2 }}
-            />
-          ))}
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 1.5,
+              overflowX: 'auto',
+              pb: 1,
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
+            {[...Array(4)].map((_, i) => (
+              <VenueCardSkeleton key={i} />
+            ))}
+          </Box>
         </Container>
       </AppShell>
     );

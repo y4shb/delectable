@@ -25,6 +25,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
 import api from '../api/client';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 interface Challenge {
   id: string;
@@ -56,6 +57,7 @@ async function joinChallenge(id: string): Promise<void> {
 }
 
 export default function ChallengesPage() {
+  useRequireAuth();
   const queryClient = useQueryClient();
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
 
@@ -179,7 +181,7 @@ export default function ChallengesPage() {
                       </Box>
                       <LinearProgress
                         variant="determinate"
-                        value={(challenge.userProgress.progress / challenge.userProgress.target) * 100}
+                        value={challenge.userProgress.target > 0 ? (challenge.userProgress.progress / challenge.userProgress.target) * 100 : 0}
                         sx={{ height: 8, borderRadius: 4 }}
                       />
                     </Box>

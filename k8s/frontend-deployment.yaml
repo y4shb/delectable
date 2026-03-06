@@ -21,18 +21,25 @@ spec:
       labels:
         app: frontend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
       containers:
         - name: frontend
           image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/delectable-frontend:latest
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 3000
               protocol: TCP
           envFrom:
             - configMapRef:
                 name: delectable-config
-            - secretRef:
-                name: delectable-secrets
           env:
             - name: NEXT_PUBLIC_API_URL
               valueFrom:

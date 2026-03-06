@@ -1,9 +1,11 @@
 import AppShell from '../../layouts/AppShell';
 import {
+  Alert,
   Box,
   Typography,
   TextField,
   Button,
+  Snackbar,
   Stack,
   Avatar,
   Chip,
@@ -50,6 +52,7 @@ export default function EditProfilePage() {
   const router = useRouter();
   const { user: authUser, updateUser } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>(
     authUser?.favoriteCuisines ?? [],
@@ -86,8 +89,8 @@ export default function EditProfilePage() {
       });
       updateUser(updated);
       router.push('/profile');
-    } catch {
-      // TODO: show error toast
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to save profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -240,6 +243,23 @@ export default function EditProfilePage() {
           </Button>
         </Stack>
       </Box>
+
+      {/* Error toast */}
+      <Snackbar
+        open={!!errorMsg}
+        autoHideDuration={4000}
+        onClose={() => setErrorMsg(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setErrorMsg(null)}
+          severity="error"
+          variant="filled"
+          sx={{ borderRadius: '16px' }}
+        >
+          {errorMsg}
+        </Alert>
+      </Snackbar>
     </AppShell>
   );
 }

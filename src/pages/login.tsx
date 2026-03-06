@@ -52,7 +52,8 @@ export default function LoginPage() {
       await login(email, password);
       // Check for redirect param
       const redirect = router.query.redirect as string;
-      router.push(redirect || '/feed');
+      const isRelative = redirect && redirect.startsWith('/') && !redirect.startsWith('//');
+      router.push(isRelative ? redirect : '/feed');
     } catch {
       setError('Invalid email or password');
     } finally {

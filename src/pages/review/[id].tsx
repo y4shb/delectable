@@ -31,7 +31,6 @@ import {
   bookmarkReview,
   unbookmarkReview,
   createComment,
-  reviewToFeedReview,
 } from '../../api/api';
 import ReviewCard from '../../components/ReviewCard';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -179,10 +178,14 @@ export default function ReviewDetailPage() {
           <Box
             sx={{
               position: 'relative',
-              width: '100vw',
+              width: '100%',
               height: 300,
-              mx: 'calc(-50vw + 50%)',
-              overflow: 'hidden',
+              left: '50%',
+              right: '50%',
+              marginLeft: '-50vw',
+              marginRight: '-50vw',
+              maxWidth: '100vw',
+              overflowX: 'hidden',
             }}
           >
             <Box
@@ -206,15 +209,22 @@ export default function ReviewDetailPage() {
 
         {/* User info bar */}
         <Box sx={{ px: 2, mt: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Avatar src={review.user.avatarUrl} sx={{ width: 44, height: 44 }} />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
-              {review.user.name}
-            </Typography>
-            <Typography color="text.secondary" sx={{ fontSize: 13 }}>
-              Lvl {review.user.level}
-            </Typography>
-          </Box>
+          <Link href={`/user/${review.user.id}`} legacyBehavior passHref>
+            <Box
+              component="a"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+            >
+              <Avatar src={review.user.avatarUrl} sx={{ width: 44, height: 44 }} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
+                  {review.user.name}
+                </Typography>
+                <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                  Lvl {review.user.level}
+                </Typography>
+              </Box>
+            </Box>
+          </Link>
           <Typography sx={{ fontWeight: 700, fontSize: 28, color: theme.palette.primary.main }}>
             {Number(review.rating).toFixed(1)}
           </Typography>

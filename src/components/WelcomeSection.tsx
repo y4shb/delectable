@@ -1,20 +1,71 @@
-import React, { useState } from 'react';
-import { Box, Typography, Tab, Tabs, useTheme } from '@mui/material';
+import React, { useState, useRef } from 'react';
+import { Box, Typography, Chip, useTheme } from '@mui/material';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import CollectionsIcon from '@mui/icons-material/Collections';
+import ExploreIcon from '@mui/icons-material/Explore';
 import { useAuth } from '../context/AuthContext';
 
 interface WelcomeSectionProps {
   onTabChange?: (tabValue: string) => void;
 }
 
+interface FeedTab {
+  id: string;
+  label: string;
+  value: string;
+  ariaControls: string;
+  icon: React.ReactElement;
+}
+
+const feedTabs: FeedTab[] = [
+  {
+    id: 'tab-top-picks',
+    label: 'Top picks',
+    value: 'top-picks',
+    ariaControls: 'tabpanel-top-picks',
+    icon: <AutoAwesomeIcon fontSize="small" />,
+  },
+  {
+    id: 'tab-recent',
+    label: 'Recent',
+    value: 'recent',
+    ariaControls: 'tabpanel-recent',
+    icon: <ScheduleIcon fontSize="small" />,
+  },
+  {
+    id: 'tab-collections',
+    label: 'Collections',
+    value: 'collections',
+    ariaControls: 'tabpanel-collections',
+    icon: <CollectionsIcon fontSize="small" />,
+  },
+  {
+    id: 'tab-explore',
+    label: 'Explore',
+    value: 'explore',
+    ariaControls: 'tabpanel-explore',
+    icon: <ExploreIcon fontSize="small" />,
+  },
+];
+
 export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
   const [selectedTab, setSelectedTab] = useState('top-picks');
   const theme = useTheme();
   const { user } = useAuth();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
     setSelectedTab(newValue);
     onTabChange?.(newValue);
   };
+
+  const handleChipClick = (value: string) => {
+    const syntheticEvent = {} as React.SyntheticEvent;
+    handleTabChange(syntheticEvent, value);
+  };
+
+  const isDark = theme.palette.mode === 'dark';
 
   return (
     <Box
@@ -32,7 +83,6 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
           variant="h4"
           sx={{
             fontWeight: 500,
-            // color: theme.palette.text.primary,
             color: theme.palette.primary.main,
             fontSize: '32px',
             lineHeight: 1.2,
@@ -41,66 +91,118 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
             letterSpacing: 1,
           }}
         >
-          Hi {user?.name?.split(' ')[0] ?? 'there'}!
+          Hi {user?.name?.split(' ')[0] || 'there'}!
         </Typography>
       </Box>
 
-      {/* Tabs */}
-      <Box sx={{ mb: 2 }}>
-        <Tabs
-          id="feed-tabs"
-          value={selectedTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          aria-label="Feed navigation tabs"
+      {/* Pill-shaped Chip Tabs with fade edges */}
+      <Box
+        id="feed-tabs"
+        role="tablist"
+        aria-label="Feed navigation tabs"
+        sx={{ mb: 2, position: 'relative' }}
+      >
+        <Box
+          ref={scrollContainerRef}
           sx={{
-            '& .MuiTabs-indicator': {
-              display: 'none', // Hide the default indicator
-            },
-            '& .MuiTab-root': {
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '16px',
-              color: theme.palette.text.secondary,
-              minWidth: 'auto',
-              px: 3,
-              py: 1.5,
-              mx: 0.5,
-              borderRadius: 6,
-              transition: 'all 0.2s ease-in-out',
-              '&.Mui-selected': {
-                color: '#fff',
-                fontWeight: 700,
-                backgroundColor: theme.palette.primary.main, // Peach color
-                boxShadow: '0 2px 8px rgba(242, 77, 79, 0.3)',
-              },
-              '&:active, &.Mui-focusVisible': {
-                color: '#fff',
-                fontWeight: 700,
-                backgroundColor: theme.palette.primary.main, // Same as selected state
-                boxShadow: '0 2px 8px rgba(242, 77, 79, 0.3)',
-              },
-              '&:hover': {
-                backgroundColor: theme.palette.mode === 'dark' 
-                  ? 'rgba(255, 255, 255, 0.05)' 
-                  : 'rgba(0, 0, 0, 0.04)',
-              },
-              '&:hover.Mui-selected, &:active': {
-                backgroundColor: theme.palette.primary.main,
-                color: '#fff',
-              },
-            },
-            '& .MuiTabs-scrollButtons': {
-              color: theme.palette.text.secondary,
+            display: 'flex',
+            gap: 1,
+            overflowX: 'auto',
+            scrollBehavior: 'smooth',
+            WebkitOverflowScrolling: 'touch',
+            maskImage: `linear-gradient(
+              to right,
+              transparent 0%,
+              black 3%,
+              black 97%,
+              transparent 100%
+            )`,
+            WebkitMaskImage: `linear-gradient(
+              to right,
+              transparent 0%,
+              black 3%,
+              black 97%,
+              transparent 100%
+            )`,
+            px: 0.5,
+            pb: 0.5,
+            /* Hide scrollbar across browsers */
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': {
+              display: 'none',
             },
           }}
         >
-          <Tab id="tab-top-picks" label="Top picks" value="top-picks" aria-controls="tabpanel-top-picks" />
-          <Tab id="tab-recent" label="Recent" value="recent" aria-controls="tabpanel-recent" />
-          <Tab id="tab-collections" label="Collections" value="collections" aria-controls="tabpanel-collections" />
-          <Tab id="tab-explore" label="Explore" value="explore" aria-controls="tabpanel-explore" />
-        </Tabs>
+          {feedTabs.map((tab) => {
+            const isSelected = selectedTab === tab.value;
+
+            return (
+              <Chip
+                key={tab.value}
+                id={tab.id}
+                role="tab"
+                aria-selected={isSelected}
+                aria-controls={tab.ariaControls}
+                tabIndex={isSelected ? 0 : -1}
+                icon={tab.icon}
+                label={tab.label}
+                clickable
+                onClick={() => handleChipClick(tab.value)}
+                sx={{
+                  borderRadius: '20px',
+                  fontFamily: '"Inter", sans-serif',
+                  fontWeight: isSelected ? 700 : 600,
+                  fontSize: '14px',
+                  letterSpacing: '0.01em',
+                  px: 1.5,
+                  py: 2.5,
+                  transition: 'all 0.2s ease-in-out',
+                  flexShrink: 0,
+                  border: 'none',
+                  ...(isSelected
+                    ? {
+                        backgroundColor: theme.palette.primary.main,
+                        color: '#fff',
+                        boxShadow: '0 4px 12px rgba(242, 77, 79, 0.35)',
+                        '& .MuiChip-icon': {
+                          color: '#fff',
+                        },
+                        '&:hover': {
+                          backgroundColor: theme.palette.primary.dark || '#d93e40',
+                          boxShadow: '0 4px 16px rgba(242, 77, 79, 0.45)',
+                        },
+                        '&:focus-visible': {
+                          backgroundColor: theme.palette.primary.main,
+                          boxShadow: `0 0 0 3px rgba(242, 77, 79, 0.4), 0 4px 12px rgba(242, 77, 79, 0.35)`,
+                        },
+                      }
+                    : {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.08)'
+                          : 'rgba(0, 0, 0, 0.05)',
+                        color: theme.palette.text.secondary,
+                        boxShadow: 'none',
+                        '& .MuiChip-icon': {
+                          color: theme.palette.text.secondary,
+                        },
+                        '&:hover': {
+                          backgroundColor: isDark
+                            ? 'rgba(255, 255, 255, 0.14)'
+                            : 'rgba(0, 0, 0, 0.09)',
+                        },
+                        '&:focus-visible': {
+                          backgroundColor: isDark
+                            ? 'rgba(255, 255, 255, 0.14)'
+                            : 'rgba(0, 0, 0, 0.09)',
+                          boxShadow: `0 0 0 3px ${isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)'}`,
+                        },
+                      }),
+                }}
+              />
+            );
+          })}
+        </Box>
       </Box>
     </Box>
   );

@@ -84,15 +84,15 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name delectable-staging --region ${{ env.AWS_REGION }}
 
+      - name: Run migrations
+        run: kubectl exec -n delectable deploy/backend -- python manage.py migrate --noinput
+
       - name: Deploy to Kubernetes
         run: |
           kubectl set image deployment/frontend frontend=${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }} -n delectable
           kubectl set image deployment/backend backend=${{ env.ECR_REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }} -n delectable
           kubectl rollout status deployment/frontend -n delectable --timeout=300s
           kubectl rollout status deployment/backend -n delectable --timeout=300s
-
-      - name: Run migrations
-        run: kubectl exec -n delectable deploy/backend -- python manage.py migrate --noinput
 
       - name: Notify success
         if: success()

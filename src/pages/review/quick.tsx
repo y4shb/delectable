@@ -20,7 +20,7 @@ import AppShell from '../../layouts/AppShell';
 import { useAuth } from '../../context/AuthContext';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useVenues } from '../../hooks/useApi';
-import { createQuickReview } from '../../api/api';
+import { createQuickReview, uploadPhoto } from '../../api/api';
 import type { Venue } from '../../types';
 
 export default function QuickReviewPage() {
@@ -56,11 +56,14 @@ export default function QuickReviewPage() {
     if (file) {
       // Create preview
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         setPhotoPreview(reader.result as string);
-        // In a real app, you'd upload to a CDN and get a URL
-        // For now, we'll use a placeholder
-        setPhotoUrl('/images/food3.jpg');
+        try {
+          const url = await uploadPhoto(file);
+          setPhotoUrl(url);
+        } catch {
+          setPhotoUrl('');
+        }
         setStep(1);
       };
       reader.readAsDataURL(file);

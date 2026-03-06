@@ -200,7 +200,7 @@ export default function UserProfilePage() {
 
           {/* Edit profile button for own profile */}
           {isOwnProfile && (
-            <Link href="/settings/profile" passHref legacyBehavior>
+            <Link href="/profile/edit" passHref legacyBehavior>
               <Button
                 component="a"
                 variant="outlined"
@@ -216,6 +216,143 @@ export default function UserProfilePage() {
             </Link>
           )}
         </Box>
+
+        {/* Taste DNA Radar Chart */}
+        {(() => {
+          const cuisineAxes = ['Italian', 'Japanese', 'Indian', 'Mexican', 'American', 'Thai', 'French', 'Korean'];
+          const numAxes = cuisineAxes.length;
+          const centerX = 150;
+          const centerY = 150;
+          const radius = 100;
+          const angleStep = (2 * Math.PI) / numAxes;
+          const startAngle = -Math.PI / 2;
+
+          const getPoint = (index: number, value: number) => {
+            const angle = startAngle + index * angleStep;
+            return {
+              x: centerX + radius * value * Math.cos(angle),
+              y: centerY + radius * value * Math.sin(angle),
+            };
+          };
+
+          const vertices = cuisineAxes.map((_, i) => getPoint(i, 1));
+
+          const ringLevels = [0.25, 0.5, 0.75, 1.0];
+          const rings = ringLevels.map((level) => {
+            const points = cuisineAxes.map((_, i) => {
+              const p = getPoint(i, level);
+              return `${p.x},${p.y}`;
+            });
+            return points.join(' ');
+          });
+
+          const favorites = user.favoriteCuisines ?? [];
+          const dataValues = cuisineAxes.map((cuisine, index) => {
+            if (favorites.some((f: string) => f.toLowerCase() === cuisine.toLowerCase())) {
+              return 0.85;
+            }
+            return 0.15 + (index * 0.07) % 0.3;
+          });
+
+          const dataPoints = dataValues.map((value, i) => getPoint(i, value));
+          const dataPolygon = dataPoints.map((p) => `${p.x},${p.y}`).join(' ');
+
+          const labelPositions = cuisineAxes.map((_, i) => {
+            const angle = startAngle + i * angleStep;
+            const labelRadius = radius + 20;
+            return {
+              x: centerX + labelRadius * Math.cos(angle),
+              y: centerY + labelRadius * Math.sin(angle),
+            };
+          });
+
+          return (
+            <Box sx={{ px: 2, py: 2, textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 16, mb: 1.5 }}>
+                Taste DNA
+              </Typography>
+              <Box
+                sx={{
+                  bgcolor:
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(255,255,255,0.04)'
+                      : theme.palette.background.paper,
+                  borderRadius: '16px',
+                  p: 2,
+                  maxWidth: 280,
+                  mx: 'auto',
+                }}
+              >
+                <svg
+                  viewBox="0 0 300 300"
+                  width="100%"
+                  height="100%"
+                  aria-label="Taste preference visualization"
+                >
+                  {/* Concentric octagon rings */}
+                  {rings.map((points, i) => (
+                    <polygon
+                      key={`ring-${i}`}
+                      points={points}
+                      fill="none"
+                      stroke={theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}
+                      strokeWidth={1}
+                    />
+                  ))}
+
+                  {/* Axis lines from center to each vertex */}
+                  {vertices.map((v, i) => (
+                    <line
+                      key={`axis-${i}`}
+                      x1={centerX}
+                      y1={centerY}
+                      x2={v.x}
+                      y2={v.y}
+                      stroke={theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}
+                      strokeWidth={1}
+                      opacity={0.3}
+                    />
+                  ))}
+
+                  {/* Data polygon fill */}
+                  <polygon
+                    points={dataPolygon}
+                    fill="rgba(242,77,79,0.2)"
+                    stroke="rgba(242,77,79,0.8)"
+                    strokeWidth={2}
+                  />
+
+                  {/* Data point dots */}
+                  {dataPoints.map((p, i) => (
+                    <circle
+                      key={`dot-${i}`}
+                      cx={p.x}
+                      cy={p.y}
+                      r={4}
+                      fill="#F24D4F"
+                    />
+                  ))}
+
+                  {/* Cuisine labels */}
+                  {cuisineAxes.map((cuisine, i) => (
+                    <text
+                      key={`label-${i}`}
+                      x={labelPositions[i].x}
+                      y={labelPositions[i].y}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={11}
+                      fontWeight={600}
+                      fill={theme.palette.text.secondary}
+                    >
+                      {cuisine}
+                    </text>
+                  ))}
+                </svg>
+              </Box>
+            </Box>
+          );
+        })()}
 
         {/* Tabs */}
         <Tabs

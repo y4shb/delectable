@@ -72,6 +72,7 @@ export default function BottomTabBar() {
         showLabels={false}
         value={value}
         onChange={(_, newValue) => {
+          navigator.vibrate?.(10);
           setValue(newValue);
           router.push(tabConfig[newValue].route);
         }}
@@ -118,6 +119,8 @@ export default function BottomTabBar() {
               px: 1.2,
               py: 0.3,
               color: 'inherit',
+              transition: 'transform 0.15s ease',
+              '&:active': { transform: 'scale(0.9)' },
               '&.Mui-selected': {
                 color: (theme) => theme.palette.primary.main,
               }

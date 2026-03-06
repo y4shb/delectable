@@ -25,6 +25,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
 import api from '../api/client';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 interface ReferralStats {
   inviteCode: string;
@@ -68,6 +69,7 @@ async function fetchReferrals(): Promise<Referral[]> {
 }
 
 export default function InvitePage() {
+  useRequireAuth();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 

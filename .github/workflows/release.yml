@@ -67,6 +67,10 @@ jobs:
           # Create database backup before deployment
           kubectl exec -n delectable deploy/backend -- python manage.py dbbackup --compress
 
+      - name: Run migrations
+        run: |
+          kubectl exec -n delectable deploy/backend -- python manage.py migrate --noinput
+
       - name: Deploy to Kubernetes
         run: |
           # Update image tags
@@ -76,10 +80,6 @@ jobs:
           # Wait for rollout
           kubectl rollout status deployment/frontend -n delectable --timeout=300s
           kubectl rollout status deployment/backend -n delectable --timeout=300s
-
-      - name: Run migrations
-        run: |
-          kubectl exec -n delectable deploy/backend -- python manage.py migrate --noinput
 
       - name: Collect static files
         run: |

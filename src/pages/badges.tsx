@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
 import { BadgeCard } from '../components/BadgeShelf';
 import { fetchBadgeDefinitions, fetchUserBadges } from '../api/api';
+import { useRequireAuth } from '../hooks/useRequireAuth';
 
 const CATEGORIES = [
   { value: 'all', label: 'All' },
@@ -27,6 +28,7 @@ const CATEGORIES = [
 ];
 
 export default function BadgesPage() {
+  useRequireAuth();
   const [category, setCategory] = useState('all');
   const [showUnlocked, setShowUnlocked] = useState<boolean | null>(null);
 

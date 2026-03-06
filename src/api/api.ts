@@ -39,11 +39,7 @@ import type {
 export async function uploadPhoto(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await api.post('/uploads/', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const { data } = await api.post('/uploads/', formData);
   return data.url;
 }
 
@@ -66,8 +62,11 @@ export function formatRelativeTime(isoDate: string): string {
   const diffWeek = Math.floor(diffDay / 7);
   if (diffWeek < 5) return `${diffWeek}w ago`;
   const diffMonth = Math.floor(diffDay / 30.44);
+  if (diffMonth < 1) return `${diffWeek}w ago`;
   if (diffMonth < 12) return `${diffMonth}mo ago`;
-  return `${Math.floor(diffDay / 365)}y ago`;
+  const diffYear = Math.floor(diffDay / 365);
+  if (diffYear < 1) return `${diffMonth}mo ago`;
+  return `${diffYear}y ago`;
 }
 
 /** Transform a backend Review into the FeedReview shape expected by ReviewCard */
@@ -88,6 +87,7 @@ export function reviewToFeedReview(review: Review): FeedReview {
     rating: Number(review.rating),
     text: review.text,
     photoUrl: review.photoUrl ?? '',
+    photoUrls: review.photoUrls?.length ? review.photoUrls : (review.photoUrl ? [review.photoUrl] : []),
     date: formatRelativeTime(review.createdAt),
     likeCount: review.likeCount ?? 0,
     commentCount: review.commentCount ?? 0,

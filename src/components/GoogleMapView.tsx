@@ -1,10 +1,9 @@
 import React, { useCallback, useRef, useMemo, useState, useEffect } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow, HeatmapLayer, Circle } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, HeatmapLayer, Circle } from '@react-google-maps/api';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
-import { useTheme, Box, Typography, IconButton, Fab } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box, Fab } from '@mui/material';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
-import Link from 'next/link';
+import { useTheme } from '@mui/material';
 import { Venue, FriendsVenue } from '../types';
 
 const MAPS_LIBRARIES: ('visualization')[] = ['visualization'];
@@ -51,33 +50,67 @@ const darkMapStyle = [
   { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#4e6d70" }] }
 ];
 
-/** CSS overrides injected once to strip Google's default InfoWindow chrome */
-const infoWindowStyleOverride = `
-  .gm-style-iw {
-    background: transparent !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    border-radius: 0 !important;
-    overflow: visible !important;
-  }
-  .gm-style-iw-d {
-    overflow: visible !important;
-    padding: 0 !important;
-  }
-  .gm-style-iw-tc {
+/** Light-mode map styling: muted labels, soft grey roads, desaturated POIs — matches warm/peach palette */
+const lightMapStyle = [
+  { "elementType": "geometry", "stylers": [{ "color": "#f5f1eb" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#6b6560" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#ffffff" }] },
+  { "featureType": "administrative", "elementType": "geometry.stroke", "stylers": [{ "color": "#d4cec7" }] },
+  { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9689" }] },
+  { "featureType": "landscape.man_made", "elementType": "geometry.fill", "stylers": [{ "color": "#efe9e1" }] },
+  { "featureType": "landscape.natural", "elementType": "geometry.fill", "stylers": [{ "color": "#f0ebe3" }] },
+  { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#e8e0d5" }] },
+  { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#8a817a" }] },
+  { "featureType": "poi.park", "elementType": "geometry.fill", "stylers": [{ "color": "#d8e8d0" }] },
+  { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#6b8f5b" }] },
+  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#e3ddd5" }] },
+  { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#8a817a" }] },
+  { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#ddd5ca" }] },
+  { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#c9bfb3" }] },
+  { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#6b6560" }] },
+  { "featureType": "transit", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9689" }] },
+  { "featureType": "transit.line", "elementType": "geometry.fill", "stylers": [{ "color": "#d4cec7" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c8dce8" }] },
+  { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#7a9ab0" }] },
+];
+
+/** CSS overrides to strip Google's default error banners */
+const mapStyleOverride = `
+  /* Hide Google Maps error banners and modals */
+  .gm-err-container,
+  .gm-err-content,
+  .gm-err-message,
+  .gm-err-title,
+  .gm-err-autocomplete,
+  .dismissButton,
+  .gm-style iframe + div {
     display: none !important;
   }
-  /* Hide Google's default close button — we render our own */
-  .gm-style-iw > button,
-  .gm-ui-hover-effect {
+  /* Hide "This page can't load Google Maps correctly" white banner */
+  .gm-style > div > div > div > div > div > a[href*="developers.google.com"],
+  .gm-style > div > div > div > div > div > div > a[href*="developers.google.com"] {
+    display: none !important;
+  }
+  /* Hide the bottom-left "For development purposes only" watermark */
+  .gmnoprint[style*="z-index: 1000001"],
+  div[style*="background-color: white"][style*="z-index"] a[href*="goo.gl"],
+  div[style*="background-color: rgb(255, 255, 255)"][style*="position: absolute"][style*="bottom"] {
     display: none !important;
   }
 `;
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
+/** Cache for marker icons to avoid recreating SVG data URLs on every render */
+const markerIconCache = new Map<string, { url: string; scaledSize: google.maps.Size }>();
+let userLocationIconCache: { url: string; scaledSize: google.maps.Size } | null = null;
+
 /** Build an SVG data URL for a map pin marker with an embedded icon glyph */
 function getMarkerIcon(cuisine: string, isDark: boolean): { url: string; scaledSize: google.maps.Size } {
+  const cacheKey = `${cuisine}-${isDark}`;
+  const cached = markerIconCache.get(cacheKey);
+  if (cached) return cached;
+
   const colorMap: Record<string, { fill: string; glyph: string }> = {
     Japanese:     { fill: '#E8654A', glyph: '\uD83C\uDF63' },
     Italian:      { fill: '#D64545', glyph: '\uD83C\uDF55' },
@@ -103,17 +136,22 @@ function getMarkerIcon(cuisine: string, isDark: boolean): { url: string; scaledS
   </svg>`;
 
   const url = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-  return { url, scaledSize: new window.google.maps.Size(40, 40) };
+  const icon = { url, scaledSize: new window.google.maps.Size(40, 40) };
+  markerIconCache.set(cacheKey, icon);
+  return icon;
 }
 
 /** Blue dot SVG for user's current location */
 function getUserLocationIcon(): { url: string; scaledSize: google.maps.Size } {
+  if (userLocationIconCache) return userLocationIconCache;
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="10" fill="rgba(66,133,244,0.2)" stroke="none"/>
     <circle cx="12" cy="12" r="6" fill="#4285F4" stroke="#fff" stroke-width="2"/>
   </svg>`;
   const url = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-  return { url, scaledSize: new window.google.maps.Size(24, 24) };
+  userLocationIconCache = { url, scaledSize: new window.google.maps.Size(24, 24) };
+  return userLocationIconCache;
 }
 
 export interface GoogleMapViewProps {
@@ -125,6 +163,8 @@ export interface GoogleMapViewProps {
   radiusKm?: number | null;
   userLocation?: { lat: number; lng: number } | null;
   enableClustering?: boolean;
+  onVenueSelect?: (venue: Venue) => void;
+  onBoundsChanged?: (bounds: { sw: { lat: number; lng: number }; ne: { lat: number; lng: number } }) => void;
 }
 
 export default function GoogleMapView({
@@ -136,6 +176,8 @@ export default function GoogleMapView({
   radiusKm,
   userLocation: propUserLocation,
   enableClustering = true,
+  onVenueSelect,
+  onBoundsChanged,
 }: GoogleMapViewProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -149,8 +191,14 @@ export default function GoogleMapView({
   const mapRef = useRef<google.maps.Map | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
-  const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [localUserLocation, setLocalUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Refs for auto-fit logic
+  const userHasPannedRef = useRef(false);
+  const prevVenuesKeyRef = useRef('');
+  const idleListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const dragEndListenerRef = useRef<google.maps.MapsEventListener | null>(null);
 
   // Use prop user location if provided, otherwise use local
   const userLocation = propUserLocation ?? localUserLocation;
@@ -165,16 +213,102 @@ export default function GoogleMapView({
     });
   }, [venues, cuisineFilter, minRating]);
 
+  // Strip Google Maps error banners/modals/watermarks after they get injected
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const stripErrorElements = () => {
+      const roots = [containerRef.current, document.body].filter(Boolean) as HTMLElement[];
+
+      for (const root of roots) {
+        root.querySelectorAll<HTMLElement>('.dismissButton').forEach((el) => {
+          const modal = el.closest<HTMLElement>('div[style*="z-index"]');
+          if (modal) modal.style.display = 'none';
+        });
+        root.querySelectorAll<HTMLElement>('.gm-err-container').forEach((el) => {
+          el.style.display = 'none';
+        });
+        root.querySelectorAll<HTMLElement>('div[style]').forEach((el) => {
+          const style = el.getAttribute('style') || '';
+          const text = el.textContent || '';
+          if (
+            (style.includes('background-color: white') || style.includes('background-color: rgb(255, 255, 255)')) &&
+            style.includes('position') &&
+            (text.includes('Google Maps') || text.includes('development purposes') || text.includes('developers.google'))
+          ) {
+            el.style.display = 'none';
+          }
+        });
+        root.querySelectorAll<HTMLElement>('a[href*="developers.google.com/maps"]').forEach((el) => {
+          const banner = el.closest<HTMLElement>('div[style*="background"]');
+          if (banner) banner.style.display = 'none';
+        });
+      }
+    };
+
+    stripErrorElements();
+    const timer1 = setTimeout(stripErrorElements, 500);
+    const timer2 = setTimeout(stripErrorElements, 1500);
+    const timer3 = setTimeout(stripErrorElements, 3000);
+
+    const observer = new MutationObserver(stripErrorElements);
+    if (containerRef.current) {
+      observer.observe(containerRef.current, { childList: true, subtree: true });
+    }
+    observer.observe(document.body, { childList: true, subtree: false });
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      observer.disconnect();
+    };
+  }, [isLoaded]);
+
+  const handleVenueClick = useCallback((venue: Venue) => {
+    if (onVenueSelect) {
+      onVenueSelect(venue);
+    }
+  }, [onVenueSelect]);
+
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-  }, []);
+
+    // Listen to idle event to detect user pan/zoom
+    idleListenerRef.current = map.addListener('idle', () => {
+      userHasPannedRef.current = true;
+    });
+
+    // Listen to dragend to fire onBoundsChanged
+    if (onBoundsChanged) {
+      dragEndListenerRef.current = map.addListener('dragend', () => {
+        const bounds = map.getBounds();
+        if (bounds) {
+          const sw = bounds.getSouthWest();
+          const ne = bounds.getNorthEast();
+          onBoundsChanged({
+            sw: { lat: sw.lat(), lng: sw.lng() },
+            ne: { lat: ne.lat(), lng: ne.lng() },
+          });
+        }
+      });
+    }
+  }, [onBoundsChanged]);
 
   const onUnmount = useCallback(() => {
+    if (idleListenerRef.current) {
+      google.maps.event.removeListener(idleListenerRef.current);
+      idleListenerRef.current = null;
+    }
+    if (dragEndListenerRef.current) {
+      google.maps.event.removeListener(dragEndListenerRef.current);
+      dragEndListenerRef.current = null;
+    }
     mapRef.current = null;
   }, []);
 
   const options = useMemo(() => ({
-    styles: isDark ? darkMapStyle : undefined,
+    styles: isDark ? darkMapStyle : lightMapStyle,
     disableDefaultUI: true,
     zoomControl: true,
     fullscreenControl: false,
@@ -194,12 +328,37 @@ export default function GoogleMapView({
         }
       },
       () => {
-        // Geolocation denied or unavailable — silently ignore
+        // Geolocation denied or unavailable
       },
     );
   }, []);
 
-  // Set up marker clustering
+  // Auto-fit bounds to visible markers when filteredVenues changes
+  useEffect(() => {
+    if (!mapRef.current || !isLoaded || filteredVenues.length === 0) return;
+
+    // Build a key from venue IDs to detect actual filter changes
+    const venuesKey = filteredVenues.map((v) => v.id).join(',');
+    if (venuesKey === prevVenuesKeyRef.current) return;
+    prevVenuesKeyRef.current = venuesKey;
+
+    // Reset user panned flag when filters change
+    userHasPannedRef.current = false;
+
+    const bounds = new window.google.maps.LatLngBounds();
+    filteredVenues.forEach((v) => {
+      if (v.latitude != null && v.longitude != null) {
+        bounds.extend({ lat: v.latitude, lng: v.longitude });
+      }
+    });
+
+    // Only auto-fit if bounds are valid and contain more than one point
+    if (!bounds.isEmpty()) {
+      mapRef.current.fitBounds(bounds, 50);
+    }
+  }, [filteredVenues, isLoaded]);
+
+  // Set up marker clustering with animated entry
   useEffect(() => {
     if (!mapRef.current || !enableClustering || !isLoaded) return;
 
@@ -208,13 +367,20 @@ export default function GoogleMapView({
       clustererRef.current.clearMarkers();
     }
 
-    // Create markers
-    const markers = filteredVenues.map((venue) => {
+    // Create markers with staggered drop animation
+    const markers = filteredVenues.map((venue, index) => {
       const marker = new window.google.maps.Marker({
         position: { lat: venue.latitude, lng: venue.longitude },
         icon: getMarkerIcon(venue.cuisineType, isDark),
+        animation: null, // Start without animation, add staggered
       });
-      marker.addListener('click', () => setSelectedVenue(venue));
+      marker.addListener('click', () => handleVenueClick(venue));
+
+      // Stagger drop animation: 30ms delay per marker for cascade effect
+      setTimeout(() => {
+        marker.setAnimation(window.google.maps.Animation.DROP);
+      }, index * 30);
+
       return marker;
     });
 
@@ -248,12 +414,12 @@ export default function GoogleMapView({
         clustererRef.current = null;
       }
     };
-  }, [filteredVenues, isLoaded, enableClustering, isDark]);
+  }, [filteredVenues, isLoaded, enableClustering, isDark, handleVenueClick]);
 
   return isLoaded ? (
-    <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
-      {/* Inject InfoWindow style overrides */}
-      <style>{infoWindowStyleOverride}</style>
+    <Box ref={containerRef} sx={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Inject style overrides */}
+      <style>{mapStyleOverride}</style>
 
       <GoogleMap
         mapContainerStyle={containerStyle}
@@ -269,7 +435,8 @@ export default function GoogleMapView({
             key={venue.id}
             position={{ lat: venue.latitude, lng: venue.longitude }}
             icon={getMarkerIcon(venue.cuisineType, isDark)}
-            onClick={() => setSelectedVenue(venue)}
+            animation={google.maps.Animation.DROP}
+            onClick={() => handleVenueClick(venue)}
           />
         ))}
 
@@ -277,7 +444,7 @@ export default function GoogleMapView({
         {radiusKm && userLocation && (
           <Circle
             center={userLocation}
-            radius={radiusKm * 1000} // Convert km to meters
+            radius={radiusKm * 1000}
             options={{
               fillColor: isDark ? 'rgba(232, 101, 74, 0.15)' : 'rgba(214, 69, 69, 0.1)',
               fillOpacity: 0.4,
@@ -320,7 +487,7 @@ export default function GoogleMapView({
                 )}`,
                 scaledSize: new window.google.maps.Size(28, 28),
               }}
-              onClick={() => setSelectedVenue(fv)}
+              onClick={() => handleVenueClick(fv)}
               zIndex={500}
             />
           ) : null,
@@ -334,107 +501,6 @@ export default function GoogleMapView({
             clickable={false}
             zIndex={999}
           />
-        )}
-
-        {selectedVenue && selectedVenue.latitude != null && selectedVenue.longitude != null && (
-          <InfoWindow
-            position={{ lat: selectedVenue.latitude, lng: selectedVenue.longitude }}
-            onCloseClick={() => setSelectedVenue(null)}
-            options={{ disableAutoPan: false, pixelOffset: new window.google.maps.Size(0, -10) }}
-          >
-            <Link href={`/venue/${selectedVenue.id}`} passHref legacyBehavior>
-              <Box
-                component="a"
-                sx={{
-                  display: 'block',
-                  width: 220,
-                  bgcolor: 'background.paper',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                  position: 'relative',
-                  p: 0,
-                  textDecoration: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                {/* Close button */}
-                <IconButton
-                  size="small"
-                  aria-label="Close venue info"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setSelectedVenue(null);
-                  }}
-                  sx={{
-                    position: 'absolute',
-                    top: 4,
-                    right: 4,
-                    zIndex: 2,
-                    bgcolor: 'rgba(0,0,0,0.45)',
-                    color: '#fff',
-                    width: 24,
-                    height: 24,
-                    '&:hover': {
-                      bgcolor: 'rgba(0,0,0,0.65)',
-                    },
-                  }}
-                >
-                  <CloseIcon sx={{ fontSize: 14 }} />
-                </IconButton>
-
-                {/* Venue photo */}
-                <Box
-                  component="img"
-                  src={selectedVenue.photoUrl}
-                  alt={selectedVenue.name}
-                  sx={{
-                    width: '100%',
-                    height: 120,
-                    objectFit: 'cover',
-                    borderRadius: '16px 16px 0 0',
-                    display: 'block',
-                  }}
-                />
-
-                {/* Content area */}
-                <Box sx={{ p: '12px' }}>
-                  <Typography
-                    sx={{
-                      fontSize: 16,
-                      fontWeight: 'bold',
-                      color: 'text.primary',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {selectedVenue.name}
-                  </Typography>
-
-                  <Typography
-                    sx={{
-                      fontSize: 13,
-                      color: 'text.secondary',
-                      mt: 0.25,
-                    }}
-                  >
-                    {selectedVenue.cuisineType}
-                  </Typography>
-
-                  <Typography
-                    sx={{
-                      fontSize: 14,
-                      fontWeight: 'bold',
-                      color: theme.palette.primary.main,
-                      mt: 0.5,
-                    }}
-                  >
-                    {'\u2605'} {selectedVenue.rating}
-                  </Typography>
-                </Box>
-              </Box>
-            </Link>
-          </InfoWindow>
         )}
       </GoogleMap>
 

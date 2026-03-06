@@ -52,6 +52,7 @@ export default function FollowButton({
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    navigator.vibrate?.(10);
     if (isFollowing) {
       unfollowMutation.mutate();
     } else {
@@ -94,6 +95,8 @@ export default function FollowButton({
                   bgcolor: theme.palette.primary.dark,
                 },
               }),
+          transition: 'all 0.2s ease',
+          '&:active': { transform: 'scale(0.95)' },
         }}
       >
         {isHovered ? 'Unfollow' : 'Following'}
@@ -120,6 +123,8 @@ export default function FollowButton({
           borderColor: theme.palette.primary.dark,
           bgcolor: 'transparent',
         },
+        transition: 'all 0.2s ease',
+        '&:active': { transform: 'scale(0.95)' },
       }}
     >
       Follow

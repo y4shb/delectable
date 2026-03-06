@@ -1,10 +1,7 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
+export async function getServerSideProps() {
+  return { redirect: { destination: '/feed', permanent: false } };
+}
 
 export default function Home() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace('/feed');
-  }, [router]);
   return null;
 }
