@@ -8,6 +8,7 @@ import {
   Card,
   CardContent,
   Button,
+  Stack,
   useTheme,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -143,15 +144,15 @@ export default function DishDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Write Review button */}
-        <Box sx={{ px: 2, mt: 2 }}>
+        {/* Action buttons */}
+        <Stack direction="row" spacing={1.5} sx={{ px: 2, mt: 2 }}>
           <Button
             variant="contained"
-            fullWidth
             onClick={() =>
               router.push(`/review/new?venueId=${dish.venue}&dishId=${dish.id}`)
             }
             sx={{
+              flex: 1,
               borderRadius: '48px',
               py: 1.2,
               fontWeight: 700,
@@ -160,7 +161,28 @@ export default function DishDetailPage() {
           >
             Write a Review
           </Button>
-        </Box>
+          <Link href={`/dish/compare?dishId=${dish.id}`} legacyBehavior passHref>
+            <Button
+              component="a"
+              variant="outlined"
+              sx={{
+                flex: 1,
+                borderRadius: '48px',
+                py: 1.2,
+                fontWeight: 700,
+                textTransform: 'none',
+                borderColor: theme.palette.primary.main,
+                color: theme.palette.primary.main,
+                '&:hover': {
+                  borderColor: theme.palette.primary.dark,
+                  bgcolor: 'transparent',
+                },
+              }}
+            >
+              Compare
+            </Button>
+          </Link>
+        </Stack>
 
         {/* Reviews */}
         <Box sx={{ mt: 3 }}>

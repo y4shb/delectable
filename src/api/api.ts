@@ -48,6 +48,9 @@ import type {
   KitchenStory,
   FoodGuide,
   VenueResponseData,
+  VenueTimeline,
+  VenueUserTimeline,
+  DishComparison,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -857,4 +860,49 @@ export async function createVenueResponse(
 ): Promise<VenueResponseData> {
   const { data } = await api.post(`/reviews/${reviewId}/response/`, { text });
   return data.data ?? data;
+}
+
+// ---------------------------------------------------------------------------
+// Time Machine / Dish Comparison
+// ---------------------------------------------------------------------------
+
+export async function fetchVenueTimeline(
+  venueId: string,
+  period?: string,
+  months?: number,
+): Promise<VenueTimeline> {
+  const params: Record<string, string | number> = {};
+  if (period) params.period = period;
+  if (months) params.months = months;
+  const { data } = await api.get(`/venues/${venueId}/timeline/`, { params });
+  return data;
+}
+
+export async function fetchDishTimeline(
+  dishId: string,
+  period?: string,
+  months?: number,
+): Promise<VenueTimeline> {
+  const params: Record<string, string | number> = {};
+  if (period) params.period = period;
+  if (months) params.months = months;
+  const { data } = await api.get(`/dishes/${dishId}/timeline/`, { params });
+  return data;
+}
+
+export async function fetchVenueUserTimeline(
+  venueId: string,
+): Promise<VenueUserTimeline> {
+  const { data } = await api.get(`/venues/${venueId}/user-timeline/`);
+  return data;
+}
+
+export async function fetchDishComparison(
+  dishAId: string,
+  dishBId: string,
+): Promise<DishComparison> {
+  const { data } = await api.get('/dishes/compare/', {
+    params: { dish_a: dishAId, dish_b: dishBId },
+  });
+  return data;
 }

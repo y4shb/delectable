@@ -1,6 +1,6 @@
 # Delectable - Development Progress Tracker
 
-> Last updated: 2026-03-06
+> Last updated: 2026-03-17
 
 ---
 
@@ -783,6 +783,11 @@
 | 2026-03-06 | M14 URL Wiring | Wired kitchen-stories (list + detail), guides (list + detail) into venues/urls.py; wired venue-response into reviews/urls.py |
 | 2026-03-06 | M14 Verification | TypeScript `tsc --noEmit` — 0 errors after all changes |
 | 2026-03-06 | M14 COMPLETE | All Section 3 features from enhancements.md implemented, reviewed, and bug-fixed. 12 of 15 features complete (3 deferred: AR Preview, Time Machine, Offline Journal) |
+| 2026-03-17 | Time Machine backend | VenueRatingSnapshot model, views_timeline.py (4 endpoints: VenueTimelineView, DishTimelineView, VenueUserTimelineView, DishCompareView), timeline serializers, compute_rating_snapshots management command, migration 0007 |
+| 2026-03-17 | Time Machine frontend | TrendIndicator + RatingTimeline components (pure SVG chart), /venue/[id]/timeline page (period/timeframe toggles, user visit timeline, dish sparklines), /dish/compare page (autocomplete search, side-by-side cards, overlapping SVG chart, winner), TypeScript types + API functions + React Query hooks |
+| 2026-03-17 | Time Machine integration | "Time Machine" link on venue detail page, "Compare" link on dish detail page |
+| 2026-03-17 | Time Machine verification | Django check 0 issues, migration applied, code review agent run |
+| 2026-03-17 | M14 status update | Time Machine feature no longer deferred — now COMPLETE. 13 of 15 features done (2 deferred: AR Preview, Offline Journal) |
 
 ---
 
@@ -794,7 +799,7 @@
 - [x] Elo-Style Relative Ranking (PairwiseComparison model, comparison UI, personal "My Top 10")
 - [x] "What Should I Eat?" Decision Engine (conversational wizard, curated picks)
 - [x] Group Dining Consensus (DinnerPlan model, invite + swipe flow, consensus algorithm)
-- [ ] Time Machine / Dish Comparison (timeline view, quality trend tracking) — DEFERRED
+- [x] Time Machine / Dish Comparison (timeline view, quality trend tracking, dish comparison) — COMPLETE
 - [ ] Offline Food Journal (Service Worker, IndexedDB, Background Sync) — DEFERRED
 
 ### 14.2 Medium-Impact Features
@@ -884,12 +889,36 @@
 
 **Migrations applied:** rankings.0001, gamification.0002, venues.0004, venues.0005, reviews.0008
 
+10. **Time Machine / Dish Comparison** (implemented 2026-03-17)
+   - [x] Backend: `VenueRatingSnapshot` model (UUID PK, venue/dish FKs, period aggregation fields)
+   - [x] Backend: `views_timeline.py` — 4 API endpoints:
+     - `VenueTimelineView` — `GET /api/venues/{id}/timeline/` (venue rating trend with linear regression)
+     - `DishTimelineView` — `GET /api/dishes/{id}/timeline/` (dish rating trend)
+     - `VenueUserTimelineView` — `GET /api/venues/{id}/user-timeline/` (personal review history, IsAuthenticated)
+     - `DishCompareView` — `GET /api/dishes/compare/?dish_a=&dish_b=` (side-by-side comparison with winner)
+   - [x] Backend: Timeline serializers (RatingSnapshotSerializer, VenueTimelineSerializer, VenueUserTimelineSerializer, DishCompareSerializer, DishComparisonSideSerializer)
+   - [x] Backend: `compute_rating_snapshots` management command (period/months/clear flags)
+   - [x] Backend: Migration `venues.0007_venue_rating_snapshot`
+   - [x] Frontend: TypeScript types (RatingSnapshot, VenueTimeline, UserVisit, VenueUserTimeline, DishComparisonSide, DishComparison)
+   - [x] Frontend: API functions (fetchVenueTimeline, fetchDishTimeline, fetchVenueUserTimeline, fetchDishComparison)
+   - [x] Frontend: React Query hooks (useVenueTimeline, useDishTimeline, useVenueUserTimeline, useDishComparison)
+   - [x] Frontend: `TrendIndicator` component (improving/declining/stable with icons, tooltip, small/medium sizes)
+   - [x] Frontend: `RatingTimeline` component (pure SVG line chart with gradient fill, interactive tooltips, dot markers, responsive, dark mode)
+   - [x] Frontend: `/venue/[id]/timeline` page (Time Machine page with period/timeframe toggles, user visit timeline, dish sparklines)
+   - [x] Frontend: `/dish/compare` page (dish comparison with autocomplete search, side-by-side cards, overlapping SVG chart, winner announcement)
+   - [x] Frontend: `MiniSparkline` inline SVG component for dish cards
+   - [x] Integration: "Time Machine" link added to venue detail page (`/venue/[id]`)
+   - [x] Integration: "Compare" link added to dish detail page (`/dish/[id]`)
+   - [x] Helper functions: `_compute_trend()` (linear regression), `_build_snapshots_from_reviews()` (TruncMonth/TruncWeek aggregation), `_build_dish_side()` (comparison data builder)
+
+**Migrations applied:** rankings.0001, gamification.0002, venues.0004, venues.0005, venues.0007, reviews.0008
+
 **Deferred Features:**
 - [ ] AR Dish Preview — DEFERRED (requires WebAR infrastructure)
-- [ ] Time Machine / Dish Comparison — planned for future sprint
 - [ ] Offline Food Journal (PWA) — planned for future sprint
 
 **Verification:**
-- [x] TypeScript `tsc --noEmit` — 0 errors
-- [x] All URL patterns wired for new views (kitchen-stories, guides, venue-response)
+- [x] Django `manage.py check` — 0 issues
+- [x] All URL patterns wired for new views (timeline, user-timeline, dish timeline, dish compare)
 - [x] 5 code review agents completed (50+ bugs identified and fixed)
+- [x] Code review agent run on Time Machine implementation

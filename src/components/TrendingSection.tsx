@@ -1,10 +1,11 @@
+import React from 'react';
 import { Box, Typography, Skeleton, useTheme } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import StarIcon from '@mui/icons-material/Star';
 import Link from 'next/link';
 import { useTrendingVenues } from '../hooks/useApi';
 
-export default function TrendingSection() {
+function TrendingSection() {
   const theme = useTheme();
   const { data: venues, isLoading } = useTrendingVenues();
 
@@ -72,6 +73,7 @@ export default function TrendingSection() {
                   component="img"
                   src={venue.photoUrl}
                   alt={venue.name}
+                  loading="lazy"
                   sx={{
                     width: '100%',
                     height: '100%',
@@ -174,3 +176,4 @@ export default function TrendingSection() {
     </Box>
   );
 }
+export default React.memo(TrendingSection);

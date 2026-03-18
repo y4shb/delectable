@@ -58,6 +58,9 @@ class Follow(models.Model):
                 name="chk_no_self_follow",
             ),
         ]
+        indexes = [
+            models.Index(fields=["following"], name="idx_follow_following"),
+        ]
 
     def __str__(self):
         return f"{self.follower} -> {self.following}"

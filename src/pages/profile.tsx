@@ -134,7 +134,7 @@ function TasteDNAChart({ favoriteCuisines }: { favoriteCuisines: string[] }) {
           const angle = angleStep * i - Math.PI / 2;
           const lx = cx + (radius + labelOffset) * Math.cos(angle);
           const ly = cy + (radius + labelOffset) * Math.sin(angle);
-          let anchor: string = 'middle';
+          let anchor: 'start' | 'middle' | 'end' = 'middle';
           if (Math.cos(angle) > 0.1) anchor = 'start';
           else if (Math.cos(angle) < -0.1) anchor = 'end';
           return (

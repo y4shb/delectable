@@ -22,7 +22,8 @@ import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useVenueDetail, useVenueReviews, useSimilarVenues, useWantToTry } from '../../hooks/useApi';
 import { addWantToTry, removeWantToTry } from '../../api/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import AddToPlaylistSheet from '../../components/AddToPlaylistSheet';
+import dynamic from 'next/dynamic';
+const AddToPlaylistSheet = dynamic(() => import('../../components/AddToPlaylistSheet'), { ssr: false });
 import OccasionSection from '../../components/OccasionSection';
 import DietaryBadges from '../../components/DietaryBadges';
 import KitchenStoriesSection from '../../components/KitchenStoriesSection';
@@ -218,6 +219,7 @@ export default function VenueDetailPage() {
                   component="img"
                   src={allPhotos[1]}
                   alt={`${venue.name} photo 2`}
+                  loading="lazy"
                   sx={{
                     width: '100%',
                     height: '100%',
@@ -231,6 +233,7 @@ export default function VenueDetailPage() {
                   component="img"
                   src={allPhotos[2]}
                   alt={`${venue.name} photo 3`}
+                  loading="lazy"
                   sx={{
                     width: '100%',
                     height: '100%',
@@ -542,6 +545,30 @@ export default function VenueDetailPage() {
           </IconButton>
         </Stack>
 
+        {/* Time Machine link */}
+        <Box sx={{ mt: 2, px: 1 }}>
+          <Link href={`/venue/${venue.id}/timeline`} legacyBehavior passHref>
+            <Button
+              component="a"
+              variant="outlined"
+              fullWidth
+              sx={{
+                borderRadius: '48px',
+                textTransform: 'none',
+                fontWeight: 600,
+                borderColor: theme.palette.primary.main,
+                color: theme.palette.primary.main,
+                '&:hover': {
+                  borderColor: theme.palette.primary.dark,
+                  bgcolor: 'transparent',
+                },
+              }}
+            >
+              Time Machine
+            </Button>
+          </Link>
+        </Box>
+
         {/* Occasion tags */}
         {venue.occasions && (
           <OccasionSection venueId={venue.id} occasions={venue.occasions} />
@@ -683,6 +710,7 @@ export default function VenueDetailPage() {
                         component="img"
                         src={rv.photoUrl}
                         alt={rv.name}
+                        loading="lazy"
                         sx={{
                           width: '100%',
                           height: 100,

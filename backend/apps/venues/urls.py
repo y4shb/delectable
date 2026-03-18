@@ -9,6 +9,12 @@ from .views_nearby import NearbySavedVenuesView
 from .views_occasions import OccasionVoteView
 from .views_similar import SimilarVenuesView
 from .views_stories import KitchenStoryDetailView, KitchenStoryListView
+from .views_timeline import (
+    DishCompareView,
+    DishTimelineView,
+    VenueTimelineView,
+    VenueUserTimelineView,
+)
 
 urlpatterns = [
     path("venues/", views.VenueViewSet.as_view({"get": "list"}), name="venue-list"),
@@ -20,9 +26,13 @@ urlpatterns = [
     path("venues/guides/", FoodGuideListView.as_view(), name="food-guide-list"),
     path("venues/guides/<uuid:id>/", FoodGuideDetailView.as_view(), name="food-guide-detail"),
     path("venues/<uuid:id>/", views.VenueViewSet.as_view({"get": "retrieve"}), name="venue-detail"),
+    path("venues/<uuid:id>/timeline/", VenueTimelineView.as_view(), name="venue-timeline"),
+    path("venues/<uuid:id>/user-timeline/", VenueUserTimelineView.as_view(), name="venue-user-timeline"),
     path("venues/<uuid:id>/occasions/<slug:slug>/vote/", OccasionVoteView.as_view(), name="occasion-vote"),
     path("venues/<uuid:id>/dietary/", DietaryReportView.as_view(), name="dietary-report"),
     path("venues/<uuid:id>/similar/", SimilarVenuesView.as_view(), name="similar-venues"),
     path("dishes/", DishListView.as_view(), name="dish-list"),
+    path("dishes/compare/", DishCompareView.as_view(), name="dish-compare"),
     path("dishes/<uuid:id>/", DishDetailView.as_view(), name="dish-detail"),
+    path("dishes/<uuid:id>/timeline/", DishTimelineView.as_view(), name="dish-timeline"),
 ]

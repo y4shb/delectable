@@ -37,6 +37,7 @@ class UserAffinity(models.Model):
         ]
         indexes = [
             Index(name="idx_affinity_user_score", fields=["user", "-score"]),
+            models.Index(fields=["user", "updated_at"], name="idx_affinity_user_updated"),
         ]
 
     def __str__(self):

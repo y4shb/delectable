@@ -1,7 +1,7 @@
 """Views for sharing, referrals, deep linking, and challenges."""
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -235,7 +235,7 @@ class ForkPlaylistView(APIView):
 
             # Update fork count on original
             Playlist.objects.filter(id=original.id).update(
-                fork_count=original.fork_count + 1
+                fork_count=F("fork_count") + 1
             )
 
         return Response(
@@ -481,7 +481,7 @@ class ResolveDeepLinkView(APIView):
                             },
                         )
                         InviteCode.objects.filter(id=invite.id).update(
-                            use_count=invite.use_count + 1
+                            use_count=F("use_count") + 1
                         )
                 except InviteCode.DoesNotExist:
                     pass

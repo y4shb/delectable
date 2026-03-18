@@ -55,12 +55,19 @@ class ReviewViewSet(viewsets.ModelViewSet):
             venue.reviews_count = agg["count"]
             venue.save(update_fields=["rating", "reviews_count"])
 
-            # Award XP for review
+        # Move gamification to on_commit (runs AFTER transaction succeeds)
+        user = self.request.user
+        review_id = review.id
+        has_photo = bool(review.photo_url)
+
+        def _post_review_gamification():
             from apps.gamification.services import award_xp, record_activity
-            award_xp(self.request.user, "review", related_object_id=review.id)
-            if review.photo_url:
-                award_xp(self.request.user, "review_photo", related_object_id=review.id)
-            record_activity(self.request.user, "review")
+            award_xp(user, "review", related_object_id=review_id)
+            if has_photo:
+                award_xp(user, "review_photo", related_object_id=review_id)
+            record_activity(user, "review")
+
+        transaction.on_commit(_post_review_gamification)
 
     def perform_update(self, serializer):
         review = serializer.save()
@@ -331,15 +338,22 @@ class QuickReviewView(APIView):
                     profile.maturity_level = 1
                     profile.save(update_fields=["maturity_level"])
 
-            # Award XP for review
+        # Move gamification to on_commit (runs AFTER transaction succeeds)
+        user = request.user
+        review_id = review.id
+        has_photo = bool(review.photo_url)
+
+        def _post_quick_review_gamification():
             from apps.gamification.services import award_xp, record_activity
             if is_first_review:
-                award_xp(request.user, "first_review", related_object_id=review.id)
+                award_xp(user, "first_review", related_object_id=review_id)
             else:
-                award_xp(request.user, "review", related_object_id=review.id)
-            if review.photo_url:
-                award_xp(request.user, "review_photo", related_object_id=review.id)
-            record_activity(request.user, "review")
+                award_xp(user, "review", related_object_id=review_id)
+            if has_photo:
+                award_xp(user, "review_photo", related_object_id=review_id)
+            record_activity(user, "review")
+
+        transaction.on_commit(_post_quick_review_gamification)
 
         response_serializer = ReviewSerializer(review, context={"request": request})
         return Response(

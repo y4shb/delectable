@@ -14,7 +14,8 @@ from apps.reviews.models import Comment, Review, ReviewLike
 from apps.sharing.models import Challenge
 from apps.users.models import Follow, User
 from apps.venues.models import (
-    DietaryReport, Dish, OccasionTag, SeasonalHighlight, Venue, VenueOccasion, VenueSimilarity,
+    DietaryReport, Dish, OccasionTag, SeasonalHighlight, Venue, VenueOccasion,
+    VenueRatingSnapshot, VenueSimilarity,
 )
 
 
@@ -579,6 +580,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options["clear"]:
             self.stdout.write("Clearing existing data...")
+            VenueRatingSnapshot.objects.all().delete()
             VenueSimilarity.objects.all().delete()
             DietaryReport.objects.all().delete()
             VenueOccasion.objects.all().delete()
@@ -640,26 +642,63 @@ class Command(BaseCommand):
             venues.append(v)
         self.stdout.write(f"  Venues: {len(venues)}")
 
-        # --- Reviews ---
+        # --- Reviews (with dates spread across months for timeline data) ---
+        from datetime import timedelta
+        from django.utils import timezone
+
+        import random
+        random.seed(42)
+
+        # Spread reviews across the last 10 months for timeline richness
+        now = timezone.now()
+        review_dates = []
+        for i in range(len(REVIEWS)):
+            months_ago = random.randint(0, 9)
+            day_offset = random.randint(0, 27)
+            review_date = now - timedelta(days=months_ago * 30 + day_offset)
+            review_dates.append(review_date)
+
         review_objs = []
-        for user_idx, venue_idx, rating, text, dish, tags, photo_idx in REVIEWS:
-            r, _ = Review.objects.get_or_create(
+        for idx, (user_idx, venue_idx, rating, text, dish_name, tags, photo_idx) in enumerate(REVIEWS):
+            # Create or get the Dish object for this review
+            dish_obj = None
+            if dish_name:
+                dish_obj, _ = Dish.objects.get_or_create(
+                    venue=venues[venue_idx],
+                    name=dish_name,
+                    defaults={"category": "main"},
+                )
+
+            r, created = Review.objects.get_or_create(
                 user=users[user_idx],
                 venue=venues[venue_idx],
                 defaults={
                     "rating": rating,
                     "text": text,
-                    "dish_name": dish,
+                    "dish_name": dish_name,
+                    "dish": dish_obj,
                     "tags": tags,
                     "photo_url": FOOD_PHOTOS[photo_idx % len(FOOD_PHOTOS)],
                 },
             )
+            # Backdate the created_at for timeline data
+            if created:
+                Review.objects.filter(pk=r.pk).update(created_at=review_dates[idx])
+                r.refresh_from_db()
             review_objs.append(r)
         self.stdout.write(f"  Reviews: {len(review_objs)}")
 
-        # --- Update venue ratings and review counts ---
+        # --- Update dish ratings and review counts ---
         from django.db.models import Avg, Count
 
+        for dish in Dish.objects.all():
+            agg = dish.reviews.aggregate(avg=Avg("rating"), cnt=Count("id"))
+            dish.avg_rating = agg["avg"] or Decimal("0")
+            dish.review_count = agg["cnt"]
+            dish.save(update_fields=["avg_rating", "review_count"])
+        self.stdout.write(f"  Dishes updated: {Dish.objects.count()}")
+
+        # --- Update venue ratings and review counts ---
         for v in venues:
             agg = v.reviews.aggregate(avg=Avg("rating"), cnt=Count("id"))
             v.rating = agg["avg"] or Decimal("0")
@@ -884,6 +923,13 @@ class Command(BaseCommand):
         sim_cmd.stdout = self.stdout
         sim_cmd.style = self.style
         sim_cmd.handle(top_n=10)
+
+        # --- Rating Snapshots (timeline data) ---
+        from apps.venues.management.commands.compute_rating_snapshots import Command as SnapshotCmd
+        snap_cmd = SnapshotCmd()
+        snap_cmd.stdout = self.stdout
+        snap_cmd.style = self.style
+        snap_cmd.handle(period="month", months=24, clear=True)
 
         self.stdout.write(self.style.SUCCESS("\nSeed data created successfully!"))
         self.stdout.write(

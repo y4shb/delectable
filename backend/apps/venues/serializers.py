@@ -11,6 +11,7 @@ from .models import (
     SeasonalHighlight,
     Venue,
     VenueOccasion,
+    VenueRatingSnapshot,
     VenueResponse,
 )
 
@@ -116,25 +117,31 @@ class VenueDetailSerializer(serializers.ModelSerializer):
         return VenueOccasionSerializer(qs, many=True, context=self.context).data
 
     def get_dietary_badges(self, obj):
-        reports = DietaryReport.objects.filter(venue=obj).values("category", "is_available").annotate(
-            count=Count("id"),
+        reports = DietaryReport.objects.filter(venue=obj).values("category").annotate(
+            available_count=Count("id", filter=Q(is_available=True)),
+            total_count=Count("id"),
         )
-        total_reports = DietaryReport.objects.filter(venue=obj).values("category").annotate(
-            total=Count("id"),
-        )
-        totals = {r["category"]: r["total"] for r in total_reports}
 
         badges = []
         for report in reports:
             cat = report["category"]
-            total = totals.get(cat, 1)
-            confidence = report["count"] / total if total > 0 else 0
+            total = report["total_count"]
+            available = report["available_count"]
+            confidence = available / total if total > 0 else 0
             if confidence >= 0.5:
                 badges.append({
                     "category": cat,
                     "confidence": confidence,
-                    "is_available": report["is_available"],
+                    "is_available": True,
                 })
+            else:
+                unavailable_confidence = (total - available) / total if total > 0 else 0
+                if unavailable_confidence >= 0.5:
+                    badges.append({
+                        "category": cat,
+                        "confidence": unavailable_confidence,
+                        "is_available": False,
+                    })
         return DietaryBadgeSerializer(badges, many=True).data
 
     def get_dishes(self, obj):
@@ -259,3 +266,112 @@ class FoodGuideDetailSerializer(serializers.ModelSerializer):
             "view_count", "save_count", "stops", "author_name",
             "author_avatar", "created_at",
         ]
+
+
+# ---------------------------------------------------------------------------
+# Timeline / Dish Comparison Serializers
+# ---------------------------------------------------------------------------
+
+
+class RatingSnapshotSerializer(serializers.Serializer):
+    """A single period snapshot in a timeline."""
+
+    periodStart = serializers.DateField(source="period_start")
+    avgRating = serializers.DecimalField(
+        source="avg_rating", max_digits=4, decimal_places=2
+    )
+    reviewCount = serializers.IntegerField(source="review_count")
+    minRating = serializers.DecimalField(
+        source="min_rating", max_digits=4, decimal_places=1, allow_null=True
+    )
+    maxRating = serializers.DecimalField(
+        source="max_rating", max_digits=4, decimal_places=1, allow_null=True
+    )
+
+
+class VenueTimelineSerializer(serializers.Serializer):
+    """Response for venue and dish timeline endpoints."""
+
+    venue = serializers.SerializerMethodField()
+    trend = serializers.CharField()
+    trendScore = serializers.FloatField(source="trend_score")
+    snapshots = RatingSnapshotSerializer(many=True)
+    totalReviews = serializers.IntegerField(source="total_reviews")
+    firstReviewDate = serializers.DateTimeField(
+        source="first_review_date", allow_null=True
+    )
+
+    def get_venue(self, obj):
+        v = obj["venue_obj"]
+        return {
+            "id": str(v.id),
+            "name": v.name,
+            "currentRating": float(v.rating),
+        }
+
+
+class UserVisitSerializer(serializers.Serializer):
+    """A single user visit/review at a venue."""
+
+    reviewId = serializers.UUIDField(source="id")
+    rating = serializers.DecimalField(max_digits=4, decimal_places=1)
+    text = serializers.CharField(allow_blank=True)
+    dishName = serializers.CharField(source="dish_name", allow_blank=True)
+    photoUrl = serializers.URLField(
+        source="photo_url", allow_blank=True, required=False
+    )
+    tags = serializers.ListField(child=serializers.CharField())
+    createdAt = serializers.DateTimeField(source="created_at")
+
+
+class VenueUserTimelineSerializer(serializers.Serializer):
+    """Response for a user's personal timeline at a venue."""
+
+    venue = serializers.SerializerMethodField()
+    visits = UserVisitSerializer(many=True)
+    visitCount = serializers.IntegerField(source="visit_count")
+    avgRating = serializers.DecimalField(
+        source="avg_rating", max_digits=4, decimal_places=2, allow_null=True
+    )
+    ratingTrend = serializers.CharField(source="rating_trend")
+
+    def get_venue(self, obj):
+        v = obj["venue_obj"]
+        return {"id": str(v.id), "name": v.name}
+
+
+class DishComparisonSideSerializer(serializers.Serializer):
+    """One side of a dish comparison."""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    venueName = serializers.CharField(source="venue_name")
+    avgRating = serializers.DecimalField(
+        source="avg_rating", max_digits=4, decimal_places=1
+    )
+    reviewCount = serializers.IntegerField(source="review_count")
+    topTags = serializers.ListField(
+        child=serializers.CharField(), source="top_tags"
+    )
+    recentTrend = serializers.CharField(source="recent_trend")
+    ratingHistory = RatingSnapshotSerializer(
+        many=True, source="rating_history"
+    )
+
+
+class DishComparisonResultSerializer(serializers.Serializer):
+    """Comparison summary between two dishes."""
+
+    ratingDifference = serializers.FloatField(source="rating_difference")
+    popularityDifference = serializers.IntegerField(
+        source="popularity_difference"
+    )
+    winner = serializers.CharField()
+
+
+class DishCompareSerializer(serializers.Serializer):
+    """Response for the dish comparison endpoint."""
+
+    dishA = DishComparisonSideSerializer(source="dish_a")
+    dishB = DishComparisonSideSerializer(source="dish_b")
+    comparison = DishComparisonResultSerializer()

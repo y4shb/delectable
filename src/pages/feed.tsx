@@ -9,8 +9,9 @@ import TrendingSection from '../components/TrendingSection';
 import SeasonalBanner from '../components/SeasonalBanner';
 import WeatherBanner from '../components/WeatherBanner';
 import KitchenStoriesSection from '../components/KitchenStoriesSection';
-import TasteWizard from '../components/TasteWizard';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+const TasteWizard = dynamic(() => import('../components/TasteWizard'), { ssr: false });
 import { useState, useRef, useCallback } from 'react';
 import { useFeedReviews, useFeedTier, useTasteProfile } from '../hooks/useApi';
 import { useRequireAuth } from '../hooks/useRequireAuth';
@@ -36,9 +37,9 @@ export default function FeedPage() {
   const startYRef = useRef(0);
   const pullingRef = useRef(false);
 
-  const handleTabChange = (tabValue: string) => {
+  const handleTabChange = useCallback((tabValue: string) => {
     setActiveTab(tabValue);
-  };
+  }, []);
 
   // Show taste wizard for cold-start users who haven't completed it
   const showWizard =

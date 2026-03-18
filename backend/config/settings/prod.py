@@ -47,5 +47,17 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Refresh token cookie — secure in production
 REFRESH_TOKEN_COOKIE_SECURE = True
 
+# Cache — Redis in production (overrides base.py LocMemCache)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+        "TIMEOUT": 300,
+        "OPTIONS": {
+            "db": 0,
+        },
+    }
+}
+
 # Static files
 STATIC_ROOT = BASE_DIR / "staticfiles"  # noqa: F405

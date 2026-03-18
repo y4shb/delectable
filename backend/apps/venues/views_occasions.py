@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import F
+from django.db.models.functions import Greatest
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -45,6 +46,6 @@ class OccasionVoteView(APIView):
             if not deleted:
                 return Response(status=status.HTTP_404_NOT_FOUND)
             VenueOccasion.objects.filter(venue_id=id, occasion_id=slug).update(
-                vote_count=F("vote_count") - 1
+                vote_count=Greatest(F("vote_count") - 1, 0)
             )
         return Response(status=status.HTTP_204_NO_CONTENT)

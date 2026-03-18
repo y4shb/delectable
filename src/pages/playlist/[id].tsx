@@ -26,6 +26,7 @@ import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useAuth } from '../../context/AuthContext';
 import { savePlaylist, unsavePlaylist, forkPlaylist } from '../../api/api';
 import Link from 'next/link';
+import Image from 'next/image';
 
 function VisibilityBadge({ visibility }: { visibility: string }) {
   const theme = useTheme();
@@ -362,15 +363,13 @@ export default function PlaylistDetailPage() {
               }}
             >
               {item.venueDetail?.photoUrl && (
-                <img
-                  src={item.venueDetail.photoUrl}
+                <Image
+                  src={item.venueDetail.photoUrl || '/images/food2.jpg'}
                   alt={item.caption || 'Playlist item'}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block',
-                  }}
+                  fill
+                  sizes="(max-width: 600px) 100vw, 600px"
+                  style={{ objectFit: 'cover' }}
+                  loading="lazy"
                 />
               )}
 

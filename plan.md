@@ -2765,3 +2765,550 @@ Features are organized into phases accounting for shared infrastructure and inte
 | Neighborhood detail | `src/pages/explore/neighborhoods/[slug].tsx` | SSR | Neighborhood venues + map |
 | Cuisine deep-dive | `src/pages/cuisine/[slug].tsx` | ISR (revalidate: 3600) | SEO-friendly cuisine pages |
 | Collection detail | `src/pages/collection/[slug].tsx` | SSR | Seasonal collection venue list |
+
+---
+
+## 15. iOS App Store Deployment Plan
+
+> Created: 2026-03-17 | Status: PLANNING (not yet implemented)
+
+### 15.1 Packaging Strategy — Capacitor (Recommended)
+
+**Why Capacitor over alternatives:**
+| Approach | Effort | Native Access | App Store Risk | Recommendation |
+|----------|--------|---------------|----------------|----------------|
+| **Capacitor** | Medium | Full (plugins) | Low | **RECOMMENDED** |
+| React Native WebView | Medium | Limited | Medium (thin app risk) | Backup option |
+| PWA submission | Low | Very limited | HIGH (Apple rejects most) | Not viable |
+| Full React Native rewrite | Very High | Full | Low | Not cost-effective |
+| Expo WebView | Medium | Moderate | Medium | Viable alternative |
+
+**Capacitor advantages for Delectable:**
+- Wraps existing Next.js web app in a native iOS shell
+- Full access to native APIs via plugins (Camera, Push Notifications, Geolocation, Haptics, Share)
+- Produces a real `.ipa` with native UI chrome — passes App Store review
+- Single codebase serves web + iOS + (future) Android
+- Active Ionic/Capacitor community, well-maintained plugins
+- Export as static site with `next export` for Capacitor compatibility
+
+### 15.2 Pre-Packaging Requirements
+
+#### 15.2.1 Next.js Static Export Preparation
+The current Next.js app uses Pages Router. For Capacitor, it needs to be exportable as a static site.
+
+**Files to change:**
+1. `next.config.mjs` — Add `output: 'export'` and configure `trailingSlash: true`
+2. `src/pages/api/[...path].ts` — The API proxy must be removed (Capacitor will call backend directly)
+3. `src/api/client.ts` — Change base URL from relative `/api/` to absolute backend URL (e.g., `https://api.delectable.app/api/`)
+4. All `getServerSideProps` usage — Convert to client-side fetching (already client-side in current app)
+5. `src/pages/_document.tsx` — Verify Emotion SSR extraction still works with static export
+
+**Potential blockers:**
+- The API proxy in `src/pages/api/[...path].ts` handles CORS and cookie forwarding — this logic moves to Capacitor's native HTTP plugin
+- Image optimization with `next/image` doesn't work with static export — must use raw `<img>` tags or configure a custom loader
+- Dynamic routes (`[id].tsx`) work with static export only if paths are known at build time OR if using hash routing
+
+#### 15.2.2 Capacitor Project Setup
+```
+Step 1: Install Capacitor
+  npm install @capacitor/core @capacitor/cli
+  npx cap init "Delectable" "app.delectable.de" --web-dir=out
+
+Step 2: Add iOS platform
+  npm install @capacitor/ios
+  npx cap add ios
+
+Step 3: Install required plugins
+  npm install @capacitor/camera        # Photo capture for reviews
+  npm install @capacitor/push-notifications  # Push notifications
+  npm install @capacitor/geolocation   # Location for map/nearby
+  npm install @capacitor/haptics       # Vibration feedback
+  npm install @capacitor/share         # Native share sheet
+  npm install @capacitor/splash-screen # Launch screen
+  npm install @capacitor/status-bar    # Status bar control
+  npm install @capacitor/keyboard      # Keyboard events
+  npm install @capacitor/app           # App lifecycle events
+  npm install @capacitor/browser       # In-app browser for links
+
+Step 4: Build and sync
+  npm run build          # Next.js static export → /out
+  npx cap sync ios       # Copy web assets + update native project
+
+Step 5: Open in Xcode
+  npx cap open ios
+```
+
+#### 15.2.3 Native Feature Migration
+| Web API | Capacitor Plugin | Files to Update |
+|---------|------------------|-----------------|
+| `navigator.mediaDevices.getUserMedia()` | `@capacitor/camera` | `review/new.tsx`, `review/quick.tsx`, `profile/edit.tsx` |
+| `navigator.geolocation` | `@capacitor/geolocation` | `GoogleMapView.tsx`, `map.tsx` |
+| `navigator.share()` | `@capacitor/share` | `ShareButton.tsx` |
+| `navigator.vibrate()` | `@capacitor/haptics` | All haptic feedback points |
+| `EventSource` (SSE) | `@capacitor/community-http` or native WKWebView | `NotificationBadgeProvider.tsx` |
+| `localStorage` | Works as-is in WKWebView | No change needed |
+| Google Maps JS API | Works in WKWebView | May need API key restriction update |
+
+### 15.3 Apple Developer Account Setup
+
+#### 15.3.1 Enrollment
+| Item | Details | Cost |
+|------|---------|------|
+| Apple Developer Program | Individual or Organization | $99/year |
+| Apple ID | Requires 2FA enabled | Free |
+| DUNS Number | Only for Organization accounts | Free (takes 1-2 weeks) |
+| Tax Forms | W-9 (US) or W-8BEN (international) | Required for paid apps |
+
+**Steps:**
+1. Create Apple ID at [appleid.apple.com](https://appleid.apple.com) if not existing
+2. Enable 2FA on the Apple ID
+3. Enroll at [developer.apple.com/programs/enroll](https://developer.apple.com/programs/enroll/)
+4. Choose "Individual" for fastest enrollment (~48 hours)
+5. Pay $99/year membership fee
+6. Wait for enrollment approval
+
+#### 15.3.2 Certificates & Provisioning
+| Certificate | Purpose | How to Create |
+|-------------|---------|---------------|
+| iOS Distribution Certificate | Signs the app for App Store | Xcode → Preferences → Accounts → Manage Certificates |
+| Push Notification Key (APNs) | Enables push notifications | developer.apple.com → Keys → Create Key (APNs) |
+| App ID | Unique identifier `app.delectable.de` | developer.apple.com → Identifiers → App IDs |
+| Provisioning Profile (Development) | For testing on devices | Xcode auto-manages |
+| Provisioning Profile (Distribution) | For App Store submission | Xcode auto-manages |
+
+#### 15.3.3 App Store Connect Setup
+1. Log in to [appstoreconnect.apple.com](https://appstoreconnect.apple.com)
+2. Create new app:
+   - **App Name**: "Delectable - Food Discovery"
+   - **Bundle ID**: `app.delectable.de`
+   - **SKU**: `delectable-food-1`
+   - **Primary Language**: English (US)
+   - **Category**: Food & Drink
+   - **Secondary Category**: Social Networking
+3. Configure:
+   - **Pricing**: Free
+   - **Availability**: All territories (or select markets)
+   - **Age Rating**: 4+ (no objectionable content)
+   - **Content Rights**: "This app does not contain third-party content"
+
+### 15.4 App Store Assets Required
+
+#### 15.4.1 App Icon
+| Size | Usage | Pixels |
+|------|-------|--------|
+| 1024x1024 | App Store listing | Required |
+| 180x180 | iPhone @3x | Auto-generated by Xcode |
+| 120x120 | iPhone @2x | Auto-generated |
+| 167x167 | iPad Pro @2x | Auto-generated |
+| 152x152 | iPad @2x | Auto-generated |
+
+**Design requirements:**
+- No alpha channel (no transparency)
+- No rounded corners (iOS applies them automatically)
+- Must be the "de." logo on the peach/cream background
+- Square, no badges or text other than the logo
+- SVG → PNG at 1024px using design tool
+
+#### 15.4.2 Screenshots (Required)
+| Device | Size | Count |
+|--------|------|-------|
+| iPhone 6.9" (16 Pro Max) | 1320 x 2868 | 3-10 screenshots |
+| iPhone 6.7" (15 Plus) | 1290 x 2796 | 3-10 screenshots |
+| iPhone 6.5" (11 Pro Max) | 1242 x 2688 | 3-10 screenshots |
+| iPhone 5.5" (8 Plus) | 1242 x 2208 | 3-10 screenshots |
+| iPad Pro 12.9" | 2048 x 2732 | Optional |
+
+**Recommended screenshots (5-8):**
+1. Feed page with review cards — "Discover what's good"
+2. Map view with venue markers — "Find nearby gems"
+3. Review card detail with rating — "Rate & review"
+4. Profile with stats/badges — "Track your journey"
+5. Playlist detail — "Curate your favorites"
+6. Time Machine chart — "See how places evolve"
+7. Dish comparison — "Compare dishes side by side"
+8. Decision engine — "What should you eat?"
+
+#### 15.4.3 App Preview Videos (Optional but Recommended)
+- 15-30 seconds
+- Screen recording of the app
+- Same sizes as screenshots
+- No device frames in the video
+
+#### 15.4.4 App Store Metadata
+```
+Name:           Delectable - Food Discovery
+Subtitle:       Rate, Review & Discover Restaurants (30 char limit)
+Description:    [up to 4000 chars describing all features]
+Keywords:       food,restaurants,reviews,dining,discover,playlist,map,rating (100 char limit)
+Support URL:    https://delectable.app/support
+Marketing URL:  https://delectable.app
+Privacy URL:    https://delectable.app/privacy (REQUIRED)
+```
+
+### 15.5 App Privacy & Legal Requirements
+
+#### 15.5.1 Privacy Policy (REQUIRED)
+Must be hosted at a public URL. Must cover:
+- What data is collected (email, name, location, photos, reviews)
+- How data is used (personalization, recommendations, social features)
+- Third-party services (Google Maps API, analytics)
+- Data retention policy
+- User rights (access, deletion, export)
+- Contact information
+
+#### 15.5.2 App Privacy Details (App Store Connect)
+Must declare all data types collected:
+
+| Data Type | Collected | Linked to User | Used for Tracking |
+|-----------|-----------|----------------|-------------------|
+| Email Address | Yes | Yes | No |
+| Name | Yes | Yes | No |
+| Photos | Yes | Yes | No |
+| Precise Location | Yes | Yes | No |
+| Coarse Location | Yes | Yes | No |
+| User Content (reviews) | Yes | Yes | No |
+| Search History | Yes | Yes | No |
+| Identifiers (user ID) | Yes | Yes | No |
+| Usage Data | Yes | Yes | No |
+
+#### 15.5.3 App Tracking Transparency (ATT)
+- If NOT using any tracking (Facebook SDK, Google Ads, etc.): No ATT prompt needed
+- If using analytics that track across apps: Must show ATT prompt before tracking
+- **Recommendation**: Do NOT add tracking SDKs for v1. Use self-hosted analytics (PostHog) instead.
+
+#### 15.5.4 Terms of Service
+Must be accessible in-app. Should cover:
+- Account creation and responsibilities
+- User-generated content ownership
+- Acceptable use policy
+- Liability limitations
+- Dispute resolution
+
+### 15.6 Backend Deployment Strategy
+
+#### 15.6.1 Phase 1: Free Tier Launch (0-1,000 users)
+
+**Recommended Stack:**
+| Service | Provider | Tier | Monthly Cost |
+|---------|----------|------|--------------|
+| Django API | **Railway.app** | Free → Hobby ($5/mo) | $0-5 |
+| PostgreSQL | **Railway.app** | Free (1GB) → Hobby | $0-5 |
+| Redis | **Railway.app** | Free (256MB) | $0 |
+| Next.js Frontend | **Vercel** | Free (hobby) | $0 |
+| Media Storage (photos) | **Cloudflare R2** | Free (10GB) | $0 |
+| CDN | **Cloudflare** | Free | $0 |
+| Domain | Namecheap/Cloudflare | — | $12/year |
+| **Total** | | | **$0-10/mo** |
+
+**Why Railway:**
+- Best free tier for Django (500 hours/month, enough for continuous running)
+- Built-in PostgreSQL and Redis
+- GitHub Actions integration
+- Automatic HTTPS
+- Easy environment variable management
+- Simple upgrade path to paid tier
+
+**Why Vercel for frontend:**
+- Next.js creator, best-in-class support
+- Free tier generous (100GB bandwidth)
+- Automatic preview deployments
+- Edge network for fast loads globally
+
+**Alternative free stack:**
+| Service | Provider | Notes |
+|---------|----------|-------|
+| Django API | **Render.com** | Free tier spins down after 15min inactivity (cold starts) |
+| PostgreSQL | **Neon** | Free tier (3GB, auto-scaling) |
+| Redis | **Upstash** | Free tier (10K commands/day) |
+| Frontend | **Vercel** | Same as above |
+| Media | **Cloudflare R2** | Same as above |
+
+#### 15.6.2 Phase 2: Growth (1,000-10,000 users)
+
+**Recommended Stack:**
+| Service | Provider | Tier | Monthly Cost |
+|---------|----------|------|--------------|
+| Django API | **Railway.app** | Pro ($20/mo) | $20 |
+| PostgreSQL | **Railway.app** | Pro (10GB) | $10 |
+| Redis | **Railway.app** | Pro | $5 |
+| Celery Workers | **Railway.app** | Pro | $10 |
+| Frontend | **Vercel** | Pro ($20/mo) | $20 |
+| Media Storage | **Cloudflare R2** | Pay-as-you-go | $5 |
+| CDN | **Cloudflare** | Pro ($25/mo) | $25 |
+| Monitoring | **Sentry** | Free tier | $0 |
+| **Total** | | | **~$95/mo** |
+
+#### 15.6.3 Phase 3: Scale (10,000-100,000 users)
+
+**Migrate to AWS:**
+| Service | AWS Product | Monthly Cost |
+|---------|-------------|--------------|
+| Django API | ECS Fargate (2 tasks, 0.5 vCPU, 1GB) | $30 |
+| PostgreSQL | RDS db.t3.small (2GB RAM) | $30 |
+| Redis | ElastiCache cache.t3.micro | $13 |
+| Celery Workers | ECS Fargate (1 task) | $15 |
+| Media Storage | S3 + CloudFront | $20 |
+| Load Balancer | ALB | $20 |
+| Monitoring | CloudWatch + Sentry | $10 |
+| Domain + SSL | Route 53 + ACM | $1 |
+| **Total** | | **~$139/mo** |
+
+### 15.7 Deployment Pipeline (CI/CD)
+
+#### 15.7.1 GitHub Actions Workflows Needed
+
+**Workflow 1: `ci.yml` (on every PR)**
+```
+Jobs:
+  1. backend-lint: flake8 + black --check
+  2. backend-test: pytest with SQLite
+  3. frontend-lint: next lint
+  4. frontend-typecheck: tsc --noEmit
+  5. frontend-build: next build (static export)
+```
+
+**Workflow 2: `deploy-staging.yml` (on push to main)**
+```
+Jobs:
+  1. Build Django Docker image → push to registry
+  2. Deploy to Railway staging environment
+  3. Run migrations on staging DB
+  4. Build Next.js static export → deploy to Vercel preview
+  5. Run smoke tests against staging
+```
+
+**Workflow 3: `deploy-production.yml` (on release tag)**
+```
+Jobs:
+  1. Build Django Docker image → push to registry (tagged)
+  2. Deploy to Railway production environment
+  3. Run migrations on production DB (with backup first)
+  4. Build Next.js static export → deploy to Vercel production
+  5. Run smoke tests against production
+  6. Notify Sentry of new release
+```
+
+**Workflow 4: `ios-build.yml` (manual trigger)**
+```
+Jobs:
+  1. Build Next.js static export
+  2. npx cap sync ios
+  3. Build iOS archive with xcodebuild
+  4. Upload to TestFlight via altool/xcrun
+```
+
+#### 15.7.2 Environment Variables to Configure
+
+**Backend (Railway/AWS):**
+```
+DJANGO_SECRET_KEY=<generate-64-char-random>
+DJANGO_SETTINGS_MODULE=config.settings.prod
+DATABASE_URL=postgres://...  (auto-provided by Railway)
+REDIS_URL=redis://...  (auto-provided by Railway)
+ALLOWED_HOSTS=api.delectable.app
+CORS_ALLOWED_ORIGINS=https://delectable.app,capacitor://localhost,ionic://localhost
+DEBUG=False
+AWS_ACCESS_KEY_ID=<for S3 media storage>
+AWS_SECRET_ACCESS_KEY=<for S3 media storage>
+AWS_STORAGE_BUCKET_NAME=delectable-media
+GOOGLE_MAPS_API_KEY=<server-side key>
+APNS_KEY_ID=<for push notifications>
+APNS_TEAM_ID=<Apple Developer team ID>
+```
+
+**Frontend (Vercel):**
+```
+NEXT_PUBLIC_API_URL=https://api.delectable.app
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<client-side key>
+NEXT_PUBLIC_APP_URL=https://delectable.app
+```
+
+**iOS (capacitor.config.ts):**
+```
+NEXT_PUBLIC_API_URL=https://api.delectable.app
+GOOGLE_MAPS_API_KEY=<iOS-restricted key>
+```
+
+### 15.8 Pre-Launch Checklist
+
+#### 15.8.1 Code Changes Required
+| # | File | Change | Priority |
+|---|------|--------|----------|
+| 1 | `next.config.mjs` | Add `output: 'export'`, `trailingSlash: true`, configure image loader | CRITICAL |
+| 2 | `src/api/client.ts` | Change baseURL to absolute backend URL, add Capacitor HTTP plugin support | CRITICAL |
+| 3 | `src/pages/api/[...path].ts` | Remove or gate behind `typeof window === 'undefined'` | CRITICAL |
+| 4 | `package.json` | Add Capacitor deps and scripts | CRITICAL |
+| 5 | Root | Create `capacitor.config.ts` | CRITICAL |
+| 6 | Root | Create `ios/` directory via `npx cap add ios` | CRITICAL |
+| 7 | `src/pages/review/new.tsx` | Replace file input with Capacitor Camera plugin | HIGH |
+| 8 | `src/pages/review/quick.tsx` | Replace file input with Capacitor Camera plugin | HIGH |
+| 9 | `src/components/ShareButton.tsx` | Replace Web Share API with Capacitor Share plugin | HIGH |
+| 10 | `src/components/GoogleMapView.tsx` | Replace navigator.geolocation with Capacitor Geolocation | HIGH |
+| 11 | `src/components/NotificationBadgeProvider.tsx` | Add Capacitor Push Notifications support | HIGH |
+| 12 | Various components | Replace `navigator.vibrate` with Capacitor Haptics | MEDIUM |
+| 13 | `src/pages/_app.tsx` | Add Capacitor App lifecycle listeners (resume, pause) | MEDIUM |
+| 14 | `src/pages/login.tsx` | Add biometric auth option via Capacitor | LOW |
+
+#### 15.8.2 Backend Production Hardening
+| # | Task | Priority |
+|---|------|----------|
+| 1 | Set `DEBUG=False`, configure `ALLOWED_HOSTS` | CRITICAL |
+| 2 | Configure CORS for Capacitor origins (`capacitor://localhost`, `ionic://localhost`) | CRITICAL |
+| 3 | Set up PostgreSQL connection pooling (django-db-connection-pool or PgBouncer) | HIGH |
+| 4 | Configure Gunicorn with proper worker count (`2 * CPU + 1`) | HIGH |
+| 5 | Set up static file serving (whitenoise or S3/CDN) | HIGH |
+| 6 | Configure media file storage (S3 + CloudFront) | HIGH |
+| 7 | Set up Celery with Redis broker for background tasks | HIGH |
+| 8 | Add rate limiting on auth endpoints (django-ratelimit or DRF throttling) | HIGH |
+| 9 | Configure logging to stdout (for Railway/AWS CloudWatch) | MEDIUM |
+| 10 | Add health check endpoint for load balancer | MEDIUM |
+| 11 | Set up Sentry for error tracking | MEDIUM |
+| 12 | Configure email backend (SendGrid or AWS SES) | MEDIUM |
+| 13 | Run `pip-audit` for dependency vulnerabilities | MEDIUM |
+| 14 | Set up database backup strategy (pg_dump cron or managed backups) | MEDIUM |
+
+#### 15.8.3 Security Audit Checklist
+| # | Check | Status |
+|---|-------|--------|
+| 1 | HTTPS enforced on all endpoints | To do |
+| 2 | HSTS header enabled (`Strict-Transport-Security`) | To do |
+| 3 | Content Security Policy header | Partially done (nginx.conf) |
+| 4 | CORS whitelist — only allow known origins | To do |
+| 5 | JWT cookies: `httpOnly=True`, `secure=True`, `sameSite=Lax` | To verify |
+| 6 | Rate limiting on login/register (max 5 attempts/minute) | Done |
+| 7 | Password complexity validation | Done |
+| 8 | No secrets in git history (audit with `git log --all --diff-filter=A`) | To do |
+| 9 | API key restrictions in Google Cloud Console | To do |
+| 10 | Dependency vulnerability scan (npm audit + pip-audit) | To do |
+
+#### 15.8.4 Legal Documents
+| Document | Status | Where to Host |
+|----------|--------|---------------|
+| Privacy Policy | To write | `https://delectable.app/privacy` |
+| Terms of Service | To write | `https://delectable.app/terms` |
+| Cookie Policy | To write (if using cookies) | `https://delectable.app/cookies` |
+| DMCA/Content Policy | To write (UGC app) | `https://delectable.app/content-policy` |
+
+### 15.9 TestFlight Beta Testing
+
+#### 15.9.1 Internal Testing
+1. Add up to 100 internal testers (Apple Developer team members)
+2. Build → Upload to App Store Connect → TestFlight auto-distributes
+3. No App Store review needed for internal builds
+4. Test on: iPhone 14/15/16 (SE for small screens), iPad
+
+#### 15.9.2 External Testing
+1. Add up to 10,000 external beta testers
+2. Requires App Store review (usually 24-48 hours)
+3. Can share TestFlight link publicly
+4. Collect crash reports and feedback via TestFlight
+
+### 15.10 App Store Submission Process
+
+```
+Step 1:  Archive build in Xcode (Product → Archive)
+Step 2:  Upload to App Store Connect (Xcode Organizer → Distribute App)
+Step 3:  Fill in App Store listing (description, screenshots, keywords)
+Step 4:  Submit App Privacy questionnaire
+Step 5:  Set pricing and availability
+Step 6:  Submit for review
+Step 7:  Wait for review (typically 24-48 hours, sometimes up to 1 week)
+Step 8:  If rejected — fix issues and resubmit
+Step 9:  If approved — choose release date (manual or automatic)
+Step 10: App goes live on App Store
+```
+
+### 15.11 Common Rejection Reasons to Avoid
+
+| # | Rejection Reason | How to Avoid |
+|---|-----------------|--------------|
+| 1 | **Minimum functionality** — app is just a webview | Ensure native features (camera, push, share) use Capacitor plugins |
+| 2 | **Broken links or features** | Test every page and action on real device before submission |
+| 3 | **Placeholder content** | Remove all "lorem ipsum" and use real seed data |
+| 4 | **Missing privacy policy** | Must be accessible in-app and via URL |
+| 5 | **Account deletion** | Apple requires account deletion feature (Settings → Delete Account) |
+| 6 | **Login required for all content** | Already handled — feed/venues are public (AllowAny) |
+| 7 | **Crashes on launch** | Test on minimum supported iOS version |
+| 8 | **Missing iPad support** | Either support iPad or explicitly mark iPhone-only |
+| 9 | **Inappropriate content** | Add content moderation / reporting for reviews |
+| 10 | **Non-functional demo credentials** | Provide working test account in review notes |
+
+### 15.12 Post-Launch Monitoring
+
+| Tool | Purpose | Cost |
+|------|---------|------|
+| App Store Connect Analytics | Downloads, impressions, retention | Free |
+| Sentry | Error tracking and crash reporting | Free tier |
+| PostHog (self-hosted) | User analytics without tracking | Free |
+| UptimeRobot | API uptime monitoring | Free tier |
+| Railway metrics | Server CPU/memory/response times | Included |
+
+### 15.13 Implementation Order (Step-by-Step)
+
+```
+Phase 0: Accounts & Legal (Week 1)
+  ├── Enroll in Apple Developer Program ($99)
+  ├── Set up App Store Connect app listing
+  ├── Write Privacy Policy + Terms of Service
+  ├── Register domain (delectable.app)
+  └── Set up Cloudflare DNS
+
+Phase 1: Backend Deployment (Week 2)
+  ├── Create Railway project
+  ├── Configure PostgreSQL + Redis
+  ├── Deploy Django with production settings
+  ├── Configure CORS for web + Capacitor
+  ├── Set up media storage (Cloudflare R2 or S3)
+  ├── Run migrations + seed data
+  ├── Set up health check monitoring
+  └── Configure CI/CD pipeline
+
+Phase 2: Frontend Deployment (Week 2-3)
+  ├── Set up Vercel project
+  ├── Configure environment variables
+  ├── Deploy Next.js to Vercel
+  ├── Configure custom domain
+  ├── Verify all API calls work with absolute URLs
+  └── Test production web app
+
+Phase 3: Capacitor iOS Setup (Week 3-4)
+  ├── Install Capacitor + plugins
+  ├── Migrate native features (camera, geolocation, share, haptics)
+  ├── Configure capacitor.config.ts
+  ├── Build and test on iOS Simulator
+  ├── Test on real device via Xcode
+  ├── Fix any WebView rendering issues
+  └── Add Capacitor App lifecycle handlers
+
+Phase 4: App Store Preparation (Week 4-5)
+  ├── Design app icon (1024x1024)
+  ├── Capture App Store screenshots (5-8 per device size)
+  ├── Write app description and keywords
+  ├── Fill in App Privacy questionnaire
+  ├── Add account deletion feature
+  ├── Submit to TestFlight for internal testing
+  └── Fix any issues found in testing
+
+Phase 5: Submission (Week 5-6)
+  ├── External TestFlight beta (invite 10-20 testers)
+  ├── Fix reported issues
+  ├── Final build archive in Xcode
+  ├── Upload to App Store Connect
+  ├── Submit for App Store review
+  ├── Respond to any review feedback
+  └── Go live!
+```
+
+### 15.14 Estimated Costs Summary
+
+| Item | One-Time | Monthly |
+|------|----------|---------|
+| Apple Developer Program | — | $8.25 ($99/year) |
+| Domain (delectable.app) | $12 | — |
+| Railway (API + DB + Redis) | — | $0-20 |
+| Vercel (Frontend) | — | $0 |
+| Cloudflare (CDN + R2) | — | $0-5 |
+| Sentry (Errors) | — | $0 |
+| **Total (launch)** | **$12** | **$8-33/mo** |
+| **Total (growth)** | — | **~$95/mo** |
+| **Total (scale)** | — | **~$140/mo** |

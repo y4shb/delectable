@@ -1,3 +1,4 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, Typography, Avatar, Chip, Stack } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -6,12 +7,13 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import VerifiedIcon from '@mui/icons-material/Verified';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { likeReview, unlikeReview, bookmarkReview, unbookmarkReview } from '../api/api';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Comment } from '../types';
-import PhotoCarousel from './PhotoCarousel';
+import dynamic from 'next/dynamic';
+const PhotoCarousel = dynamic(() => import('./PhotoCarousel'), { ssr: false });
 
 interface ReviewCardProps {
   id: string;
@@ -36,7 +38,7 @@ interface ReviewCardProps {
   isVerifiedVisit?: boolean;
 }
 
-export default function ReviewCard({
+function ReviewCard({
   id,
   venue,
   venueId,
@@ -324,7 +326,7 @@ export default function ReviewCard({
           width: '90%',
           p: 0,
           cursor: 'pointer',
-          transition: 'all 0.3s ease-in-out',
+          transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease',
           position: 'relative',
           textDecoration: 'none',
           color: 'inherit',
@@ -376,10 +378,13 @@ export default function ReviewCard({
                     zIndex: 0,
                   }}
                 >
-                  <img
-                    src={photos[deckIndex + 2] || photos[deckIndex + 1]}
+                  <Image
+                    src={photos[deckIndex + 2] || photos[deckIndex + 1] || '/images/food2.jpg'}
                     alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    fill
+                    sizes="(max-width: 600px) 100vw, 600px"
+                    style={{ objectFit: 'cover' }}
+                    loading="lazy"
                   />
                 </Box>
               )}
@@ -399,10 +404,13 @@ export default function ReviewCard({
                   zIndex: 1,
                 }}
               >
-                <img
-                  src={photos[deckIndex + 1]}
+                <Image
+                  src={photos[deckIndex + 1] || '/images/food2.jpg'}
                   alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  fill
+                  sizes="(max-width: 600px) 100vw, 600px"
+                  style={{ objectFit: 'cover' }}
+                  loading="lazy"
                 />
               </Box>
             </>
@@ -427,17 +435,14 @@ export default function ReviewCard({
               userSelect: 'none',
             }}
           >
-            <img
-              src={currentPhoto}
-              alt={venue}
+            <Image
+              src={currentPhoto || '/images/food2.jpg'}
+              alt={venue || 'Review photo'}
+              fill
+              sizes="(max-width: 600px) 100vw, 600px"
+              style={{ objectFit: 'cover', pointerEvents: 'none' }}
+              priority={false}
               draggable={false}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                pointerEvents: 'none',
-              }}
             />
           </Box>
 
@@ -462,7 +467,7 @@ export default function ReviewCard({
                     height: 6,
                     borderRadius: 3,
                     bgcolor: i === deckIndex ? '#fff' : 'rgba(255,255,255,0.45)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                   }}
                 />
@@ -573,7 +578,7 @@ export default function ReviewCard({
               right: 0,
               background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
               transform: 'translateY(85%)',
-              transition: 'all 0.3s ease-in-out',
+              transition: 'transform 0.3s cubic-bezier(0, 0, 0.2, 1), opacity 0.3s cubic-bezier(0, 0, 0.2, 1)',
               p: 3,
               pt: 3,
               pb: 3,
@@ -698,7 +703,7 @@ export default function ReviewCard({
                 opacity: 0,
                 maxHeight: 0,
                 overflow: 'hidden',
-                transition: 'all 0.3s ease-in-out',
+                transition: 'opacity 0.3s cubic-bezier(0, 0, 0.2, 1), max-height 0.3s cubic-bezier(0, 0, 0.2, 1)',
               }}
             >
               {/* Tags */}
@@ -822,3 +827,4 @@ export default function ReviewCard({
     </>
   );
 }
+export default React.memo(ReviewCard);

@@ -46,6 +46,10 @@ import {
   fetchKitchenStoryDetail,
   fetchFoodGuides,
   fetchFoodGuideDetail,
+  fetchVenueTimeline,
+  fetchDishTimeline,
+  fetchVenueUserTimeline,
+  fetchDishComparison,
 } from '../api/api';
 import type { DiscoverRequest, SearchFilters } from '../types';
 
@@ -174,6 +178,7 @@ export function useSuggestedUsers() {
   return useQuery({
     queryKey: ['suggestedUsers'],
     queryFn: () => fetchSuggestedUsers(),
+    staleTime: 10 * 60 * 1000,
   });
 }
 
@@ -182,6 +187,7 @@ export function useTasteMatch(userId?: string) {
     queryKey: ['tasteMatch', userId],
     queryFn: () => fetchTasteMatch(userId!),
     enabled: !!userId,
+    staleTime: 10 * 60 * 1000,
   });
 }
 
@@ -328,6 +334,7 @@ export function useChallengeDetail(id?: string) {
     queryKey: ['challengeDetail', id],
     queryFn: () => fetchChallengeDetail(id!),
     enabled: !!id,
+    staleTime: 10 * 60 * 1000,
   });
 }
 
@@ -474,5 +481,45 @@ export function useFoodGuideDetail(id?: string) {
     queryKey: ['foodGuideDetail', id],
     queryFn: () => fetchFoodGuideDetail(id!),
     enabled: !!id,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Time Machine / Dish Comparison
+// ---------------------------------------------------------------------------
+
+export function useVenueTimeline(venueId?: string, period?: string, months?: number) {
+  return useQuery({
+    queryKey: ['venueTimeline', venueId, period, months],
+    queryFn: () => fetchVenueTimeline(venueId!, period, months),
+    enabled: !!venueId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useDishTimeline(dishId?: string, period?: string) {
+  return useQuery({
+    queryKey: ['dishTimeline', dishId, period],
+    queryFn: () => fetchDishTimeline(dishId!, period),
+    enabled: !!dishId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useVenueUserTimeline(venueId?: string) {
+  return useQuery({
+    queryKey: ['venueUserTimeline', venueId],
+    queryFn: () => fetchVenueUserTimeline(venueId!),
+    enabled: !!venueId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useDishComparison(dishAId?: string, dishBId?: string) {
+  return useQuery({
+    queryKey: ['dishComparison', dishAId, dishBId],
+    queryFn: () => fetchDishComparison(dishAId!, dishBId!),
+    enabled: !!dishAId && !!dishBId,
+    staleTime: 5 * 60 * 1000,
   });
 }

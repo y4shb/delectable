@@ -485,6 +485,66 @@ export interface ComparisonResult {
 }
 
 // ---------------------------------------------------------------------------
+// Time Machine / Dish Comparison
+// ---------------------------------------------------------------------------
+
+export interface RatingSnapshot {
+  periodStart: string;
+  avgRating: number;
+  reviewCount: number;
+  minRating: number | null;
+  maxRating: number | null;
+}
+
+export interface VenueTimeline {
+  venue: { id: string; name: string; currentRating: number };
+  trend: 'improving' | 'declining' | 'stable';
+  trendScore: number;
+  snapshots: RatingSnapshot[];
+  totalReviews: number;
+  firstReviewDate: string | null;
+}
+
+export interface UserVisit {
+  reviewId: string;
+  rating: number;
+  text: string;
+  dishName: string;
+  photoUrl: string;
+  tags: string[];
+  createdAt: string;
+}
+
+export interface VenueUserTimeline {
+  venue: { id: string; name: string };
+  visits: UserVisit[];
+  visitCount: number;
+  avgRating: number | null;
+  ratingTrend: 'improving' | 'declining' | 'stable';
+}
+
+export interface DishComparisonSide {
+  id: string;
+  name: string;
+  venueName: string;
+  avgRating: number;
+  reviewCount: number;
+  topTags: string[];
+  recentTrend: 'improving' | 'declining' | 'stable';
+  ratingHistory: RatingSnapshot[];
+}
+
+export interface DishComparison {
+  dishA: DishComparisonSide;
+  dishB: DishComparisonSide;
+  comparison: {
+    ratingDifference: number;
+    popularityDifference: number;
+    winner: 'dish_a' | 'dish_b' | 'tie';
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Decision Engine — "What Should I Eat?" discovery types
 // ---------------------------------------------------------------------------
 

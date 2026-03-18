@@ -10,6 +10,8 @@ import createEmotionCache from '../createEmotionCache';
 import { AuthProvider } from '../context/AuthContext';
 import { UserPreferencesProvider } from '../context/UserPreferencesContext';
 import { NotificationBadgeProvider } from '../components/NotificationBadgeProvider';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useRouter } from 'next/router';
 
 const STORAGE_KEY = 'delectable_color_mode';
 
@@ -95,6 +97,7 @@ interface MyAppProps extends AppProps {
 const clientSideEmotionCache = createEmotionCache();
 
 export default function MyApp({ Component, pageProps, emotionCache = clientSideEmotionCache }: MyAppProps) {
+  const router = useRouter();
   // Start with 'light' during SSR to avoid hydration mismatches
   const [mode, setMode] = useState<'light' | 'dark'>('light');
 
@@ -142,7 +145,17 @@ export default function MyApp({ Component, pageProps, emotionCache = clientSideE
                 <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
                   <ThemeProvider theme={muiTheme}>
                     <CssBaseline />
-                    <Component {...pageProps} />
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={router.asPath}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                      >
+                        <Component {...pageProps} />
+                      </motion.div>
+                    </AnimatePresence>
                   </ThemeProvider>
                 </ColorModeContext.Provider>
               </NotificationBadgeProvider>

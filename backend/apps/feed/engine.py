@@ -170,6 +170,7 @@ def batch_precompute_social_scores(viewer, authors):
     )
 
     # Compute and cache scores
+    affinity_objects = []
     for aid in followed_ids:
         interaction_count = like_counts.get(aid, 0) + comment_counts.get(aid, 0)
         interaction_score = min(interaction_count / 10, 1.0)
@@ -178,15 +179,23 @@ def batch_precompute_social_scores(viewer, authors):
         score = min(1.0, 0.5 + 0.3 * interaction_score + mutual_bonus)
         scores[aid] = score
 
-        UserAffinity.objects.update_or_create(
-            user=viewer,
-            target_id=aid,
-            defaults={
-                "is_following": True,
-                "interaction_count": interaction_count,
-                "has_mutual_follow": has_mutual,
-                "score": score,
-            },
+        affinity_objects.append(
+            UserAffinity(
+                user=viewer,
+                target_id=aid,
+                is_following=True,
+                interaction_count=interaction_count,
+                has_mutual_follow=has_mutual,
+                score=score,
+            )
+        )
+
+    if affinity_objects:
+        UserAffinity.objects.bulk_create(
+            affinity_objects,
+            update_conflicts=True,
+            update_fields=["is_following", "interaction_count", "has_mutual_follow", "score"],
+            unique_fields=["user", "target"],
         )
 
     return scores

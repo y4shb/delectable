@@ -170,7 +170,7 @@ def get_unread_count(user) -> int:
 
 def generate_digest_content(user) -> dict:
     """Generate weekly digest content for a user."""
-    from apps.feed.engine import trending_venues
+    from apps.feed.engine import get_trending_venues
     from apps.gamification.models import DiningStreak, UserBadge, UserXP
     from apps.reviews.models import Review
 
@@ -214,7 +214,7 @@ def generate_digest_content(user) -> dict:
 
     # Get trending venues
     try:
-        trending = trending_venues(limit=5)
+        trending = get_trending_venues(limit=5)
     except Exception:
         trending = []
 

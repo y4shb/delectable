@@ -102,6 +102,9 @@ class ReviewLike(models.Model):
                 name="uq_reviewlike_user_review",
             )
         ]
+        indexes = [
+            models.Index(fields=["user"], name="idx_reviewlike_user"),
+        ]
 
 
 class Comment(TimeStampedModel):
@@ -128,6 +131,7 @@ class Comment(TimeStampedModel):
         ordering = ["created_at"]
         indexes = [
             Index(name="idx_comment_review_created", fields=["review", "created_at"]),
+            models.Index(fields=["user"], name="idx_comment_user"),
         ]
         constraints = [
             models.CheckConstraint(
@@ -167,6 +171,9 @@ class Bookmark(models.Model):
                 fields=["user", "review"],
                 name="uq_bookmark_user_review",
             )
+        ]
+        indexes = [
+            models.Index(fields=["user"], name="idx_bookmark_user"),
         ]
 
     def __str__(self):

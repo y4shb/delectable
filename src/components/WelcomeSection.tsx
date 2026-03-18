@@ -49,7 +49,7 @@ const feedTabs: FeedTab[] = [
   },
 ];
 
-export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
+function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
   const [selectedTab, setSelectedTab] = useState('top-picks');
   const theme = useTheme();
   const { user } = useAuth();
@@ -207,3 +207,4 @@ export default function WelcomeSection({ onTabChange }: WelcomeSectionProps) {
     </Box>
   );
 }
+export default React.memo(WelcomeSection);

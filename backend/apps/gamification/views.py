@@ -65,7 +65,10 @@ class ActivityGridView(APIView):
     """GET /api/gamification/activity-grid/ — GitHub-style contribution grid."""
 
     def get(self, request):
-        weeks = int(request.query_params.get("weeks", 52))
+        try:
+            weeks = int(request.query_params.get("weeks", 52))
+        except (ValueError, TypeError):
+            weeks = 52
         weeks = min(weeks, 104)  # Max 2 years
         grid = get_activity_grid(request.user, weeks)
         return Response({"data": grid})
@@ -94,9 +97,12 @@ class LeaderboardView(APIView):
         board_type = request.query_params.get("type", "global")
         period = request.query_params.get("period", "weekly")
         scope = request.query_params.get("scope", "")
-        limit = min(int(request.query_params.get("limit", 50)), 100)
+        try:
+            limit = min(int(request.query_params.get("limit", 50)), 100)
+        except (ValueError, TypeError):
+            limit = 50
 
-        entries = LeaderboardEntry.objects.filter(
+        entries = LeaderboardEntry.objects.select_related("user").filter(
             board_type=board_type, period=period
         )
         if scope:
@@ -106,7 +112,7 @@ class LeaderboardView(APIView):
         serializer = LeaderboardEntrySerializer(entries, many=True)
 
         # Get current user's rank
-        user_entry = LeaderboardEntry.objects.filter(
+        user_entry = LeaderboardEntry.objects.select_related("user").filter(
             user=request.user, board_type=board_type, period=period
         ).first()
         user_rank = LeaderboardEntrySerializer(user_entry).data if user_entry else None
@@ -177,7 +183,10 @@ class WrappedView(APIView):
     """GET /api/gamification/wrapped/ — Year in Review stats."""
 
     def get(self, request):
-        year = int(request.query_params.get("year", date.today().year - 1))
+        try:
+            year = int(request.query_params.get("year", date.today().year - 1))
+        except (ValueError, TypeError):
+            year = date.today().year - 1
         try:
             wrapped = WrappedStats.objects.get(user=request.user, year=year)
             serializer = WrappedStatsSerializer(wrapped)

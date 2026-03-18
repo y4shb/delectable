@@ -3,6 +3,7 @@ import {
   LocalFireDepartment as FireIcon,
   AcUnit as FreezeIcon,
 } from '@mui/icons-material';
+import { useMemo } from 'react';
 import type { DiningStreak } from '../types';
 
 interface StreakDisplayProps {
@@ -13,6 +14,22 @@ interface StreakDisplayProps {
 export default function StreakDisplay({ streak, compact = false }: StreakDisplayProps) {
   const isActive = streak.currentStreak > 0;
 
+  const flameAnimationSx = useMemo(
+    () =>
+      isActive
+        ? {
+            '@keyframes flameFlicker': {
+              '0%, 100%': { transform: 'scale(1)', opacity: 1 },
+              '25%': { transform: 'scale(1.03) rotate(-2deg)', opacity: 0.9 },
+              '50%': { transform: 'scale(0.98) rotate(1deg)', opacity: 0.85 },
+              '75%': { transform: 'scale(1.02) rotate(-1deg)', opacity: 0.95 },
+            },
+            animation: 'flameFlicker 1.5s ease-in-out infinite',
+          }
+        : {},
+    [isActive],
+  );
+
   if (compact) {
     return (
       <Tooltip title={`${streak.currentStreak}-day streak | Longest: ${streak.longestStreak} days`}>
@@ -21,6 +38,7 @@ export default function StreakDisplay({ streak, compact = false }: StreakDisplay
             sx={{
               fontSize: 18,
               color: isActive ? 'error.main' : 'grey.400',
+              ...flameAnimationSx,
             }}
           />
           <Typography
@@ -51,6 +69,7 @@ export default function StreakDisplay({ streak, compact = false }: StreakDisplay
             sx={{
               fontSize: 32,
               color: isActive ? 'error.main' : 'grey.400',
+              ...flameAnimationSx,
             }}
           />
           <Box>

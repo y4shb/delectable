@@ -42,7 +42,7 @@ class NearbySavedVenuesView(APIView):
 
         # From playlists
         playlist_ids = Playlist.objects.filter(
-            owner=request.user
+            user=request.user
         ).values_list("id", flat=True)
         playlist_venues = PlaylistItem.objects.filter(
             playlist_id__in=playlist_ids

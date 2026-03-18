@@ -1,6 +1,20 @@
 import { Box, Typography, Tooltip, LinearProgress, Avatar, Chip } from '@mui/material';
 import { Lock as LockIcon, EmojiEvents as TrophyIcon } from '@mui/icons-material';
+import Image from 'next/image';
 import type { UserBadge, BadgeDefinition } from '../types';
+
+const badgeUnlockKeyframes = `
+@keyframes badgeUnlock {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.25); opacity: 1; }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(242, 77, 79, 0); }
+  50% { box-shadow: 0 0 16px 4px rgba(242, 77, 79, 0.3); }
+}
+`;
 
 interface BadgeShelfProps {
   badges: UserBadge[];
@@ -35,6 +49,7 @@ export default function BadgeShelf({
 
   return (
     <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
+      <style dangerouslySetInnerHTML={{ __html: badgeUnlockKeyframes }} />
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={1}>
           <TrophyIcon color="warning" />
@@ -122,10 +137,19 @@ function BadgeItem({ userBadge, showProgress }: BadgeItemProps) {
               height: 48,
               bgcolor: tierColor,
               border: `2px solid ${tierColor}`,
+              animation: isUnlocked
+                ? 'badgeUnlock 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), glowPulse 2s ease-in-out 0.5s'
+                : 'none',
             }}
           >
             {badge.iconUrl ? (
-              <img src={badge.iconUrl} alt={badge.name} style={{ width: 32, height: 32 }} />
+              <Image
+                src={badge.iconUrl}
+                alt={badge.name}
+                width={32}
+                height={32}
+                style={{ objectFit: 'contain' }}
+              />
             ) : (
               <TrophyIcon />
             )}

@@ -30,26 +30,31 @@ export default function StatsPage() {
   const { data: xp, isLoading: xpLoading } = useQuery({
     queryKey: ['userXP'],
     queryFn: fetchUserXP,
+    staleTime: 60_000,
   });
 
   const { data: streak, isLoading: streakLoading } = useQuery({
     queryKey: ['diningStreak'],
     queryFn: fetchDiningStreak,
+    staleTime: 60_000,
   });
 
   const { data: activityGrid, isLoading: gridLoading } = useQuery({
     queryKey: ['activityGrid'],
     queryFn: () => fetchActivityGrid(52),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: badges, isLoading: badgesLoading } = useQuery({
     queryKey: ['userBadges'],
     queryFn: fetchUserBadges,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['userStats'],
     queryFn: fetchUserStats,
+    staleTime: 2 * 60 * 1000,
   });
 
   const isLoading = xpLoading || streakLoading || gridLoading || badgesLoading || statsLoading;

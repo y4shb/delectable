@@ -29,7 +29,7 @@ const GoogleMapView = dynamic(() => import('../components/GoogleMapView'), {
   ssr: false,
   loading: () => <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>
 });
-import VenuePreviewSheet from '../components/VenuePreviewSheet';
+const VenuePreviewSheet = dynamic(() => import('../components/VenuePreviewSheet'), { ssr: false });
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useVenues, useFriendsVenues } from '../hooks/useApi';

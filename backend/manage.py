@@ -3,6 +3,11 @@
 import os
 import sys
 
+# Add venv site-packages for environments where venv is not activated
+_VENV_SITE = "/home/ybhardwa/m1dev/delectable/venv/lib/python3.14/site-packages"
+if _VENV_SITE not in sys.path:
+    sys.path.insert(0, _VENV_SITE)
+
 
 def main():
     """Run administrative tasks."""

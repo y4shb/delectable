@@ -1,6 +1,7 @@
 import { Box, LinearProgress, Typography, Tooltip } from '@mui/material';
 import { Star as StarIcon } from '@mui/icons-material';
 import type { UserXP } from '../types';
+import { useState, useEffect } from 'react';
 
 interface XPProgressBarProps {
   xp: UserXP;
@@ -9,6 +10,15 @@ interface XPProgressBarProps {
 
 export default function XPProgressBar({ xp, compact = false }: XPProgressBarProps) {
   const progressPercent = Math.min(xp.levelProgress * 100, 100);
+
+  const [displayProgress, setDisplayProgress] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDisplayProgress(progressPercent);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [progressPercent]);
 
   if (compact) {
     return (
@@ -21,12 +31,13 @@ export default function XPProgressBar({ xp, compact = false }: XPProgressBarProp
           <Box sx={{ width: 40, ml: 0.5 }}>
             <LinearProgress
               variant="determinate"
-              value={progressPercent}
+              value={displayProgress}
               sx={{
                 height: 4,
                 borderRadius: 2,
                 backgroundColor: 'grey.200',
                 '& .MuiLinearProgress-bar': {
+                  transition: 'transform 0.8s cubic-bezier(0, 0, 0.2, 1)',
                   backgroundColor: 'warning.main',
                 },
               }}
@@ -53,12 +64,13 @@ export default function XPProgressBar({ xp, compact = false }: XPProgressBarProp
 
       <LinearProgress
         variant="determinate"
-        value={progressPercent}
+        value={displayProgress}
         sx={{
           height: 10,
           borderRadius: 5,
           backgroundColor: 'grey.200',
           '& .MuiLinearProgress-bar': {
+            transition: 'transform 0.8s cubic-bezier(0, 0, 0.2, 1)',
             backgroundColor: 'warning.main',
             borderRadius: 5,
           },

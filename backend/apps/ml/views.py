@@ -34,7 +34,10 @@ class RecommendationsView(APIView):
     throttle_classes = [MLBurstThrottle]
 
     def get(self, request):
-        limit = int(request.query_params.get("limit", 20))
+        try:
+            limit = int(request.query_params.get("limit", 20))
+        except (ValueError, TypeError):
+            limit = 20
         refresh = request.query_params.get("refresh", "false").lower() == "true"
 
         if refresh:
@@ -76,7 +79,10 @@ class MLScoredFeedView(APIView):
     def get(self, request):
         from apps.reviews.models import Review
 
-        limit = int(request.query_params.get("limit", 20))
+        try:
+            limit = int(request.query_params.get("limit", 20))
+        except (ValueError, TypeError):
+            limit = 20
 
         # Get recent reviews
         reviews = Review.objects.select_related(

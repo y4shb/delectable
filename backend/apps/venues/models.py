@@ -39,6 +39,7 @@ class Venue(TimeStampedModel):
         ordering = ["-rating"]
         indexes = [
             Index(name="idx_venue_cuisine_rating", fields=["cuisine_type", "-rating"]),
+            models.Index(fields=["-rating"], name="idx_venue_rating_desc"),
         ]
 
     def __str__(self):
@@ -68,6 +69,9 @@ class Dish(models.Model):
         db_table = "dishes"
         ordering = ["-review_count"]
         unique_together = [("venue", "name")]
+        indexes = [
+            models.Index(fields=["venue"], name="idx_dish_venue"),
+        ]
 
     def __str__(self):
         return f"{self.name} @ {self.venue.name}"
@@ -106,6 +110,9 @@ class VenueOccasion(models.Model):
         db_table = "venue_occasions"
         ordering = ["-vote_count"]
         unique_together = [("venue", "occasion")]
+        indexes = [
+            models.Index(fields=["venue"], name="idx_venueoccasion_venue"),
+        ]
 
     def __str__(self):
         return f"{self.venue.name} - {self.occasion.label}"
@@ -170,6 +177,9 @@ class DietaryReport(TimeStampedModel):
                 fields=["user", "venue", "category", "scope"],
                 name="uq_dietary_report_user_venue_cat_scope",
             )
+        ]
+        indexes = [
+            models.Index(fields=["venue", "category"], name="idx_dietaryreport_venue_cat"),
         ]
 
     def __str__(self):
@@ -338,6 +348,63 @@ class FoodGuide(TimeStampedModel):
 
     def __str__(self):
         return f"{self.title} ({self.city})"
+
+
+class VenueRatingSnapshot(models.Model):
+    """Periodic snapshot of venue/dish rating for timeline visualization."""
+
+    PERIOD_CHOICES = [
+        ("week", "Week"),
+        ("month", "Month"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    venue = models.ForeignKey(
+        Venue, on_delete=models.CASCADE, related_name="rating_snapshots"
+    )
+    dish = models.ForeignKey(
+        Dish,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="rating_snapshots",
+    )
+    period_start = models.DateField()
+    period_type = models.CharField(
+        max_length=10, choices=PERIOD_CHOICES, default="month"
+    )
+    avg_rating = models.DecimalField(max_digits=4, decimal_places=2)
+    review_count = models.PositiveIntegerField(default=0)
+    min_rating = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    max_rating = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True
+    )
+
+    class Meta:
+        db_table = "venue_rating_snapshots"
+        ordering = ["period_start"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["venue", "dish", "period_start", "period_type"],
+                name="uq_rating_snapshot_venue_dish_period",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["venue", "period_start"],
+                name="idx_snapshot_venue_period",
+            ),
+            models.Index(
+                fields=["dish", "period_start"],
+                name="idx_snapshot_dish_period",
+            ),
+        ]
+
+    def __str__(self):
+        target = self.dish.name if self.dish else self.venue.name
+        return f"{target} ({self.period_start}, {self.period_type}): {self.avg_rating}"
 
 
 class GuideStop(models.Model):
