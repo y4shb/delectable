@@ -1,0 +1,60 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    setup_ci if ENV["CI"]
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APPLE_KEY_ID"],
+      issuer_id: ENV["APPLE_ISSUER_ID"],
+      key_content: ENV["APPLE_KEY_CONTENT"],
+      is_key_content_base64: true,
+    )
+
+    # Auto-increment build number
+    increment_build_number(
+      build_number: latest_testflight_build_number(api_key: api_key) + 1,
+      xcodeproj: "App/App.xcodeproj"
+    )
+
+    build_app(
+      workspace: "App/App.xcworkspace",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      clean: true,
+      output_directory: "../build",
+      output_name: "Delectable.ipa",
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+    )
+  end
+
+  desc "Build for local testing"
+  lane :build_debug do
+    build_app(
+      workspace: "App/App.xcworkspace",
+      scheme: "App",
+      configuration: "Debug",
+      export_method: "development",
+      output_directory: "../build",
+    )
+  end
+
+  desc "Take screenshots for App Store"
+  lane :screenshots do
+    capture_screenshots
+  end
+
+  desc "Increment version number"
+  lane :bump_version do |options|
+    increment_version_number(
+      bump_type: options[:type] || "patch",
+      xcodeproj: "App/App.xcodeproj"
+    )
+  end
+end

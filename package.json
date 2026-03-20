@@ -12,7 +12,13 @@
     "test:e2e": "npx playwright test --config=tests/playwright.config.ts",
     "test:e2e:ui": "npx playwright test --config=tests/playwright.config.ts --ui",
     "build:ios": "CAPACITOR_BUILD=true next build && npx cap sync ios",
-    "open:ios": "npx cap open ios"
+    "open:ios": "npx cap open ios",
+    "ios:setup": "bash scripts/ios-setup.sh",
+    "ios:build": "bash scripts/ios-build.sh",
+    "ios:build:release": "bash scripts/ios-build.sh --release",
+    "ios:testflight": "bash scripts/ios-build.sh --testflight",
+    "ios:dev": "CAPACITOR_BUILD=true next build && npx cap sync ios && npx cap run ios",
+    "ios:open": "npx cap open ios"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

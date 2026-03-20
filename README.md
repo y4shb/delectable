@@ -10,10 +10,11 @@
 
 <br />
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Django](https://img.shields.io/badge/Django-5.0-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
-[![MUI](https://img.shields.io/badge/MUI-7.0-007FFF?style=for-the-badge&logo=mui&logoColor=white)](https://mui.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Django](https://img.shields.io/badge/Django-5.2-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![MUI](https://img.shields.io/badge/MUI-7-007FFF?style=for-the-badge&logo=mui&logoColor=white)](https://mui.com/)
+[![Capacitor](https://img.shields.io/badge/Capacitor-iOS-119EFF?style=for-the-badge&logo=capacitor&logoColor=white)](https://capacitorjs.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
 <br />
@@ -42,65 +43,66 @@ Create themed playlists of your favorite dishes, discover trending spots through
 <tr>
 <td width="50%">
 
-### Social Feed
-- Full-bleed photo reviews with ratings
-- Like, comment, and bookmark reviews
-- Double-tap to like with heart animation
-- Follow friends and food influencers
+### "What Should I Eat?" Decision Engine
+A conversational wizard that considers your mood, dietary needs, budget, and location to recommend the perfect meal. Uses multi-signal scoring with natural language explanations for why each pick was chosen.
+
+### Time Machine
+Track how any restaurant's quality evolves over time with interactive SVG charts. Compare two dishes side-by-side with overlapping trend lines and automated winner detection via linear regression.
+
+### Group Dining Consensus
+Create a dinner plan, invite friends via share code, and swipe through venue options Tinder-style. A consensus algorithm finds the restaurant everyone agrees on.
 
 </td>
 <td width="50%">
 
-### Smart Map Discovery
-- Real-time venue filtering by cuisine, dietary needs
-- Heatmap visualization of popular areas
-- "Friends have been here" markers
-- Radius search with location awareness
+### Smart Map with PostGIS
+Full-text search with typo tolerance (pg_trgm), spatial queries (ST_DWithin), heatmap visualization, friends' venue markers, and custom cuisine-specific SVG pin icons. Supports bounding box, radius, and true distance sorting.
 
-</td>
-</tr>
-<tr>
-<td width="50%">
+### Elo-Style Rankings
+Venues are ranked using an Elo algorithm adapted from chess. Users compare pairs of restaurants head-to-head, and the system computes a personalized "My Top 10" with tiered K-factors based on comparison count.
 
-### Playlist Curation
-- Create themed venue collections ("Best Tacos", "Date Night")
-- **Save** others' playlists (stays synced)
-- **Fork** playlists (your own editable copy)
-- Visibility controls: Public, Followers, Private
-
-</td>
-<td width="50%">
-
-### AI-Powered Intelligence
-- Personalized venue recommendations
-- Review authenticity scoring
-- Trending detection (venues, dishes)
-- Taste-match percentage with other users
+### Feed Intelligence
+EdgeRank-style scoring (social 30%, engagement 25%, preference 25%, quality 20%) with time decay, MMR diversity enforcement, 4-tier cold-start system, and trending detection via Z-score anomaly + velocity scoring.
 
 </td>
 </tr>
 <tr>
 <td width="50%">
 
-### Gamification
-- XP system with levels
-- 32 achievement badges across 8 categories
-- Dining streaks with freeze protection
-- Weekly/monthly leaderboards
-- Year-in-review "Wrapped" experience
+### Gamification & Streaks
+XP system with 20 levels, 32 achievement badges across 8 categories, dining streaks with freeze protection and timezone-aware tracking, GitHub-style activity grid, and a "de. Wrapped" year-in-review with swipeable animated cards.
+
+### Food Playlists
+Curate themed venue collections ("Best Tacos", "Date Night"). Save others' playlists (stays synced) or fork them (your own copy). Collaborative editing, fork attribution, and visibility controls (public/followers/private).
 
 </td>
 <td width="50%">
 
-### Smart Notifications
-- Real-time SSE notifications
-- Intelligent bundling & frequency caps
-- Quiet hours support
-- Nearby saved venue alerts
+### Push Notifications (FCM)
+Cross-platform push via Firebase Cloud Messaging — web (service worker), iOS (Capacitor), with quiet hours, per-category toggles, notification bundling ("Alice and 3 others liked your review"), and delivery analytics tracking.
+
+### iOS Native App
+Packaged via Capacitor with native camera, haptics, geolocation, push notifications, safe area handling (notch + home indicator), and Fastlane-automated TestFlight deployment. CI/CD via GitHub Actions.
 
 </td>
 </tr>
 </table>
+
+<details>
+<summary><strong>More Features</strong></summary>
+
+- **Occasion Tags** — Vote on what venues are "Perfect For" (Date Night, Group Dinner, Brunch, Late Night)
+- **Dietary Filtering** — Community-reported dietary badges (Vegan, Gluten Free, Halal) with confidence scoring
+- **Kitchen Stories** — Behind-the-scenes content from restaurants (chef profiles, origin stories)
+- **Food Tourism Guides** — Curated walking tours with estimated times and recommended dishes per stop
+- **Monthly Mini-Recap** — Swipeable data visualization cards summarizing your dining month
+- **Referral Program** — Two-sided rewards with tiered incentives (3/10/25 referrals)
+- **Content Moderation** — Report system with 6 report types, duplicate prevention, and moderation queue
+- **S3 Image Upload** — Presigned URL direct-to-S3 upload with drag-drop, progress bar, and EXIF stripping
+- **WCAG AA Accessibility** — Skip navigation, focus traps, reduced motion support, 44px touch targets, semantic HTML
+- **Full-Text Search** — PostgreSQL tsvector + tsquery with weighted fields, trigram fuzzy matching for typo tolerance
+
+</details>
 
 <br />
 
@@ -140,12 +142,14 @@ Create themed playlists of your favorite dishes, discover trending spots through
 </td>
 <td align="center" width="25%">
 
-**APIs & Services**
+**APIs & Mobile**
 
 ![Google Maps](https://img.shields.io/badge/-Google_Maps-4285F4?style=flat-square&logo=google-maps&logoColor=white)
-![JWT](https://img.shields.io/badge/-JWT-000?style=flat-square&logo=json-web-tokens)
-![SSE](https://img.shields.io/badge/-SSE-FF6B6B?style=flat-square)
+![Firebase](https://img.shields.io/badge/-Firebase_FCM-FFCA28?style=flat-square&logo=firebase&logoColor=black)
+![Capacitor](https://img.shields.io/badge/-Capacitor-119EFF?style=flat-square&logo=capacitor&logoColor=white)
+![PostGIS](https://img.shields.io/badge/-PostGIS-336791?style=flat-square&logo=postgresql&logoColor=white)
 ![Celery](https://img.shields.io/badge/-Celery-37814A?style=flat-square&logo=celery&logoColor=white)
+![S3](https://img.shields.io/badge/-AWS_S3-569A31?style=flat-square&logo=amazon-s3&logoColor=white)
 
 </td>
 </tr>
@@ -309,15 +313,32 @@ delectable/
 
 <br />
 
+## Quick Start
+
+```bash
+# Backend (Terminal 1)
+./run-backend.sh --seed     # Migrate + seed data + start on :8000
+
+# Frontend (Terminal 2)
+./run-frontend.sh            # Start Next.js on :3000
+
+# iOS (requires Mac + Xcode)
+npm run ios:setup            # First-time: init Capacitor + CocoaPods
+npm run ios:build            # Build and open in Xcode
+npm run ios:testflight       # Build + upload to TestFlight
+```
+
 ## Running Tests
 
 ```bash
-# Frontend tests
-npm run test
+# E2E tests (Playwright — 17 tests across 7 specs)
+npm run test:e2e
+
+# E2E with UI inspector
+npm run test:e2e:ui
 
 # Backend tests
-cd backend
-python manage.py test
+cd backend && python manage.py test
 
 # Linting
 npm run lint

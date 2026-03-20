@@ -85,3 +85,12 @@ k8s/secrets.yaml
 
 # Docker
 docker-compose.override.yml
+
+# iOS
+ios/App/Pods/
+ios/App/App/public/
+*.ipa
+*.dSYM.zip
+*.dSYM
+DerivedData/
+*.xcuserdata/

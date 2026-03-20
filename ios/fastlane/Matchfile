@@ -1,0 +1,8 @@
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+
+type("appstore")
+app_identifier(["app.delectable.ios"])
+
+# Use App Store Connect API key for auth
+api_key_path(ENV["API_KEY_PATH"])

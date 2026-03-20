@@ -4,11 +4,18 @@ on:
   release:
     types: [published]
 
+permissions:
+  id-token: write
+  contents: read
+  deployments: write
+
 env:
   AWS_REGION: us-east-1
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
   FRONTEND_IMAGE: delectable-frontend
   BACKEND_IMAGE: delectable-backend
+  NODE_VERSION: '22'
+  RUBY_VERSION: '3.3'
 
 jobs:
   deploy-production:
@@ -25,8 +32,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -116,3 +122,79 @@ jobs:
           echo "Deployment failed! Rolling back..."
           kubectl rollout undo deployment/frontend -n delectable
           kubectl rollout undo deployment/backend -n delectable
+
+  # iOS TestFlight build triggered on release
+  ios-testflight:
+    name: iOS TestFlight Build
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build Next.js static export
+        run: CAPACITOR_BUILD=true npx next build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.PRODUCTION_API_URL }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Install CocoaPods
+        run: |
+          cd ios/App
+          pod install
+
+      - name: Build and upload to TestFlight
+        run: |
+          cd ios
+          bundle exec fastlane beta
+        env:
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_CONTENT: ${{ secrets.APPLE_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
+      - name: Upload build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ github.event.release.tag_name }}
+          path: |
+            build/*.ipa
+          retention-days: 30
+
+      - name: Notify iOS build result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "iOS TestFlight build uploaded successfully for release ${{ github.event.release.tag_name }}"
+          else
+            echo "iOS TestFlight build failed for release ${{ github.event.release.tag_name }}"
+          fi
