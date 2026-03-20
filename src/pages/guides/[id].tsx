@@ -18,6 +18,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import StarIcon from '@mui/icons-material/Star';
 import AppShell from '../../layouts/AppShell';
+import SEOHead from '../../components/SEOHead';
 import { useFoodGuideDetail } from '../../hooks/useApi';
 import type { GuideStop } from '../../types';
 
@@ -52,6 +53,13 @@ export default function GuideDetailPage() {
 
   return (
     <AppShell>
+      <SEOHead
+        title={guide.title}
+        description={guide.description || `A food guide in ${guide.city}${guide.neighborhood ? ` - ${guide.neighborhood}` : ''} with ${stops.length} stops`}
+        image={guide.coverPhotoUrl}
+        url={`/guides/${guide.id}`}
+        type="article"
+      />
       <Box sx={{ pb: 11 }}>
         <Box sx={{ mb: 1, px: 1 }}>
           <IconButton

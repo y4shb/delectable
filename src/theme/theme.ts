@@ -37,10 +37,23 @@ export const getTheme = (mode: 'light' | 'dark'): Theme =>
       },
       text: {
         primary: mode === 'dark' ? '#fff' : '#181818',
-        secondary: mode === 'dark' ? '#bdbdbd' : '#595959',
+        secondary: mode === 'dark' ? '#a0a0a0' : '#545454',
       },
     },
     ...commonTheme,
+    components: {
+      MuiButtonBase: {
+        styleOverrides: {
+          root: {
+            '&:focus-visible': {
+              outline: '2px solid',
+              outlineColor: '#F24D4F',
+              outlineOffset: 2,
+            },
+          },
+        },
+      },
+    },
   });
 
 const theme = getTheme('light');

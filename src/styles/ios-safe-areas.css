@@ -1,0 +1,19 @@
+/* iOS safe area insets */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --keyboard-height: 0px;
+}
+
+/* Ensure viewport-fit=cover is respected */
+html {
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/* When the native keyboard is visible, reduce bottom padding */
+body.keyboard-visible {
+  --sab: 0px;
+}

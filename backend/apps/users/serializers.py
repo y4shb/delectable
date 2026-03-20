@@ -36,6 +36,8 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_following(self, obj):
+        if hasattr(obj, '_is_following'):
+            return obj._is_following
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
@@ -44,6 +46,8 @@ class UserSerializer(serializers.ModelSerializer):
         return Follow.objects.filter(follower=request.user, following=obj).exists()
 
     def get_is_followed_by(self, obj):
+        if hasattr(obj, '_is_followed_by'):
+            return obj._is_followed_by
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False

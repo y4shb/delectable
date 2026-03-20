@@ -1,6 +1,12 @@
 from django.urls import path
 
 from . import views
+from .views_account import (
+    DeleteAccountView,
+    ExportDataView,
+    ForgotPasswordView,
+    ResetPasswordView,
+)
 from apps.reviews.views import UserReviewsView
 
 urlpatterns = [
@@ -9,6 +15,10 @@ urlpatterns = [
     path("refresh/", views.RefreshView.as_view(), name="refresh"),
     path("logout/", views.LogoutView.as_view(), name="logout"),
     path("me/", views.MeView.as_view(), name="me"),
+    path("me/delete/", DeleteAccountView.as_view(), name="delete-account"),
+    path("me/export/", ExportDataView.as_view(), name="export-data"),
+    path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
+    path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
     path("suggested-users/", views.SuggestedUsersView.as_view(), name="suggested-users"),
     path("users/<uuid:id>/", views.UserDetailView.as_view(), name="user-detail"),
     path("users/<uuid:id>/follow/", views.FollowView.as_view(), name="follow"),

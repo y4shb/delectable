@@ -1,5 +1,7 @@
 import '../../styles/globals.css';
+import '../styles/ios-safe-areas.css';
 import type { AppProps } from 'next/app';
+import Head from 'next/head';
 import { ThemeProvider, CssBaseline, Typography, Button, Box } from '@mui/material';
 import React, { useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,6 +14,8 @@ import { UserPreferencesProvider } from '../context/UserPreferencesContext';
 import { NotificationBadgeProvider } from '../components/NotificationBadgeProvider';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/router';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { initCapacitorPlugins } from '../lib/capacitor-init';
 
 const STORAGE_KEY = 'delectable_color_mode';
 
@@ -98,6 +102,7 @@ const clientSideEmotionCache = createEmotionCache();
 
 export default function MyApp({ Component, pageProps, emotionCache = clientSideEmotionCache }: MyAppProps) {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   // Start with 'light' during SSR to avoid hydration mismatches
   const [mode, setMode] = useState<'light' | 'dark'>('light');
 
@@ -122,6 +127,11 @@ export default function MyApp({ Component, pageProps, emotionCache = clientSideE
     document.body.style.transition = 'background-color 0.3s ease, color 0.3s ease';
   }, []);
 
+  // Initialize Capacitor native plugins (no-op on web)
+  useEffect(() => {
+    initCapacitorPlugins();
+  }, []);
+
   const muiTheme = useMemo(() => getTheme(mode), [mode]);
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
@@ -144,18 +154,27 @@ export default function MyApp({ Component, pageProps, emotionCache = clientSideE
               <NotificationBadgeProvider>
                 <ColorModeContext.Provider value={{ toggleColorMode, mode }}>
                   <ThemeProvider theme={muiTheme}>
+                    <Head>
+                      <title>Delectable - Discover Amazing Food</title>
+                      <meta name="description" content="AI-powered food discovery and restaurant reviews" />
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+                    </Head>
                     <CssBaseline />
-                    <AnimatePresence mode="wait" initial={false}>
-                      <motion.div
-                        key={router.asPath}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                      >
-                        <Component {...pageProps} />
-                      </motion.div>
-                    </AnimatePresence>
+                    {prefersReducedMotion ? (
+                      <Component {...pageProps} />
+                    ) : (
+                      <AnimatePresence mode="wait" initial={false}>
+                        <motion.div
+                          key={router.asPath}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                        >
+                          <Component {...pageProps} />
+                        </motion.div>
+                      </AnimatePresence>
+                    )}
                   </ThemeProvider>
                 </ColorModeContext.Provider>
               </NotificationBadgeProvider>

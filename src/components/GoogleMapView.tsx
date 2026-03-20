@@ -362,15 +362,26 @@ export default function GoogleMapView({
   useEffect(() => {
     if (!mapRef.current || !enableClustering || !isLoaded) return;
 
-    // Clear old clusterer
+    // Fully detach old clusterer from the map before creating new markers.
+    // Using clearMarkers() alone leaves the clusterer attached, so when new
+    // markers trigger a re-render the old clusterer can attempt to read
+    // positions from already-disposed markers → "Cannot read 'lng' of undefined".
     if (clustererRef.current) {
-      clustererRef.current.clearMarkers();
+      clustererRef.current.setMap(null);
+      clustererRef.current = null;
     }
+
+    // Dispose old markers
+    markersRef.current.forEach((m) => {
+      google.maps.event.clearInstanceListeners(m);
+      m.setMap(null);
+    });
+    markersRef.current = [];
 
     // Create markers with staggered drop animation
     const markers = filteredVenues.map((venue, index) => {
       const marker = new window.google.maps.Marker({
-        position: { lat: venue.latitude, lng: venue.longitude },
+        position: { lat: venue.latitude!, lng: venue.longitude! },
         icon: getMarkerIcon(venue.cuisineType, isDark),
         animation: null, // Start without animation, add staggered
       });
@@ -410,9 +421,14 @@ export default function GoogleMapView({
 
     return () => {
       if (clustererRef.current) {
-        clustererRef.current.clearMarkers();
+        clustererRef.current.setMap(null);
         clustererRef.current = null;
       }
+      markersRef.current.forEach((m) => {
+        google.maps.event.clearInstanceListeners(m);
+        m.setMap(null);
+      });
+      markersRef.current = [];
     };
   }, [filteredVenues, isLoaded, enableClustering, isDark, handleVenueClick]);
 

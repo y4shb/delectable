@@ -160,10 +160,12 @@ class PlaylistReorderView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        for order, item_id in enumerate(item_ids):
-            PlaylistItem.objects.filter(id=item_id, playlist=playlist).update(
-                sort_order=order
-            )
+        from django.db import transaction
+        with transaction.atomic():
+            for order, item_id in enumerate(item_ids):
+                PlaylistItem.objects.filter(id=item_id, playlist=playlist).update(
+                    sort_order=order
+                )
 
         return Response(
             PlaylistSerializer(playlist, context={'request': request}).data,

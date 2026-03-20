@@ -8,7 +8,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "npx playwright test --config=tests/playwright.config.ts",
+    "test:e2e:ui": "npx playwright test --config=tests/playwright.config.ts --ui",
+    "build:ios": "CAPACITOR_BUILD=true next build && npx cap sync ios",
+    "open:ios": "npx cap open ios"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -20,16 +24,29 @@
     "@react-google-maps/api": "^2.20.7",
     "@tanstack/react-query": "^5.81.5",
     "axios": "^1.10.0",
-    "next": "^15.3.5",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "next": "^15.5.13",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "react-hook-form": "^7.56.0",
     "yup": "^1.6.0",
     "@hookform/resolvers": "^5.0.0",
-    "framer-motion": "^11.0.0"
+    "framer-motion": "^11.0.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/camera": "^6.1.0",
+    "@capacitor/haptics": "^6.1.0",
+    "@capacitor/status-bar": "^6.1.0",
+    "@capacitor/splash-screen": "^6.1.0",
+    "@capacitor/push-notifications": "^6.1.0",
+    "@capacitor/geolocation": "^6.1.0",
+    "@capacitor/keyboard": "^6.1.0",
+    "firebase": "^10.12.0"
   },
   "devDependencies": {
-    "@types/node": "24.0.10",
-    "typescript": "5.8.3"
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.50.0",
+    "@types/node": "^24.0.10",
+    "typescript": "^5.9.3"
   }
 }

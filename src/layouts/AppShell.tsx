@@ -68,8 +68,58 @@ export default function AppShell({ children, hideTabBar = false }: AppShellProps
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <style>{pulseKeyframes}</style>
+      {/* Skip navigation link for keyboard users */}
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: '-9999px',
+          top: 'auto',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+          zIndex: 9999,
+          '&:focus': {
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            width: 'auto',
+            height: 'auto',
+            overflow: 'visible',
+            bgcolor: 'primary.main',
+            color: '#fff',
+            px: 3,
+            py: 1.5,
+            borderRadius: 2,
+            fontSize: 14,
+            fontWeight: 700,
+            textDecoration: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          },
+        }}
+      >
+        Skip to main content
+      </Box>
       <Header visible={headerVisible} />
-      <Box sx={{ flex: 1, width: '100%', maxWidth: 600, mx: 'auto', px: 2, py: 1, pt: '72px' }}>{children}</Box>
+      <Box
+        component="main"
+        id="main-content"
+        tabIndex={-1}
+        sx={{
+          flex: 1,
+          width: '100%',
+          maxWidth: 600,
+          mx: 'auto',
+          px: 2,
+          py: 1,
+          pt: 'calc(72px + var(--sat, 0px))',
+          pb: 'calc(8px + var(--sab, 0px))',
+          outline: 'none',
+        }}
+      >
+        {children}
+      </Box>
       {!hideTabBar && (
         <Fab
           aria-label="Quick review"

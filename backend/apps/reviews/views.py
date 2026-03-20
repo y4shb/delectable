@@ -1,4 +1,5 @@
 from django.db import models as db_models, transaction
+from django.db.models import Exists, OuterRef, Prefetch
 from django.db.models.functions import Greatest
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
@@ -7,16 +8,46 @@ from rest_framework.views import APIView
 from apps.core.pagination import FeedCursorPagination
 from apps.core.permissions import IsOwnerOrReadOnly
 
-from .models import Bookmark, Comment, Review, ReviewLike, WantToTry
+from .models import Bookmark, Comment, ContentReport, Review, ReviewLike, ReviewPhoto, WantToTry
 from .serializers import (
     BookmarkSerializer,
     CommentCreateSerializer,
     CommentSerializer,
+    ContentReportSerializer,
     QuickReviewSerializer,
     ReviewCreateSerializer,
     ReviewSerializer,
     WantToTrySerializer,
 )
+
+
+def get_annotated_review_queryset(request_user):
+    """Return a Review queryset with prefetches and annotations to avoid N+1
+    queries in ReviewSerializer for is_liked, is_bookmarked, photo_urls,
+    and recent_comments."""
+    qs = Review.objects.select_related("user", "venue").prefetch_related(
+        Prefetch(
+            "photos",
+            queryset=ReviewPhoto.objects.order_by("sort_order"),
+        ),
+        Prefetch(
+            "comments",
+            queryset=Comment.objects.filter(parent__isnull=True)
+            .select_related("user")
+            .order_by("-created_at")[:2],
+            to_attr="_recent_comments",
+        ),
+    )
+    if request_user and request_user.is_authenticated:
+        qs = qs.annotate(
+            _is_liked=Exists(
+                ReviewLike.objects.filter(user=request_user, review=OuterRef("pk"))
+            ),
+            _is_bookmarked=Exists(
+                Bookmark.objects.filter(user=request_user, review=OuterRef("pk"))
+            ),
+        )
+    return qs
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -36,6 +67,11 @@ class ReviewViewSet(viewsets.ModelViewSet):
         if self.action in ("create", "update", "partial_update"):
             return ReviewCreateSerializer
         return ReviewSerializer
+
+    def get_queryset(self):
+        if self.action in ("list", "retrieve"):
+            return get_annotated_review_queryset(self.request.user)
+        return super().get_queryset()
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -100,8 +136,8 @@ class VenueReviewsView(generics.ListAPIView):
     def get_queryset(self):
         venue_id = self.kwargs["id"]
         return (
-            Review.objects.filter(venue_id=venue_id)
-            .select_related("user", "venue")
+            get_annotated_review_queryset(self.request.user)
+            .filter(venue_id=venue_id)
             .order_by("-created_at")
         )
 
@@ -116,8 +152,8 @@ class UserReviewsView(generics.ListAPIView):
     def get_queryset(self):
         user_id = self.kwargs["id"]
         return (
-            Review.objects.filter(user_id=user_id)
-            .select_related("user", "venue")
+            get_annotated_review_queryset(self.request.user)
+            .filter(user_id=user_id)
             .order_by("-created_at")
         )
 
@@ -361,6 +397,24 @@ class QuickReviewView(APIView):
                 "data": response_serializer.data,
                 "is_first_review": is_first_review,
             },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ReportContentView(APIView):
+    """POST /api/reports/ -- Submit a content report for moderation."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "comments"  # Reuse 30/hour limit
+
+    def post(self, request):
+        serializer = ContentReportSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        report = serializer.save(reporter=request.user)
+        return Response(
+            {"id": str(report.id), "status": "pending"},
             status=status.HTTP_201_CREATED,
         )
 

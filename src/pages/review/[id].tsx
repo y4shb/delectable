@@ -23,6 +23,7 @@ import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import StarIcon from '@mui/icons-material/Star';
 import SendIcon from '@mui/icons-material/Send';
 import AppShell from '../../layouts/AppShell';
+import SEOHead from '../../components/SEOHead';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useReviewDetail, useReviewComments, useUserReviews, useVenueReviews } from '../../hooks/useApi';
 import {
@@ -152,8 +153,41 @@ export default function ReviewDetailPage() {
     .filter((r) => r.id !== review.id)
     .slice(0, 4);
 
+  const reviewDescription = review.text
+    ? review.text.slice(0, 200)
+    : `${Number(review.rating).toFixed(1)} star review`;
+
+  const reviewJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Review',
+    author: {
+      '@type': 'Person',
+      name: review.user.name,
+    },
+    reviewRating: {
+      '@type': 'Rating',
+      ratingValue: Number(review.rating).toFixed(1),
+      bestRating: '5',
+    },
+    itemReviewed: review.venueDetail
+      ? {
+          '@type': 'Restaurant',
+          name: review.venueDetail.name,
+        }
+      : undefined,
+    reviewBody: review.text,
+  };
+
   return (
     <AppShell>
+      <SEOHead
+        title={`${review.user.name} reviewed ${review.venueDetail?.name || 'a restaurant'}`}
+        description={reviewDescription}
+        image={review.photoUrl || review.venueDetail?.photoUrl}
+        url={`/review/${review.id}`}
+        type="article"
+        jsonLd={reviewJsonLd}
+      />
       <Box sx={{ pb: 11 }}>
         {/* Back button */}
         <Box sx={{ mb: 1, px: 1 }}>

@@ -20,6 +20,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import PeopleIcon from '@mui/icons-material/People';
 import PublicIcon from '@mui/icons-material/Public';
 import AppShell from '../../../layouts/AppShell';
+import SEOHead from '../../../components/SEOHead';
 import { useRequireAuth } from '../../../hooks/useRequireAuth';
 import { useUser, useUserReviews, useUserPlaylists, useTasteMatch } from '../../../hooks/useApi';
 import FollowButton from '../../../components/FollowButton';
@@ -82,8 +83,18 @@ export default function UserProfilePage() {
     );
   }
 
+  const reviewCount = (reviews ?? []).length;
+  const userDescription = `${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'}, Level ${user.level}${user.bio ? ` - ${user.bio}` : ''}`;
+
   return (
     <AppShell>
+      <SEOHead
+        title={user.name}
+        description={userDescription}
+        image={user.avatarUrl}
+        url={`/user/${user.id}`}
+        type="profile"
+      />
       <Box sx={{ pb: 11 }}>
         {/* Back button */}
         <Box sx={{ mb: 1, px: 1 }}>

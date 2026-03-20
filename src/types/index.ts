@@ -103,7 +103,7 @@ export interface TrendingVenue {
 export interface TasteProfile {
   preferredCuisines: string[];
   dietaryRestrictions: string[];
-  pricePreference: number;
+  pricePreference: 'budget' | 'mid' | 'fine' | 'any';
   spiceTolerance: number;
   completedWizard: boolean;
   maturityLevel: number;

@@ -19,4 +19,5 @@ urlpatterns = [
     path("bookmarks/", views.BookmarkListView.as_view(), name="bookmarks"),
     path("want-to-try/", views.WantToTryListView.as_view(), name="want-to-try-list"),
     path("want-to-try/<uuid:pk>/", views.WantToTryDetailView.as_view(), name="want-to-try-detail"),
+    path("reports/", views.ReportContentView.as_view(), name="report-content"),
 ]

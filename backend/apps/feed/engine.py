@@ -335,7 +335,7 @@ def get_engagement_percentiles():
 # ---------------------------------------------------------------------------
 
 TRENDING_STALE_MINUTES = 30
-_trending_computation_lock = False
+_trending_lock = __import__("threading").Lock()
 _trending_thread = None
 
 
@@ -364,10 +364,28 @@ def compute_trending_scores():
     for row in baseline_qs:
         baselines[row["venue_id"]] = row["total"] / 30  # avg daily
 
-    for row in active_venues:
-        venue_id = row["venue_id"]
-        recent_count = row["recent_count"]
+    # Batch fetch all active venue IDs to avoid per-venue queries
+    active_venue_map = {row["venue_id"]: row["recent_count"] for row in active_venues}
+    active_venue_ids = list(active_venue_map.keys())
 
+    if not active_venue_ids:
+        return
+
+    # Batch: last 24h review counts per venue
+    last_24h_counts = dict(
+        Review.objects.filter(
+            venue_id__in=active_venue_ids, created_at__gte=last_24h
+        ).values("venue_id").annotate(cnt=Count("id")).values_list("venue_id", "cnt")
+    )
+
+    # Batch: all recent review timestamps for decay score (grouped by venue)
+    recent_review_dates = defaultdict(list)
+    for venue_id, created_at in Review.objects.filter(
+        venue_id__in=active_venue_ids, created_at__gte=last_7d
+    ).values_list("venue_id", "created_at"):
+        recent_review_dates[venue_id].append(created_at)
+
+    for venue_id, recent_count in active_venue_map.items():
         # Baseline stats
         baseline_avg = baselines.get(venue_id, 0.5)
         # Simple std estimate (use sqrt of mean as proxy for Poisson-like data)
@@ -377,18 +395,13 @@ def compute_trending_scores():
         z = (recent_count - baseline_avg * 7) / max(baseline_std * math.sqrt(7), 1)
 
         # Velocity: last 24h reviews / 7d avg daily
-        last_24h_count = Review.objects.filter(
-            venue_id=venue_id, created_at__gte=last_24h
-        ).count()
+        last_24h_count = last_24h_counts.get(venue_id, 0)
         velocity = last_24h_count / max(baseline_avg, 0.1)
 
         # Decay score: sum of exp(-0.1 * age_hours) for recent reviews
-        recent_reviews = Review.objects.filter(
-            venue_id=venue_id, created_at__gte=last_7d
-        ).values_list("created_at", flat=True)
         decay_score = sum(
             math.exp(-0.1 * (now - dt).total_seconds() / 3600)
-            for dt in recent_reviews
+            for dt in recent_review_dates.get(venue_id, [])
         )
 
         trending_score = 0.4 * max(z, 0) + 0.3 * velocity + 0.3 * decay_score
@@ -406,39 +419,40 @@ def compute_trending_scores():
 def get_trending_venues(limit=10):
     """Get trending venues, recomputing if stale.
 
-    Uses a background thread to avoid blocking the request and a simple
-    lock to prevent thundering herd problem where multiple concurrent
-    requests all trigger recomputation.
+    Uses a background thread to avoid blocking the request and a proper
+    threading.Lock to prevent thundering herd problem where multiple
+    concurrent requests all trigger recomputation.
     """
     import threading
 
-    global _trending_computation_lock, _trending_thread
+    global _trending_thread
 
     latest = VenueTrendingScore.objects.order_by("-computed_at").first()
     is_stale = not latest or (timezone.now() - latest.computed_at) > timedelta(minutes=TRENDING_STALE_MINUTES)
 
-    if is_stale and not _trending_computation_lock:
-        # If we have existing data, recompute in background thread
-        if latest:
-            def _recompute():
-                global _trending_computation_lock
-                try:
-                    _trending_computation_lock = True
-                    from django.db import connection
-                    compute_trending_scores()
-                    connection.close()
-                finally:
-                    _trending_computation_lock = False
+    if is_stale and _trending_lock.acquire(blocking=False):
+        try:
+            # If we have existing data, recompute in background thread
+            if latest:
+                def _recompute():
+                    try:
+                        from django.db import connection
+                        compute_trending_scores()
+                        connection.close()
+                    finally:
+                        _trending_lock.release()
 
-            _trending_thread = threading.Thread(target=_recompute, daemon=True)
-            _trending_thread.start()
-        else:
-            # First time ever — must compute synchronously
-            try:
-                _trending_computation_lock = True
-                compute_trending_scores()
-            finally:
-                _trending_computation_lock = False
+                _trending_thread = threading.Thread(target=_recompute, daemon=True)
+                _trending_thread.start()
+            else:
+                # First time ever -- must compute synchronously
+                try:
+                    compute_trending_scores()
+                finally:
+                    _trending_lock.release()
+        except Exception:
+            _trending_lock.release()
+            raise
 
     return (
         VenueTrendingScore.objects.select_related("venue")
@@ -558,18 +572,20 @@ def get_user_tier(user):
 
 def auto_follow_tastemakers(user):
     """Auto-follow curated tastemaker accounts for new users."""
+    from django.db import models as db_models, transaction
+
     tastemakers = User.objects.filter(email__in=_get_tastemaker_emails())
-    for tm in tastemakers:
-        if tm.id != user.id:
-            _, created = Follow.objects.get_or_create(follower=user, following=tm)
-            if created:
-                from django.db import models as db_models
-                User.objects.filter(id=user.id).update(
-                    following_count=db_models.F("following_count") + 1
-                )
-                User.objects.filter(id=tm.id).update(
-                    followers_count=db_models.F("followers_count") + 1
-                )
+    with transaction.atomic():
+        for tm in tastemakers:
+            if tm.id != user.id:
+                _, created = Follow.objects.get_or_create(follower=user, following=tm)
+                if created:
+                    User.objects.filter(id=user.id).update(
+                        following_count=db_models.F("following_count") + 1
+                    )
+                    User.objects.filter(id=tm.id).update(
+                        followers_count=db_models.F("followers_count") + 1
+                    )
 
 
 def anonymous_feed(limit=20):

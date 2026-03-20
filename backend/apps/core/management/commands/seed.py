@@ -578,6 +578,10 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if not settings.DEBUG:
+            self.stderr.write("ERROR: seed command cannot run when DEBUG=False")
+            return
+
         if options["clear"]:
             self.stdout.write("Clearing existing data...")
             VenueRatingSnapshot.objects.all().delete()

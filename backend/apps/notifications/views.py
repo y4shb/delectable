@@ -79,17 +79,25 @@ class BadgeStreamView(APIView):
     """GET /api/notifications/stream/ — SSE endpoint for real-time notifications."""
     renderer_classes = [EventStreamRenderer]
 
+    # Maximum SSE connection lifetime (5 minutes) to avoid holding workers
+    MAX_SSE_LIFETIME_SECONDS = 300
+    POLL_INTERVAL_SECONDS = 5
+
     def get(self, request):
+        max_lifetime = self.MAX_SSE_LIFETIME_SECONDS
+        poll_interval = self.POLL_INTERVAL_SECONDS
+
         def event_stream():
             last_count = get_unread_count(request.user)
             last_notification_id = None
+            start_time = time.time()
 
             # Initial event
             yield f"data: {json.dumps({'type': 'connected', 'unread_count': last_count})}\n\n"
 
-            # Keep connection alive and check for updates
-            while True:
-                time.sleep(5)  # Check every 5 seconds
+            # Keep connection alive and check for updates (with max lifetime)
+            while (time.time() - start_time) < max_lifetime:
+                time.sleep(poll_interval)
 
                 current_count = get_unread_count(request.user)
 
@@ -121,6 +129,9 @@ class BadgeStreamView(APIView):
                 else:
                     # Heartbeat
                     yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+
+            # Signal client to reconnect
+            yield f"data: {json.dumps({'type': 'reconnect'})}\n\n"
 
         response = StreamingHttpResponse(
             event_stream(),

@@ -18,6 +18,7 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import AppShell from '../../layouts/AppShell';
+import SEOHead from '../../components/SEOHead';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useVenueDetail, useVenueReviews, useSimilarVenues, useWantToTry } from '../../hooks/useApi';
 import { addWantToTry, removeWantToTry } from '../../api/api';
@@ -147,8 +148,30 @@ export default function VenueDetailPage() {
         .slice(0, 3)
     : [];
 
+  const venueJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Restaurant',
+    name: venue.name,
+    image: venue.photoUrl || undefined,
+    address: venue.locationText,
+    servesCuisine: venue.cuisineType,
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: Number(venue.rating).toFixed(1),
+      reviewCount: venue.reviewsCount,
+    },
+  };
+
   return (
     <AppShell>
+      <SEOHead
+        title={venue.name}
+        description={`${venue.cuisineType} - ${Number(venue.rating).toFixed(1)} stars - ${venue.locationText}`}
+        image={venue.photoUrl}
+        url={`/venue/${venue.id}`}
+        type="restaurant"
+        jsonLd={venueJsonLd}
+      />
       <Box sx={{ pb: 11 }}>
         {/* Back button */}
         <Box sx={{ mb: 1, px: 1 }}>

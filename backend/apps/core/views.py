@@ -1,13 +1,28 @@
 """Core views including file uploads and health checks."""
 
+import io
 import os
 import uuid
+
+from PIL import Image
+
 from django.conf import settings
 from django.db import connection
 from rest_framework import permissions, status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+
+def validate_image_content(file):
+    """Validate that a file contains a real image using Pillow (magic bytes check)."""
+    try:
+        img = Image.open(file)
+        img.verify()
+        file.seek(0)  # Reset for subsequent reads
+        return True
+    except Exception:
+        return False
 
 
 class HealthCheckView(APIView):
@@ -62,11 +77,19 @@ class FileUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate file extension
-        ext = os.path.splitext(file.name)[1].lower()
+        # Validate file extension (use only the basename to prevent path traversal)
+        safe_name = os.path.basename(file.name)
+        ext = os.path.splitext(safe_name)[1].lower()
         if ext not in self.ALLOWED_EXTENSIONS:
             return Response(
                 {"error": {"code": "VALIDATION_ERROR", "message": "Invalid file type. Allowed: jpg, jpeg, png, gif, webp.", "status": 400}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate image content (magic bytes) to prevent disguised file uploads
+        if not validate_image_content(file):
+            return Response(
+                {"error": {"code": "VALIDATION_ERROR", "message": "File is not a valid image.", "status": 400}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

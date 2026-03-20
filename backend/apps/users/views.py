@@ -1,10 +1,11 @@
+import logging
 import math
 from collections import defaultdict
 from datetime import timedelta
 
 from django.conf import settings
 from django.db import models, transaction
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from django.db.models.functions import Greatest
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -12,6 +13,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+
+from apps.core.logging import log_login_failure, log_login_success
 
 from .models import Follow, TasteMatchCache, User
 from .serializers import (
@@ -21,6 +24,32 @@ from .serializers import (
     UserPublicSerializer,
     UserSerializer,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _get_client_ip(request):
+    """Extract the client IP address from the request."""
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def get_annotated_user_queryset(request_user):
+    """Return a User queryset annotated with _is_following and _is_followed_by
+    flags relative to the request user, avoiding N+1 queries in serializers."""
+    qs = User.objects.all()
+    if request_user and request_user.is_authenticated:
+        qs = qs.annotate(
+            _is_following=Exists(
+                Follow.objects.filter(follower=request_user, following=OuterRef('pk'))
+            ),
+            _is_followed_by=Exists(
+                Follow.objects.filter(follower=OuterRef('pk'), following=request_user)
+            ),
+        )
+    return qs
 
 
 def _set_refresh_cookie(response, refresh_token):
@@ -78,9 +107,14 @@ class LoginView(APIView):
     throttle_scope = "login"
 
     def post(self, request):
+        ip_address = _get_client_ip(request)
         serializer = LoginSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            log_login_failure(request.data.get("email", "unknown"), ip_address)
+            serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+
+        log_login_success(user.id, ip_address)
 
         refresh = RefreshToken.for_user(user)
         response = Response(
@@ -172,10 +206,12 @@ class MeView(generics.RetrieveUpdateAPIView):
 class UserDetailView(generics.RetrieveAPIView):
     """GET /api/auth/users/{id}/ — Public user profile."""
 
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
     lookup_field = "id"
+
+    def get_queryset(self):
+        return get_annotated_user_queryset(self.request.user)
 
 
 class FollowView(APIView):
@@ -257,6 +293,7 @@ class FollowerListView(generics.ListAPIView):
     """GET /api/auth/users/{id}/followers/"""
 
     serializer_class = UserPublicSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user_id = self.kwargs["id"]
@@ -270,6 +307,7 @@ class FollowingListView(generics.ListAPIView):
     """GET /api/auth/users/{id}/following/"""
 
     serializer_class = UserPublicSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user_id = self.kwargs["id"]
@@ -355,11 +393,14 @@ class SuggestedUsersView(generics.ListAPIView):
         top_ids = [uid for uid, _ in scored[:10]]
 
         if not top_ids:
-            # Fallback: popular users
-            return candidates.order_by("-followers_count")[:10]
+            # Fallback: popular users, annotated for serializer
+            return get_annotated_user_queryset(me).exclude(
+                id=me.id
+            ).exclude(id__in=following_ids).order_by("-followers_count")[:10]
 
-        # Batch fetch all users in a single query to avoid N+1
-        users_by_id = {u.id: u for u in User.objects.filter(id__in=top_ids)}
+        # Batch fetch all users in a single query with annotations to avoid N+1
+        annotated_qs = get_annotated_user_queryset(me).filter(id__in=top_ids)
+        users_by_id = {u.id: u for u in annotated_qs}
         # Preserve ordering
         return [users_by_id[uid] for uid in top_ids if uid in users_by_id]
 

@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.contrib.gis.db import models as gis_models
 from django.db import models
 from django.db.models.indexes import Index
 
@@ -26,6 +27,13 @@ class Venue(TimeStampedModel):
     )
     longitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    location = gis_models.PointField(
+        geography=True,
+        srid=4326,
+        null=True,
+        blank=True,
+        help_text="PostGIS point (populated from latitude/longitude).",
     )
     google_place_id = models.CharField(max_length=200, blank=True, default="")
     price_level = models.PositiveSmallIntegerField(

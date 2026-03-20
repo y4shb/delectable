@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchUnreadCount } from '../api/api';
 import { useAuth } from '../context/AuthContext';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 interface NotificationContextValue {
   unreadCount: number;
@@ -30,6 +31,33 @@ export function NotificationBadgeProvider({
   const queryClient = useQueryClient();
   const [sseCount, setSSECount] = useState<number | null>(null);
   const [sseActive, setSSEActive] = useState(useSSE);
+
+  // Push notifications -- request permission and register token
+  const handleForegroundMessage = useCallback(
+    (payload: import('firebase/messaging').MessagePayload) => {
+      // When a push arrives while the app is focused, refresh the
+      // notification count and invalidate the list query.
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadCount'] });
+
+      // Show a native notification even in the foreground so the user
+      // does not miss it.
+      if (payload.notification && 'Notification' in window) {
+        const { title, body } = payload.notification;
+        try {
+          new Notification(title ?? 'Delectable', {
+            body: body ?? 'You have a new notification',
+            icon: '/icons/icon-192.png',
+          });
+        } catch {
+          // Notification constructor may not be available in all contexts
+        }
+      }
+    },
+    [queryClient],
+  );
+
+  usePushNotifications(handleForegroundMessage);
 
   // Polling fallback — only when authenticated
   const { data: polledCount, refetch } = useQuery({

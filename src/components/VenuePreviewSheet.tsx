@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Typography, Chip, Button, useTheme } from '@mui/material';
+import { Box, Typography, Chip, Button, useTheme, IconButton } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
+import CloseIcon from '@mui/icons-material/Close';
 import Link from 'next/link';
 import { Venue } from '../types';
 
@@ -28,6 +29,19 @@ export default function VenuePreviewSheet({ venue, onDismiss }: VenuePreviewShee
       setVisible(false);
     }
   }, [venue]);
+
+  // Escape key to dismiss
+  useEffect(() => {
+    if (!venue) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setVisible(false);
+        setTimeout(onDismiss, 300);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [venue, onDismiss]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     startYRef.current = e.clientY;
@@ -63,6 +77,8 @@ export default function VenuePreviewSheet({ venue, onDismiss }: VenuePreviewShee
   return (
     <Box
       ref={sheetRef}
+      role="dialog"
+      aria-label={`${venue.name} preview`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -88,11 +104,13 @@ export default function VenuePreviewSheet({ venue, onDismiss }: VenuePreviewShee
         cursor: 'grab',
       }}
     >
-      {/* Drag handle */}
+      {/* Drag handle + close button */}
       <Box
         sx={{
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'center',
+          position: 'relative',
           pt: 1,
           pb: 0.5,
         }}
@@ -105,6 +123,22 @@ export default function VenuePreviewSheet({ venue, onDismiss }: VenuePreviewShee
             bgcolor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
           }}
         />
+        <IconButton
+          aria-label="Close venue preview"
+          onClick={() => {
+            setVisible(false);
+            setTimeout(onDismiss, 300);
+          }}
+          size="small"
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 4,
+            color: 'text.secondary',
+          }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
       </Box>
 
       {/* Venue photo */}

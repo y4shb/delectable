@@ -363,7 +363,15 @@ class MonthlyRecapView(APIView):
         )
 
         if month_has_ended:
-            recap = MonthlyRecap.objects.create(**recap_kwargs)
+            recap, _ = MonthlyRecap.objects.get_or_create(
+                user=request.user,
+                year=year,
+                month=month,
+                defaults={
+                    k: v for k, v in recap_kwargs.items()
+                    if k not in ("user", "year", "month")
+                },
+            )
         else:
             # For the current month, return without persisting stale data
             recap = MonthlyRecap(**recap_kwargs)

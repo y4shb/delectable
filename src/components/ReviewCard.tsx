@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Typography, Avatar, Chip, Stack } from '@mui/material';
+import { Box, Typography, Avatar, Chip, Stack, IconButton, Menu, MenuItem } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
@@ -7,6 +7,8 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import VerifiedIcon from '@mui/icons-material/Verified';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import FlagIcon from '@mui/icons-material/Flag';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { likeReview, unlikeReview, bookmarkReview, unbookmarkReview } from '../api/api';
 import Link from 'next/link';
@@ -14,6 +16,7 @@ import Image from 'next/image';
 import type { Comment } from '../types';
 import dynamic from 'next/dynamic';
 const PhotoCarousel = dynamic(() => import('./PhotoCarousel'), { ssr: false });
+const ReportDialog = dynamic(() => import('./ReportDialog'), { ssr: false });
 
 interface ReviewCardProps {
   id: string;
@@ -70,6 +73,8 @@ function ReviewCard({
   const [bookmarked, setBookmarked] = useState(initialIsBookmarked);
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [carouselOpen, setCarouselOpen] = useState(false);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   // Deck swipe state
   const [deckIndex, setDeckIndex] = useState(0);
@@ -287,7 +292,7 @@ function ReviewCard({
 
   // Derive walking time in minutes
   const walkingMinutes =
-    distance && distance > 0 ? Math.round(distance / 80) : null;
+    distance && distance > 0 ? Math.max(1, Math.round(distance / 80)) : null;
 
   // Shared translucent pill badge style
   const badgePillSx = {
@@ -437,7 +442,7 @@ function ReviewCard({
           >
             <Image
               src={currentPhoto || '/images/food2.jpg'}
-              alt={venue || 'Review photo'}
+              alt={dish ? `${dish} at ${venue}` : `Food photo from ${venue}`}
               fill
               sizes="(max-width: 600px) 100vw, 600px"
               style={{ objectFit: 'cover', pointerEvents: 'none' }}
@@ -568,6 +573,51 @@ function ReviewCard({
             {Number(rating).toFixed(1)}
           </Typography>
 
+          {/* More options (report) button */}
+          <IconButton
+            aria-label="More options"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuAnchorEl(e.currentTarget);
+            }}
+            sx={{
+              position: 'absolute',
+              top: 60,
+              right: 16,
+              zIndex: 5,
+              color: '#fff',
+              bgcolor: 'rgba(0,0,0,0.35)',
+              width: 32,
+              height: 32,
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.55)' },
+            }}
+            size="small"
+          >
+            <MoreVertIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+          <Menu
+            anchorEl={menuAnchorEl}
+            open={Boolean(menuAnchorEl)}
+            onClose={(e: React.SyntheticEvent) => {
+              (e as React.MouseEvent)?.stopPropagation?.();
+              setMenuAnchorEl(null);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuAnchorEl(null);
+                setReportDialogOpen(true);
+              }}
+            >
+              <FlagIcon sx={{ fontSize: 18, mr: 1, color: 'error.main' }} />
+              Report
+            </MenuItem>
+          </Menu>
+
           {/* Content overlay */}
           <Box
             className="review-content"
@@ -648,8 +698,12 @@ function ReviewCard({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.3,
+                    minWidth: 44,
+                    minHeight: 44,
+                    justifyContent: 'center',
                     transition: 'transform 0.15s ease',
                     '&:active': { transform: 'scale(0.95)' },
+                    '&:focus-visible': { outline: '2px solid #F24D4F', outlineOffset: 2, borderRadius: '4px' },
                   }}
                 >
                   {liked ? (
@@ -683,8 +737,12 @@ function ReviewCard({
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
+                    minWidth: 44,
+                    minHeight: 44,
+                    justifyContent: 'center',
                     transition: 'transform 0.15s ease',
                     '&:active': { transform: 'scale(0.95)' },
+                    '&:focus-visible': { outline: '2px solid #F24D4F', outlineOffset: 2, borderRadius: '4px' },
                   }}
                 >
                   {bookmarked ? (
@@ -823,6 +881,14 @@ function ReviewCard({
         venue={venue}
         rating={rating}
         user={user}
+      />
+
+      {/* Report content dialog */}
+      <ReportDialog
+        open={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        contentType="review"
+        contentId={id}
       />
     </>
   );

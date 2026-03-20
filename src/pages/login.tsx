@@ -117,6 +117,7 @@ export default function LoginPage() {
       >
         {/* Brand logo */}
         <Typography
+          component="h1"
           sx={{
             fontFamily: '"Classy Pen", Helvetica, sans-serif',
             fontSize: 56,

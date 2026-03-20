@@ -11,6 +11,18 @@ export default class MyDocument extends Document {
     return (
       <Html lang="en">
         <Head>
+          <meta charSet="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <meta name="theme-color" content="#F24D4F" />
+
+          {/* Default Open Graph meta tags */}
+          <meta property="og:site_name" content="Delectable" />
+          <meta property="og:type" content="website" />
+          <meta property="og:image" content="/images/og-default.png" />
+
+          {/* Default Twitter Card */}
+          <meta name="twitter:card" content="summary_large_image" />
+
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />

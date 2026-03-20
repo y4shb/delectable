@@ -101,7 +101,11 @@ class VenueDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_occasions(self, obj):
-        qs = VenueOccasion.objects.filter(venue=obj).select_related("occasion").order_by("-vote_count")[:8]
+        # Use prefetched occasions if available, otherwise query
+        if hasattr(obj, '_prefetched_objects_cache') and 'occasions' in obj._prefetched_objects_cache:
+            qs = list(obj.occasions.all())[:8]
+        else:
+            qs = list(VenueOccasion.objects.filter(venue=obj).select_related("occasion").order_by("-vote_count")[:8])
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             from .models import OccasionVote
@@ -117,10 +121,25 @@ class VenueDetailSerializer(serializers.ModelSerializer):
         return VenueOccasionSerializer(qs, many=True, context=self.context).data
 
     def get_dietary_badges(self, obj):
-        reports = DietaryReport.objects.filter(venue=obj).values("category").annotate(
-            available_count=Count("id", filter=Q(is_available=True)),
-            total_count=Count("id"),
-        )
+        # Use prefetched dietary_reports if available, otherwise query
+        if hasattr(obj, '_prefetched_objects_cache') and 'dietary_reports' in obj._prefetched_objects_cache:
+            all_reports = list(obj.dietary_reports.all())
+            # Aggregate in Python from prefetched data
+            from collections import defaultdict
+            cat_counts = defaultdict(lambda: {"available": 0, "total": 0})
+            for report in all_reports:
+                cat_counts[report.category]["total"] += 1
+                if report.is_available:
+                    cat_counts[report.category]["available"] += 1
+            reports = [
+                {"category": cat, "available_count": v["available"], "total_count": v["total"]}
+                for cat, v in cat_counts.items()
+            ]
+        else:
+            reports = DietaryReport.objects.filter(venue=obj).values("category").annotate(
+                available_count=Count("id", filter=Q(is_available=True)),
+                total_count=Count("id"),
+            )
 
         badges = []
         for report in reports:
@@ -145,6 +164,9 @@ class VenueDetailSerializer(serializers.ModelSerializer):
         return DietaryBadgeSerializer(badges, many=True).data
 
     def get_dishes(self, obj):
+        # Use prefetched dishes if available, otherwise query
+        if hasattr(obj, '_prefetched_dishes'):
+            return DishListSerializer(obj._prefetched_dishes, many=True).data
         qs = Dish.objects.filter(venue=obj).order_by("-review_count")[:10]
         return DishListSerializer(qs, many=True).data
 
@@ -239,7 +261,7 @@ class GuideStopSerializer(serializers.ModelSerializer):
 class FoodGuideListSerializer(serializers.ModelSerializer):
     """Lightweight food guide for lists."""
 
-    stops_count = serializers.IntegerField(source="stops.count", read_only=True)
+    stops_count = serializers.IntegerField(read_only=True)
     author_name = serializers.CharField(source="author.name", read_only=True)
 
     class Meta:

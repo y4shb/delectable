@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import Link from 'next/link';
 import EditIcon from '@mui/icons-material/Edit';
+import SettingsIcon from '@mui/icons-material/Settings';
 import StarIcon from '@mui/icons-material/Star';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import ForkRightIcon from '@mui/icons-material/ForkRight';
@@ -250,6 +251,30 @@ export default function ProfilePage() {
             }}
           >
             Edit Profile
+          </Button>
+        </Link>
+
+        {/* Account Settings button */}
+        <Link href="/settings/account" legacyBehavior passHref>
+          <Button
+            component="a"
+            variant="outlined"
+            size="small"
+            startIcon={<SettingsIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              mt: 1,
+              borderRadius: '48px',
+              textTransform: 'none',
+              fontWeight: 600,
+              borderColor: theme.palette.divider,
+              color: theme.palette.text.primary,
+              '&:hover': {
+                borderColor: theme.palette.primary.main,
+                bgcolor: 'transparent',
+              },
+            }}
+          >
+            Account Settings
           </Button>
         </Link>
 

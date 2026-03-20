@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import AppShell from '../../layouts/AppShell';
+import SEOHead from '../../components/SEOHead';
 import {
   Avatar,
   Box,
@@ -171,8 +172,19 @@ export default function PlaylistDetailPage() {
     );
   }
 
+  const coverPhoto = playlist.items.length > 0
+    ? playlist.items[0]?.venueDetail?.photoUrl
+    : undefined;
+
   return (
     <AppShell>
+      <SEOHead
+        title={playlist.title}
+        description={playlist.description || `A food playlist with ${playlist.items.length} spots curated by ${playlist.owner.name}`}
+        image={coverPhoto}
+        url={`/playlist/${playlist.id}`}
+        type="article"
+      />
       {/* Back button */}
       <Box sx={{ mb: 1, px: 1 }}>
         <IconButton
@@ -198,6 +210,7 @@ export default function PlaylistDetailPage() {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="h5"
+              component="h1"
               sx={{
                 fontWeight: 700,
                 fontFamily: '"Classy Pen", Helvetica, sans-serif',
@@ -365,7 +378,7 @@ export default function PlaylistDetailPage() {
               {item.venueDetail?.photoUrl && (
                 <Image
                   src={item.venueDetail.photoUrl || '/images/food2.jpg'}
-                  alt={item.caption || 'Playlist item'}
+                  alt={item.caption ? `${item.caption} - ${item.venueDetail.name}` : `${item.venueDetail.name} photo`}
                   fill
                   sizes="(max-width: 600px) 100vw, 600px"
                   style={{ objectFit: 'cover' }}

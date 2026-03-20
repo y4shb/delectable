@@ -7,6 +7,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -37,12 +39,15 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
+    "django.contrib.gis",
     # Third party
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "corsheaders",
+    "storages",
+    "django_celery_beat",
     # Local apps
     "apps.core",
     "apps.users",
@@ -196,6 +201,33 @@ CACHES = {
 }
 
 # --------------------------------------------------------------------------
+# S3 Storage (when configured via environment variables)
+# --------------------------------------------------------------------------
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_S3_BUCKET", "delectable-uploads")
+AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION", "us-east-1")
+AWS_S3_CUSTOM_DOMAIN = os.environ.get("AWS_CLOUDFRONT_DOMAIN")  # Optional CloudFront
+AWS_DEFAULT_ACL = None
+AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+AWS_QUERYSTRING_AUTH = False  # Public read via CloudFront
+
+# Only use S3 storage if credentials are configured
+if AWS_ACCESS_KEY_ID:
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+# Maximum upload size: 10MB
+UPLOAD_MAX_FILE_SIZE = 10 * 1024 * 1024
+
+# Allowed upload content types
+UPLOAD_ALLOWED_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+}
+
+# --------------------------------------------------------------------------
 # Feed Intelligence - Tastemaker accounts for cold-start onboarding
 # --------------------------------------------------------------------------
 TASTEMAKER_EMAILS = [
@@ -203,3 +235,71 @@ TASTEMAKER_EMAILS = [
     "tastemaker2@delectable.app",
     "tastemaker3@delectable.app",
 ]
+
+# --------------------------------------------------------------------------
+# Celery — Distributed task queue
+# --------------------------------------------------------------------------
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/1")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 300
+
+# --------------------------------------------------------------------------
+# Logging
+# --------------------------------------------------------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "security": {
+            "format": "[%(asctime)s] %(levelname)s %(message)s",
+        },
+    },
+    "handlers": {
+        "security_file": {
+            "level": "WARNING",
+            "class": "logging.FileHandler",
+            "filename": BASE_DIR / "logs" / "security.log",
+            "formatter": "security",
+        },
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "security",
+        },
+    },
+    "loggers": {
+        "delectable.security": {
+            "handlers": ["security_file", "console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
+CELERY_BEAT_SCHEDULE = {
+    "recompute-trending": {
+        "task": "apps.feed.tasks.recompute_trending",
+        "schedule": 30 * 60,  # Every 30 minutes
+    },
+    "process-streak-check": {
+        "task": "apps.gamification.tasks.process_streak_check",
+        "schedule": crontab(hour=0, minute=0),
+    },
+    "send-weekly-digest": {
+        "task": "apps.notifications.tasks.send_weekly_digest",
+        "schedule": crontab(hour=10, minute=0, day_of_week="sunday"),
+    },
+    "refresh-venue-similarity": {
+        "task": "apps.venues.tasks.refresh_venue_similarity",
+        "schedule": crontab(hour=3, minute=0),
+    },
+    "compute-rating-snapshots": {
+        "task": "apps.venues.tasks.compute_rating_snapshots",
+        "schedule": crontab(hour=4, minute=0),
+    },
+}

@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AppShell from '../layouts/AppShell';
+import SEOHead from '../components/SEOHead';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useChallenges, useChallengeLeaderboard } from '../hooks/useApi';
 import { joinChallenge as joinChallengeApi } from '../api/api';
@@ -93,6 +94,11 @@ export default function ChallengesPage() {
 
   return (
     <AppShell>
+      <SEOHead
+        title="Food Challenges"
+        description="Join food challenges, compete with friends, and earn XP on Delectable"
+        url="/challenges"
+      />
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Box display="flex" alignItems="center" gap={1} mb={3}>
           <TrophyIcon sx={{ fontSize: 32, color: '#F24D4F' }} />

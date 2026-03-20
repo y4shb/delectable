@@ -3,6 +3,7 @@
 from decimal import Decimal
 from math import cos, radians
 
+from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,6 +16,8 @@ from .serializers import VenueListSerializer
 
 class NearbySavedVenuesView(APIView):
     """GET /api/venues/nearby-saved/?lat=&lng=&radius= — Venues user saved that are nearby."""
+
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         lat = request.query_params.get("lat")

@@ -44,10 +44,12 @@ export default function BottomTabBar() {
 
   return (
     <Paper
+      component="nav"
+      aria-label="Main navigation"
       sx={{
         position: 'fixed',
         left: '50%',
-        bottom: 24,
+        bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
         transform: 'translateX(-50%)',
         zIndex: 20,
         borderRadius: 6,
@@ -80,8 +82,6 @@ export default function BottomTabBar() {
           width: '100%',
           background: 'transparent',
         }}
-        role="navigation"
-        aria-label="Main navigation"
       >
         {tabConfig.map(tab => (
           <BottomNavigationAction
@@ -115,7 +115,8 @@ export default function BottomTabBar() {
             }
             aria-label={tab['aria-label']}
             sx={{
-              minWidth: 0,
+              minWidth: 44,
+              minHeight: 44,
               px: 1.2,
               py: 0.3,
               color: 'inherit',

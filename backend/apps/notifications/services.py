@@ -160,7 +160,64 @@ def create_notification(
             extra_data=extra_data or {},
         )
 
+        # Dispatch push notification asynchronously
+        _dispatch_push(notification)
+
         return notification
+
+
+def _dispatch_push(notification) -> None:
+    """Dispatch a push notification for a newly created Notification.
+
+    Uses Celery when available, otherwise falls back to a synchronous call.
+    The push task is fire-and-forget -- failures are logged, not raised.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    push_data = {
+        "notification_id": str(notification.id),
+        "notification_type": notification.notification_type,
+    }
+    if notification.related_object_id:
+        push_data["related_object_id"] = str(notification.related_object_id)
+
+    title = _push_title_for_type(notification.notification_type)
+    body = notification.text
+    user_id = str(notification.recipient_id)
+
+    try:
+        from .tasks import send_push_notification_task
+
+        send_push_notification_task.delay(user_id, title, body, push_data)
+    except Exception:
+        # Celery not available or import failed -- send synchronously
+        try:
+            from .push import send_push_notification
+
+            send_push_notification(user_id, title, body, data=push_data)
+        except Exception as exc:
+            logger.error("Failed to dispatch push notification: %s", exc)
+
+
+def _push_title_for_type(notification_type: str) -> str:
+    """Return a human-friendly push title for each notification type."""
+    titles = {
+        "like": "Someone liked your review",
+        "comment": "New comment on your review",
+        "follow": "You have a new follower",
+        "playlist_add": "Added to a playlist",
+        "mention": "You were mentioned",
+        "trending": "You're trending!",
+        "streak": "Dining streak update",
+        "badge": "New badge earned!",
+        "nudge": "A friend nudged you",
+        "digest": "Your weekly digest",
+        "level_up": "Level up!",
+        "nearby": "A venue near you",
+    }
+    return titles.get(notification_type, "Delectable")
 
 
 def get_unread_count(user) -> int:
@@ -207,14 +264,18 @@ def generate_digest_content(user) -> dict:
             "name": ub.badge.name,
             "progress": ub.progress,
             "required": ub.badge.requirement_value,
-            "percent": int((ub.progress / ub.badge.requirement_value) * 100),
+            "percent": int((ub.progress / max(ub.badge.requirement_value, 1)) * 100),
         }
         for ub in badges_near
     ]
 
-    # Get trending venues
+    # Get trending venues — serialize to dicts to avoid returning queryset objects
     try:
-        trending = get_trending_venues(limit=5)
+        trending_qs = get_trending_venues(limit=5)
+        trending = [
+            {"id": str(t.venue_id), "name": t.venue.name, "score": float(t.score)}
+            for t in trending_qs
+        ]
     except Exception:
         trending = []
 

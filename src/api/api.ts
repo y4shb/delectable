@@ -906,3 +906,29 @@ export async function fetchDishComparison(
   });
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Content Reporting & Moderation
+// ---------------------------------------------------------------------------
+
+export async function reportContent(data: {
+  reportType: string;
+  contentType: string;
+  contentId: string;
+  reason?: string;
+}): Promise<void> {
+  await api.post('/reports/', data);
+}
+
+// ---------------------------------------------------------------------------
+// Account Management (Privacy & Data)
+// ---------------------------------------------------------------------------
+
+export async function exportMyData(): Promise<Blob> {
+  const response = await api.get('/auth/me/export/', { responseType: 'blob' });
+  return response.data;
+}
+
+export async function deleteMyAccount(password?: string): Promise<void> {
+  await api.delete('/auth/me/delete/', { data: password ? { password } : {} });
+}

@@ -7,12 +7,9 @@ import {
   Button,
   Snackbar,
   Stack,
-  Avatar,
   Chip,
-  IconButton,
   useTheme,
 } from '@mui/material';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +18,7 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/router';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import ImageUpload from '../../components/ImageUpload';
 
 const CUISINE_OPTIONS = [
   'Japanese',
@@ -53,6 +51,7 @@ export default function EditProfilePage() {
   const { user: authUser, updateUser } = useAuth();
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>(authUser?.avatarUrl ?? '');
 
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>(
     authUser?.favoriteCuisines ?? [],
@@ -85,6 +84,7 @@ export default function EditProfilePage() {
       const updated = await updateMe({
         name: data.name,
         bio: data.bio,
+        avatarUrl: avatarUrl || undefined,
         favoriteCuisines: selectedCuisines,
       });
       updateUser(updated);
@@ -112,31 +112,14 @@ export default function EditProfilePage() {
         </Typography>
 
         <Stack spacing={3}>
-          {/* Avatar section */}
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Box sx={{ position: 'relative', width: 80, height: 80 }}>
-              <Avatar
-                src={authUser?.avatarUrl}
-                sx={{ width: 80, height: 80 }}
-              />
-              <IconButton
-                aria-label="Change profile photo"
-                sx={{
-                  position: 'absolute',
-                  bottom: -2,
-                  right: -2,
-                  width: 28,
-                  height: 28,
-                  backgroundColor: theme.palette.primary.main,
-                  color: '#fff',
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                  },
-                }}
-              >
-                <PhotoCameraIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Box>
+          {/* Avatar upload */}
+          <Box sx={{ maxWidth: 200, mx: 'auto' }}>
+            <ImageUpload
+              value={avatarUrl}
+              onChange={setAvatarUrl}
+              folder="avatars"
+              aspectRatio={1}
+            />
           </Box>
 
           {/* Name field */}

@@ -15,6 +15,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import StarIcon from '@mui/icons-material/Star';
 import Link from 'next/link';
 import AppShell from '../../layouts/AppShell';
+import SEOHead from '../../components/SEOHead';
 import ReviewCard from '../../components/ReviewCard';
 import { useDishDetail } from '../../hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
@@ -63,8 +64,17 @@ export default function DishDetailPage() {
     ? dish.category.charAt(0).toUpperCase() + dish.category.slice(1)
     : '';
 
+  const venueName = dish.venueDetail?.name || '';
+  const dishDescription = `${Number(dish.avgRating).toFixed(1)} stars from ${dish.reviewCount} ${dish.reviewCount === 1 ? 'review' : 'reviews'}${venueName ? ` at ${venueName}` : ''}`;
+
   return (
     <AppShell>
+      <SEOHead
+        title={`${dish.name}${venueName ? ` at ${venueName}` : ''}`}
+        description={dishDescription}
+        url={`/dish/${dish.id}`}
+        type="article"
+      />
       <Box sx={{ pb: 10 }}>
         {/* Header */}
         <Box

@@ -1,4 +1,4 @@
-from django.db.models import F
+from django.db.models import Count, F
 from rest_framework import generics, permissions
 
 from .models import FoodGuide
@@ -16,7 +16,9 @@ class FoodGuideListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        qs = FoodGuide.objects.filter(is_published=True).prefetch_related("stops")
+        qs = FoodGuide.objects.filter(is_published=True).annotate(
+            stops_count=Count("stops")
+        ).select_related("author")
         params = self.request.query_params
 
         city = params.get("city")

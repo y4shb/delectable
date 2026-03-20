@@ -32,16 +32,54 @@ export default function PhotoCarousel({
   const startY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Track previously focused element so we can restore focus on close
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
       setCurrentIndex(initialIndex);
       setIsClosing(false);
       document.body.classList.add('no-scroll');
+      // Move focus into the dialog
+      requestAnimationFrame(() => {
+        containerRef.current?.focus();
+      });
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
     }
     return () => {
       document.body.classList.remove('no-scroll');
     };
   }, [open, initialIndex]);
+
+  // Focus trap: keep Tab within the dialog
+  useEffect(() => {
+    if (!open) return;
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !containerRef.current) return;
+      const focusable = containerRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleTab);
+    return () => window.removeEventListener('keydown', handleTab);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -108,6 +146,10 @@ export default function PhotoCarousel({
   return (
     <Box
       ref={containerRef}
+      role="dialog"
+      aria-label="Photo gallery"
+      aria-modal="true"
+      tabIndex={-1}
       onClick={(e) => {
         if (e.target === containerRef.current) handleClose();
       }}
@@ -118,6 +160,7 @@ export default function PhotoCarousel({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        outline: 'none',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         backgroundColor: `rgba(0, 0, 0, ${0.85 * opacity})`,
@@ -138,6 +181,7 @@ export default function PhotoCarousel({
       {/* Close button */}
       <IconButton
         onClick={handleClose}
+        aria-label="Close photo gallery"
         sx={{
           position: 'absolute',
           top: 16,
@@ -174,6 +218,7 @@ export default function PhotoCarousel({
       {/* Navigation arrows */}
       {photos.length > 1 && currentIndex > 0 && (
         <IconButton
+          aria-label="Previous photo"
           onClick={(e) => {
             e.stopPropagation();
             setCurrentIndex((i) => i - 1);
@@ -194,6 +239,7 @@ export default function PhotoCarousel({
       )}
       {photos.length > 1 && currentIndex < photos.length - 1 && (
         <IconButton
+          aria-label="Next photo"
           onClick={(e) => {
             e.stopPropagation();
             setCurrentIndex((i) => i + 1);

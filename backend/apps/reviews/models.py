@@ -124,7 +124,7 @@ class Comment(TimeStampedModel):
         null=True,
         blank=True,
     )
-    text = models.TextField(max_length=1000)
+    text = models.TextField(max_length=2000)
 
     class Meta:
         db_table = "comments"
@@ -178,6 +178,68 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"{self.user} bookmarked {self.review.id}"
+
+
+class ContentReport(TimeStampedModel):
+    """User-submitted report for content moderation (Apple App Store requirement)."""
+
+    class ReportType(models.TextChoices):
+        SPAM = "spam", "Spam"
+        INAPPROPRIATE = "inappropriate", "Inappropriate Content"
+        HARASSMENT = "harassment", "Harassment"
+        FALSE_INFO = "false_info", "False Information"
+        COPYRIGHT = "copyright", "Copyright Violation"
+        OTHER = "other", "Other"
+
+    class ReportContentType(models.TextChoices):
+        REVIEW = "review", "Review"
+        COMMENT = "comment", "Comment"
+        USER = "user", "User Profile"
+        PHOTO = "photo", "Photo"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending Review"
+        REVIEWED = "reviewed", "Reviewed"
+        ACTIONED = "actioned", "Action Taken"
+        DISMISSED = "dismissed", "Dismissed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reports_filed",
+    )
+    report_type = models.CharField(max_length=20, choices=ReportType.choices)
+    content_type = models.CharField(
+        max_length=20, choices=ReportContentType.choices
+    )
+    content_id = models.UUIDField()
+    reason = models.TextField(max_length=500, blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reports_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    action_taken = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "content_reports"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporter", "content_type", "content_id"],
+                name="unique_report_per_user_per_content",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.reporter} reported {self.content_type}:{self.content_id} ({self.report_type})"
 
 
 class WantToTry(models.Model):

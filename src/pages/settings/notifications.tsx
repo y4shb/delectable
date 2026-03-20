@@ -235,6 +235,20 @@ export default function NotificationSettingsPage() {
             )}
           </FormGroup>
         </Box>
+        <Divider sx={{ my: 3 }} />
+
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Learn how we handle your data in our{' '}
+            <a
+              href="/privacy"
+              style={{ color: '#F24D4F', textDecoration: 'underline' }}
+            >
+              Privacy Policy
+            </a>
+            .
+          </Typography>
+        </Box>
       </Container>
     </AppShell>
   );

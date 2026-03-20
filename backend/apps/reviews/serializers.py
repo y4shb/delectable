@@ -3,7 +3,7 @@ from rest_framework import serializers
 from apps.users.serializers import UserPublicSerializer
 from apps.venues.serializers import DishListSerializer, VenueListSerializer
 
-from .models import Bookmark, Comment, Review, ReviewPhoto, WantToTry
+from .models import Bookmark, Comment, ContentReport, Review, ReviewPhoto, WantToTry
 
 
 class CommentReplySerializer(serializers.ModelSerializer):
@@ -31,6 +31,8 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class CommentCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating comments."""
+
+    text = serializers.CharField(max_length=2000)
 
     class Meta:
         model = Comment
@@ -81,15 +83,19 @@ class ReviewSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_liked(self, obj):
+        if hasattr(obj, '_is_liked'):
+            return obj._is_liked
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return getattr(obj, '_is_liked', obj.likes.filter(user=request.user).exists())
+            return obj.likes.filter(user=request.user).exists()
         return False
 
     def get_is_bookmarked(self, obj):
+        if hasattr(obj, '_is_bookmarked'):
+            return obj._is_bookmarked
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return getattr(obj, '_is_bookmarked', obj.bookmarks.filter(user=request.user).exists())
+            return obj.bookmarks.filter(user=request.user).exists()
         return False
 
     def get_photo_urls(self, obj):
@@ -97,7 +103,11 @@ class ReviewSerializer(serializers.ModelSerializer):
         urls = []
         if obj.photo_url:
             urls.append(obj.photo_url)
-        additional = obj.photos.values_list("photo_url", flat=True).order_by("sort_order")
+        # Use prefetched photos if available, otherwise query
+        if hasattr(obj, '_prefetched_objects_cache') and 'photos' in obj._prefetched_objects_cache:
+            additional = [p.photo_url for p in obj.photos.all()]
+        else:
+            additional = list(obj.photos.values_list("photo_url", flat=True).order_by("sort_order"))
         urls.extend(additional)
         return urls
 
@@ -190,6 +200,51 @@ class QuickReviewSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("Photo is required for quick review.")
         return value
+
+
+class ContentReportSerializer(serializers.ModelSerializer):
+    """Serializer for content moderation reports."""
+
+    class Meta:
+        model = ContentReport
+        fields = ["report_type", "content_type", "content_id", "reason"]
+
+    def validate_reason(self, value):
+        if value and len(value) > 500:
+            raise serializers.ValidationError(
+                "Reason must be 500 characters or fewer."
+            )
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("Authentication required.")
+
+        content_type = attrs.get("content_type")
+        content_id = attrs.get("content_id")
+
+        # Prevent self-reporting on reviews
+        if content_type == ContentReport.ReportContentType.REVIEW:
+            if Review.objects.filter(
+                id=content_id, user=request.user
+            ).exists():
+                raise serializers.ValidationError(
+                    "You cannot report your own content."
+                )
+
+        # Prevent self-reporting on comments
+        if content_type == ContentReport.ReportContentType.COMMENT:
+            from .models import Comment
+
+            if Comment.objects.filter(
+                id=content_id, user=request.user
+            ).exists():
+                raise serializers.ValidationError(
+                    "You cannot report your own content."
+                )
+
+        return attrs
 
 
 class WantToTrySerializer(serializers.ModelSerializer):
