@@ -1,182 +1,101 @@
 import React from 'react';
-import { Box, Typography, Card, CardMedia, CardContent, Chip, Skeleton } from '@mui/material';
+import { Box, Typography, Chip, Skeleton, useTheme } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useSeasonalHighlights } from '../hooks/useApi';
 
 const SEASON_THEMES: Record<string, { gradient: string; accent: string; label: string }> = {
-  spring: {
-    gradient: 'linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%)',
-    accent: '#2e7d32',
-    label: 'Spring Specials',
-  },
-  summer: {
-    gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
-    accent: '#e65100',
-    label: 'Summer Picks',
-  },
-  fall: {
-    gradient: 'linear-gradient(135deg, #ffa751 0%, #ffe259 100%)',
-    accent: '#bf360c',
-    label: 'Fall Favorites',
-  },
-  winter: {
-    gradient: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
-    accent: '#1565c0',
-    label: 'Winter Warmers',
-  },
+  spring: { gradient: 'linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%)', accent: '#2e7d32', label: 'Spring Specials' },
+  summer: { gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', accent: '#e65100', label: 'Summer Picks' },
+  fall: { gradient: 'linear-gradient(135deg, #ffa751 0%, #ffe259 100%)', accent: '#bf360c', label: 'Fall Favorites' },
+  winter: { gradient: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)', accent: '#1565c0', label: 'Winter Warmers' },
 };
 
 export default function SeasonalBanner() {
   const { data, isLoading } = useSeasonalHighlights();
   const router = useRouter();
+  const muiTheme = useTheme();
 
   if (isLoading) {
     return (
-      <Box sx={{ px: 2, py: 2 }}>
-        <Skeleton variant="text" width={180} height={32} sx={{ mb: 1 }} />
-        <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto' }}>
+      <Box sx={{ px: 2, py: 1.5 }}>
+        <Skeleton variant="text" width={160} height={28} sx={{ mb: 1 }} />
+        <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto' }}>
           {[0, 1, 2].map((i) => (
-            <Skeleton
-              key={i}
-              variant="rectangular"
-              width={220}
-              height={260}
-              sx={{ borderRadius: 3, flexShrink: 0 }}
-            />
+            <Skeleton key={i} variant="rectangular" width={160} height={200} sx={{ borderRadius: 2, flexShrink: 0 }} />
           ))}
         </Box>
       </Box>
     );
   }
 
-  if (!data || !data.data || data.data.length === 0) {
-    return null;
-  }
+  if (!data || !data.data || data.data.length === 0) return null;
 
-  const season = data.season;
-  const theme = SEASON_THEMES[season] || SEASON_THEMES.spring;
-  const highlights = data.data;
+  const theme = SEASON_THEMES[data.season] || SEASON_THEMES.spring;
 
   return (
-    <Box sx={{ py: 2, px: 2 }}>
-      {/* Section header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        <Typography
-          variant="h6"
-          fontWeight={700}
-          sx={{ color: theme.accent }}
-        >
+    <Box sx={{ py: 1.5 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, px: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700} sx={{ color: theme.accent, fontSize: '1.05rem' }}>
           {theme.label}
         </Typography>
         <Chip
           label="Limited time"
           size="small"
-          sx={{
-            background: theme.gradient,
-            color: theme.accent,
-            fontWeight: 600,
-            fontSize: '0.7rem',
-            height: 22,
-          }}
+          sx={{ background: theme.gradient, color: theme.accent, fontWeight: 600, fontSize: '0.65rem', height: 20 }}
         />
       </Box>
 
-      {/* Horizontal scroll */}
+      {/* Cards */}
       <Box
         sx={{
           display: 'flex',
-          gap: 2,
+          gap: 1.5,
           overflowX: 'auto',
-          pb: 1,
-          scrollBehavior: 'smooth',
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          '&::-webkit-scrollbar': { display: 'none' },
-          mx: -2,
           px: 2,
+          pb: 1,
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
         }}
       >
-        {highlights.map((highlight) => (
-          <Card
-            key={highlight.id}
-            onClick={() => {
-              if (highlight.venueDetail?.id) {
-                router.push(`/venue/${highlight.venueDetail.id}`);
-              }
-            }}
+        {data.data.map((h) => (
+          <Box
+            key={h.id}
+            onClick={() => h.venueDetail?.id && router.push(`/venue/${h.venueDetail.id}`)}
             sx={{
-              width: 220,
-              minWidth: 220,
+              width: 160,
+              minWidth: 160,
               flexShrink: 0,
-              borderRadius: 3,
-              overflow: 'hidden',
               cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-              transition: 'transform 0.2s ease',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-              },
+              borderRadius: '12px',
+              overflow: 'hidden',
+              bgcolor: muiTheme.palette.background.paper,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+              transition: 'transform 0.15s ease',
+              '&:hover': { transform: 'translateY(-2px)' },
             }}
           >
-            <Box sx={{ position: 'relative' }}>
-              <CardMedia
-                component="img"
-                height={140}
-                image={highlight.photoUrl || highlight.venueDetail?.photoUrl || '/placeholder-food.jpg'}
-                alt={highlight.dishName}
-                sx={{ objectFit: 'cover' }}
-              />
-              <Chip
-                label="Seasonal"
-                size="small"
-                sx={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  background: theme.gradient,
-                  color: theme.accent,
-                  fontWeight: 700,
-                  fontSize: '0.65rem',
-                  height: 20,
-                }}
-              />
-            </Box>
-            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Box
+              component="img"
+              src={h.photoUrl || h.venueDetail?.photoUrl || '/placeholder-food.jpg'}
+              alt={h.dishName}
+              sx={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }}
+            />
+            <Box sx={{ p: 1.25 }}>
               <Typography
-                variant="subtitle2"
                 fontWeight={700}
-                noWrap
-                sx={{ mb: 0.25 }}
+                sx={{ fontSize: '0.82rem', lineHeight: 1.3, mb: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {highlight.dishName}
+                {h.dishName}
               </Typography>
               <Typography
-                variant="caption"
                 color="text.secondary"
-                noWrap
-                display="block"
-                sx={{ mb: 0.5 }}
+                sx={{ fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {highlight.venueDetail?.name}
+                {h.venueDetail?.name}
               </Typography>
-              {highlight.description && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {highlight.description}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+            </Box>
+          </Box>
         ))}
       </Box>
     </Box>

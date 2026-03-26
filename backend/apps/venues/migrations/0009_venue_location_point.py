@@ -1,10 +1,25 @@
 """Add PostGIS PointField to Venue for spatial queries.
 
 Keeps existing latitude/longitude DecimalFields for backward compatibility.
+Only runs on PostgreSQL — skipped on SQLite.
 """
 
-import django.contrib.gis.db.models.fields
-from django.db import migrations
+from django.db import connection, migrations
+
+
+def add_location_field(apps, schema_editor):
+    """Add the location column via raw SQL on PostgreSQL only."""
+    if connection.vendor != "postgresql":
+        return
+    schema_editor.execute(
+        "ALTER TABLE venues ADD COLUMN IF NOT EXISTS location geography(Point,4326)"
+    )
+
+
+def remove_location_field(apps, schema_editor):
+    if connection.vendor != "postgresql":
+        return
+    schema_editor.execute("ALTER TABLE venues DROP COLUMN IF EXISTS location")
 
 
 class Migration(migrations.Migration):
@@ -14,15 +29,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="venue",
-            name="location",
-            field=django.contrib.gis.db.models.fields.PointField(
-                geography=True,
-                srid=4326,
-                null=True,
-                blank=True,
-                help_text="PostGIS point (populated from latitude/longitude).",
-            ),
-        ),
+        migrations.RunPython(add_location_field, remove_location_field),
     ]

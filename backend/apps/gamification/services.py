@@ -101,6 +101,13 @@ def record_activity(user, activity_type: str, activity_date: Optional[date] = No
             activity_day.photo_count += 1
         elif activity_type == "comment":
             activity_day.comment_count += 1
+
+        # Update total_xp for the day from XP transactions
+        from django.db.models import Sum
+        daily_xp = XPTransaction.objects.filter(
+            user=user, created_at__date=activity_date
+        ).aggregate(total=Sum("amount"))["total"] or 0
+        activity_day.total_xp = daily_xp
         activity_day.save()
 
         # Update streak

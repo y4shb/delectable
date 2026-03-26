@@ -10,6 +10,9 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
+# Production always uses PostGIS — enable GIS app
+INSTALLED_APPS.append("django.contrib.gis")  # noqa: F405
+
 # SECURITY: Enforce secret key in production
 if not os.environ.get("DJANGO_SECRET_KEY"):
     sys.exit("CRITICAL: DJANGO_SECRET_KEY environment variable must be set in production!")

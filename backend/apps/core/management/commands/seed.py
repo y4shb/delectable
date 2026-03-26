@@ -5,6 +5,7 @@ Usage: python manage.py seed [--clear]
 
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -691,6 +692,34 @@ class Command(BaseCommand):
                 r.refresh_from_db()
             review_objs.append(r)
         self.stdout.write(f"  Reviews: {len(review_objs)}")
+
+        # --- Create multiple ReviewPhoto entries per review (2-5 photos each) ---
+        from apps.reviews.models import ReviewPhoto
+
+        ReviewPhoto.objects.filter(review__in=review_objs).delete()
+        photo_objs = []
+        for review in review_objs:
+            num_photos = random.randint(2, 5)
+            # Start with the review's primary photo, then add random extras
+            used_indices = set()
+            base_idx = FOOD_PHOTOS.index(review.photo_url) if review.photo_url in FOOD_PHOTOS else 0
+            used_indices.add(base_idx)
+            for sort_order in range(num_photos):
+                if sort_order == 0:
+                    url = review.photo_url
+                else:
+                    # Pick a random photo that hasn't been used for this review
+                    available = [i for i in range(len(FOOD_PHOTOS)) if i not in used_indices]
+                    if not available:
+                        break
+                    pick = random.choice(available)
+                    used_indices.add(pick)
+                    url = FOOD_PHOTOS[pick]
+                photo_objs.append(
+                    ReviewPhoto(review=review, photo_url=url, sort_order=sort_order)
+                )
+        ReviewPhoto.objects.bulk_create(photo_objs)
+        self.stdout.write(f"  Review Photos: {len(photo_objs)}")
 
         # --- Update dish ratings and review counts ---
         from django.db.models import Avg, Count

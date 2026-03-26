@@ -55,28 +55,34 @@ class FeedView(generics.ListAPIView):
         return Review.objects.none()
 
     def _paginated_response(self, reviews, request):
-        """Return a paginated response with cursor-based pagination metadata."""
-        limit = min(int(request.query_params.get("limit", 20)), 50)
-        cursor = request.query_params.get("cursor")
+        """Return a paginated response with offset-based pagination.
 
-        # Simple offset-based cursor for scored feeds (cursor = offset number)
+        Uses an integer offset encoded as the 'cursor' param for simplicity.
+        Scored feeds cannot use true cursor pagination because the sort order
+        is computed in Python, not at the database level.
+        """
+        limit = min(int(request.query_params.get("limit", 20)), 50)
+        offset_param = request.query_params.get("cursor") or request.query_params.get("offset")
+
         offset = 0
-        if cursor:
+        if offset_param:
             try:
-                offset = int(cursor)
+                offset = max(0, int(offset_param))
             except (ValueError, TypeError):
                 offset = 0
 
         page = reviews[offset:offset + limit]
         has_more = len(reviews) > offset + limit
-        next_cursor = str(offset + limit) if has_more else None
+        next_offset = offset + limit if has_more else None
 
         serializer = self.get_serializer(page, many=True)
         return Response({
             "data": serializer.data,
             "pagination": {
-                "next_cursor": next_cursor,
+                "next_cursor": str(next_offset) if next_offset is not None else None,
+                "next_offset": next_offset,
                 "has_more": has_more,
+                "offset": offset,
                 "limit": limit,
             },
         })

@@ -146,7 +146,10 @@ class DiningStreak(models.Model):
 
         days_since = (activity_date - self.last_activity_date).days
 
-        if days_since == 0:
+        if days_since < 0:
+            # Backfilled activity (in the past) — record it but don't affect streak
+            return result
+        elif days_since == 0:
             # Same day, no change
             return result
         elif days_since == 1:

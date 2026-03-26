@@ -42,4 +42,5 @@ def sync_venue_location(sender, instance, **kwargs):
                 exc_info=True,
             )
     else:
-        instance.location = None
+        if hasattr(instance, "location"):
+            instance.location = None

@@ -29,6 +29,8 @@ if os.environ.get("DB_NAME"):
             "PORT": os.environ.get("DB_PORT", "5432"),
         }
     }
+    # Enable GIS app only when PostGIS is configured (requires GDAL)
+    INSTALLED_APPS.append("django.contrib.gis")  # noqa: F405
 else:
     # SQLite on NTFS-mounted WSL paths has locking issues.
     # Use Linux home directory for the database file.

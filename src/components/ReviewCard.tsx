@@ -282,6 +282,15 @@ function ReviewCard({
     };
   }, []);
 
+  // Auto-slideshow: cycle through photos when card is in view
+  useEffect(() => {
+    if (!isInView || !hasMultiplePhotos || isSwiping) return;
+    const timer = setInterval(() => {
+      setDeckIndex((prev) => (prev + 1) % photos.length);
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [isInView, hasMultiplePhotos, photos.length, isSwiping]);
+
   // Current deck photo with offset from swipe
   const currentPhoto = photos[deckIndex] || photoUrl;
 
@@ -318,17 +327,13 @@ function ReviewCard({
         onClick={handleCardTap}
         sx={(theme) => ({
           bgcolor: theme.palette.background.paper,
-          borderRadius: 4,
-          boxShadow: '0 4px 24px 0 rgba(0,0,0,0.08)',
-          border:
-            theme.palette.mode === 'dark'
-              ? '6px solid rgba(0,0,0,0.3)'
-              : '6px solid rgba(255,255,255,0.3)',
+          borderRadius: '16px',
+          boxShadow: '0 2px 16px 0 rgba(0,0,0,0.1)',
           mb: 2,
           overflow: 'hidden',
           maxWidth: 420,
           mx: 'auto',
-          width: '90%',
+          width: '92%',
           p: 0,
           cursor: 'pointer',
           transition: 'transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease',
@@ -357,8 +362,8 @@ function ReviewCard({
           sx={(theme) => ({
             position: 'relative',
             width: '100%',
-            aspectRatio: '0.8',
-            minHeight: 450,
+            aspectRatio: '0.85',
+            minHeight: 380,
             background:
               theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#eee',
           })}
@@ -440,15 +445,36 @@ function ReviewCard({
               userSelect: 'none',
             }}
           >
-            <Image
-              src={currentPhoto || '/images/food2.jpg'}
-              alt={dish ? `${dish} at ${venue}` : `Food photo from ${venue}`}
-              fill
-              sizes="(max-width: 600px) 100vw, 600px"
-              style={{ objectFit: 'cover', pointerEvents: 'none' }}
-              priority={false}
-              draggable={false}
-            />
+            {/* Crossfade: render all photos stacked, only current one is visible */}
+            {photos.length > 1 ? (
+              photos.map((photo, i) => (
+                <Image
+                  key={photo}
+                  src={photo}
+                  alt={i === deckIndex ? (dish ? `${dish} at ${venue}` : `Food photo from ${venue}`) : ''}
+                  fill
+                  sizes="(max-width: 600px) 100vw, 600px"
+                  style={{
+                    objectFit: 'cover',
+                    pointerEvents: 'none',
+                    opacity: i === deckIndex ? 1 : 0,
+                    transition: 'opacity 0.6s ease-in-out',
+                  }}
+                  priority={false}
+                  draggable={false}
+                />
+              ))
+            ) : (
+              <Image
+                src={currentPhoto || '/images/food2.jpg'}
+                alt={dish ? `${dish} at ${venue}` : `Food photo from ${venue}`}
+                fill
+                sizes="(max-width: 600px) 100vw, 600px"
+                style={{ objectFit: 'cover', pointerEvents: 'none' }}
+                priority={false}
+                draggable={false}
+              />
+            )}
           </Box>
 
           {/* Dot indicators for multi-photo */}
@@ -557,21 +583,25 @@ function ReviewCard({
           )}
 
           {/* Rating overlay */}
-          <Typography
+          <Box
+            role="img"
+            aria-label={`Rating: ${Number(rating).toFixed(1)} out of 10`}
             sx={{
               position: 'absolute',
-              top: 24,
-              right: 28,
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: 28,
-              textShadow: '0px 2px 8px rgba(0,0,0,0.65)',
-              opacity: 0.7,
+              top: 16,
+              right: 16,
+              bgcolor: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(8px)',
+              borderRadius: '10px',
+              px: 1.2,
+              py: 0.4,
               zIndex: 3,
             }}
           >
-            {Number(rating).toFixed(1)}
-          </Typography>
+            <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 22, lineHeight: 1.2 }}>
+              {Number(rating).toFixed(1)}
+            </Typography>
+          </Box>
 
           {/* More options (report) button */}
           <IconButton
@@ -582,18 +612,19 @@ function ReviewCard({
             }}
             sx={{
               position: 'absolute',
-              top: 60,
-              right: 16,
+              top: 16,
+              right: 68,
               zIndex: 5,
               color: '#fff',
               bgcolor: 'rgba(0,0,0,0.35)',
-              width: 32,
-              height: 32,
+              backdropFilter: 'blur(8px)',
+              width: 30,
+              height: 30,
               '&:hover': { bgcolor: 'rgba(0,0,0,0.55)' },
             }}
             size="small"
           >
-            <MoreVertIcon sx={{ fontSize: 18 }} />
+            <MoreVertIcon sx={{ fontSize: 16 }} />
           </IconButton>
           <Menu
             anchorEl={menuAnchorEl}
@@ -626,18 +657,18 @@ function ReviewCard({
               bottom: 0,
               left: 0,
               right: 0,
-              background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
-              transform: 'translateY(85%)',
+              background: 'linear-gradient(transparent 0%, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0.9) 100%)',
+              transform: 'translateY(75%)',
               transition: 'transform 0.3s cubic-bezier(0, 0, 0.2, 1), opacity 0.3s cubic-bezier(0, 0, 0.2, 1)',
-              p: 3,
-              pt: 3,
-              pb: 3,
-              minHeight: '140px',
+              p: 2.5,
+              pt: 4,
+              pb: 2.5,
+              minHeight: '130px',
               zIndex: 4,
             }}
           >
             {/* Profile, Venue name & actions row */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1.5, px: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, px: 0.5 }}>
               {user.id ? (
                 <Link href={`/user/${user.id}`} passHref legacyBehavior>
                   <Box
@@ -663,9 +694,9 @@ function ReviewCard({
                   sx={{
                     color: '#fff',
                     fontWeight: 700,
-                    fontSize: 20,
-                    lineHeight: 1.1,
-                    textShadow: '0px 2px 8px rgba(0,0,0,0.65)',
+                    fontSize: 17,
+                    lineHeight: 1.2,
+                    textShadow: '0px 1px 4px rgba(0,0,0,0.5)',
                   }}
                 >
                   {venue}
@@ -673,10 +704,10 @@ function ReviewCard({
                 {dish && (
                   <Typography
                     sx={{
-                      color: 'rgba(255,255,255,0.8)',
+                      color: 'rgba(255,255,255,0.75)',
                       fontWeight: 500,
-                      fontSize: 14,
-                      textShadow: '0px 2px 8px rgba(0,0,0,0.65)',
+                      fontSize: 13,
+                      textShadow: '0px 1px 4px rgba(0,0,0,0.5)',
                       mt: 0.3,
                       lineHeight: 1.2,
                     }}
@@ -780,23 +811,16 @@ function ReviewCard({
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
                     sx={(theme) => ({
-                      bgcolor:
-                        theme.palette.mode === 'dark'
-                          ? 'rgba(35, 35, 35, 0.9)'
-                          : 'rgba(251, 234, 236, 0.9)',
-                      color: theme.palette.primary.main,
-                      fontWeight: 600,
-                      fontSize: 13,
-                      borderRadius: 2,
-                      height: 28,
-                      border:
-                        theme.palette.mode === 'dark'
-                          ? `2px solid ${theme.palette.primary.main}`
-                          : 'none',
+                      bgcolor: 'rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      fontWeight: 500,
+                      fontSize: 12,
+                      borderRadius: '8px',
+                      height: 26,
+                      border: '1px solid rgba(255,255,255,0.3)',
                       cursor: 'pointer',
                       '&:focus': {
-                        outline: '2px solid',
-                        outlineColor: theme.palette.primary.main,
+                        outline: '2px solid #fff',
                         outlineOffset: '2px',
                       },
                     })}
@@ -815,7 +839,7 @@ function ReviewCard({
                 }}
               >
                 <Typography
-                  sx={{ fontWeight: 400, fontSize: 15, color: '#fff', flex: 1 }}
+                  sx={{ fontWeight: 400, fontSize: 14, color: 'rgba(255,255,255,0.9)', flex: 1, lineHeight: 1.5 }}
                 >
                   {text}
                 </Typography>
